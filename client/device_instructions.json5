@@ -1,0 +1,17 @@
+{
+  "data-AUTONOMOUS": [
+    0.1231231,
+    0.1234343
+  ],
+  //velocity(m/s), degrees, duration(seconds)
+  "data-MANUAL": [
+    0.6,
+    170,
+    0.1
+  ],
+  "data-SAFE": [],
+  // estimated device time when instruction issued
+  "epoch_time": 123459890,
+  // SAFE or MANUAL or AUTONOMOUS
+  "mode": "SAFE"
+}

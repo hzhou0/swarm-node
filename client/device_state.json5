@@ -1,3 +1,33 @@
 {
-  "location": [0.12334, 0.12345]
+  // [Latitude, longitude]
+  "coordinates": [-23.123323, 34.123123],
+  //SAFE, MANUAL, or AUTONOMOUS
+  "mode": "SAFE",
+  //linear velocity (m/s)
+  "velocity": 0.6,
+  //[x,y,z] m/s^2 acceleration
+  "acceleration": [
+    1.23,
+    2.343434,
+    4.1231231
+  ],
+  //degrees[359.99999], true north=0
+  "heading": 120,
+  "epoch_time": 12312312,
+  "battery_voltage": 11.8,
+  //device estimated battery percentage
+  "battery_percentage": 0.346,
+  //travel since last safe in km
+  "mileage": 123.32,
+  //camera, ultrasonic{1,2,3,4}, encoder{1,2,3,4}, imu, gps
+  "failures": [
+    "camera"
+  ],
+  //ultrasonic reading in meters
+  "ultrasonic": [
+    1.233434,
+    1.2334341,
+    4.1890,
+    0.12323
+  ]
 }
