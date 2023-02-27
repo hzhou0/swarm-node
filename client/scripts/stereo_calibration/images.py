@@ -5,8 +5,8 @@ from depth_camera import DepthCamera
 if __name__ == '__main__':
     depth_camera = DepthCamera()
     n = 0
-    while depth_camera.video_stream.isOpened():
-        ret, img = depth_camera.video_stream.read()
+    while depth_camera.vid_stream.isOpened():
+        ret, img = depth_camera.vid_stream.read()
         if not ret:
             break
         k = cv.waitKey(1000 // 30)
