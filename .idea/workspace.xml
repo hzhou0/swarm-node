@@ -1,16 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/Dockerfile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/build.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/cloudflare.pem" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/couchdb.ini" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/deploy.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/registry/registry.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/registry/registry_add.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/src/assets/butterfly.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ui/src/main.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/client.iml" beforeDir="false" afterPath="$PROJECT_DIR$/client/.idea/client.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/client/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/device_instructions.json5" beforeDir="false" afterPath="$PROJECT_DIR$/client/device_instructions.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/device_state.json5" beforeDir="false" afterPath="$PROJECT_DIR$/client/device_state.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/ui/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/postcss.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/ui/postcss.config.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/public/favicon.ico" beforeDir="false" afterPath="$PROJECT_DIR$/ui/public/favicon.ico" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/public/icons/favicon-128x128.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/public/icons/favicon-16x16.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/public/icons/favicon-32x32.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/public/icons/favicon-96x96.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/quasar.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/ui/quasar.config.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/App.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/App.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/assets/quasar-logo-vertical.svg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/components/EssentialLink.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/components/EssentialLink.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/layouts/MainLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/layouts/MainLayout.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/pages/ErrorNotFound.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/pages/ErrorNotFound.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/pages/IndexPage.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/pages/IndexPage.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/router/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/router/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/router/routes.js" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/router/routes.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file:///opt/couchdb/etc/default.ini" root0="SKIP_INSPECTION" />
+    <setting file="file:///opt/couchdb/etc/local.d/10-admins.ini" root0="SKIP_INSPECTION" />
+    <setting file="file:///opt/couchdb/etc/local.ini" root0="SKIP_INSPECTION" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
@@ -20,17 +64,36 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;nodejs_interpreter_path&quot;: &quot;/home/henry/.nvm/versions/node/v16.13.0/bin/node&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/home/henry/Desktop/shopping_cart/database",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_interpreter_path": "/home/henry/.nvm/versions/node/v16.13.0/bin/node",
+    "nodejs_package_manager_path": "npm",
+    "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/shopping_cart/ui/node_modules/prettier",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/database" />
+    </key>
+  </component>
   <component name="RunManager">
+    <configuration default="true" type="docker-deploy" factoryName="dockerfile" temporary="true">
+      <deployment type="dockerfile">
+        <settings />
+      </deployment>
+      <method v="2" />
+    </configuration>
     <configuration name="npm dev" type="js.build_tools.npm">
       <package-json value="$PROJECT_DIR$/package.json" />
       <command value="run" />
@@ -52,6 +115,11 @@
       <updated>1678837119497</updated>
       <workItem from="1678837120858" duration="13000" />
       <workItem from="1678837253474" duration="29000" />
+      <workItem from="1679155187279" duration="33000" />
+      <workItem from="1679796398528" duration="14675000" />
+      <workItem from="1680363252673" duration="15577000" />
+      <workItem from="1680473182059" duration="4991000" />
+      <workItem from="1680569641953" duration="46000" />
     </task>
     <servers />
   </component>
