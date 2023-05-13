@@ -1,37 +1,43 @@
 <template>
   <q-layout view="hHh LpR fFf">
-    <q-header elevated class="bg-primary text-white">
-      <q-toolbar>
-        <q-btn
-          dense
-          flat
-          round
-          icon="menu"
-          @click="leftDrawerOpen = !leftDrawerOpen"
-        />
-
-        <q-toolbar-title>
-          <q-avatar>
-            <img src="https://cdn.quasar.dev/logo-v2/svg/logo-mono-white.svg" />
-          </q-avatar>
-          Title
-        </q-toolbar-title>
-
-        <q-btn
-          dense
-          flat
-          round
-          icon="menu"
-          @click="rightDrawerOpen = !rightDrawerOpen"
-        />
+    <q-header bordered class="bg-dark">
+      <q-toolbar class="row no-wrap justify-between">
+        <div class="col">
+          <q-btn
+            round
+            flat
+            icon="menu"
+            color="secondary"
+            @click="leftDrawerOpen = !leftDrawerOpen"
+          />
+          <DeviceSelector />
+        </div>
+        <div class="col-auto flex justify-center items-center">
+          <q-btn-dropdown
+            :loading="store.mode == null"
+            :icon="dropdown.icon"
+            :label="store.mode"
+            :color="dropdown.color"
+          >
+          </q-btn-dropdown>
+        </div>
+        <div class="col flex justify-end items-center">
+          <q-btn
+            round
+            flat
+            icon="menu"
+            color="secondary"
+            @click="rightDrawerOpen = !rightDrawerOpen"
+          />
+        </div>
       </q-toolbar>
     </q-header>
 
-    <q-drawer v-model="leftDrawerOpen" show-if-above side="left" bordered>
+    <q-drawer v-model="leftDrawerOpen" show-if-above side="left" dark>
       <!-- drawer content -->
     </q-drawer>
 
-    <q-drawer v-model="rightDrawerOpen" show-if-above side="right" bordered>
+    <q-drawer v-model="rightDrawerOpen" show-if-above side="right">
       <!-- drawer content -->
     </q-drawer>
 
@@ -39,17 +45,34 @@
       <router-view />
     </q-page-container>
 
-    <q-footer elevated class="bg-grey-8 text-white">
+    <q-footer bordered class="bg-dark">
       <q-toolbar>
-        <q-toolbar-title>Title </q-toolbar-title>
+        <q-toolbar-title>Title</q-toolbar-title>
       </q-toolbar>
     </q-footer>
   </q-layout>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
+import { store } from "../main";
+import DeviceSelector from "../components/DeviceSelector.vue";
 
 const leftDrawerOpen = ref(false);
 const rightDrawerOpen = ref(false);
+
+const dropdowns = {
+  SAFE: {
+    icon: "lock",
+    color: "positive",
+  },
+  MANUAL: {
+    icon: "lock_open",
+    color: "warning",
+  },
+  null: {
+    color: "info",
+  },
+};
+const dropdown = computed(() => dropdowns[store.mode]);
 </script>
