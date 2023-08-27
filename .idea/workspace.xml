@@ -5,36 +5,97 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/database/Dockerfile" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/build.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/cloudflare.pem" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/couchdb.ini" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/deploy.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/registry/registry.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/registry/registry_add.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/src/assets/butterfly.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ui/src/main.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/jsLinters/eslint.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/jsonSchemas.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/prettier.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Device Modes.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/control/lib/connection/main.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/control/shared/constants/webrtc.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/control/shared/control.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/control/shared/device.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/control/shared/specs/db_documents/control.d.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/control/shared/specs/db_documents/device.d.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/control/src/App.vue" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/control/tsconfig.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/main.tf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/registry/.device.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/database/registry/.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/device/requirements.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/device/shared/constants/webrtc.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/device/shared/control.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/device/shared/device.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/device/shared/specs/db_documents/control.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/device/shared/specs/db_documents/device.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/shared/build.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/shared/constants/webrtc.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/shared/requirements.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/shared/specs/db_documents/control.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/shared/specs/db_documents/device.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shopping_cart.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shopping_cart.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/client.iml" beforeDir="false" afterPath="$PROJECT_DIR$/client/.idea/client.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/client/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/device_instructions.json5" beforeDir="false" afterPath="$PROJECT_DIR$/client/device_instructions.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/device_state.json5" beforeDir="false" afterPath="$PROJECT_DIR$/client/device_state.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/ui/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/postcss.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/ui/postcss.config.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/public/favicon.ico" beforeDir="false" afterPath="$PROJECT_DIR$/ui/public/favicon.ico" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/public/icons/favicon-128x128.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/public/icons/favicon-16x16.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/public/icons/favicon-32x32.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/public/icons/favicon-96x96.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/quasar.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/ui/quasar.config.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/App.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/App.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/assets/quasar-logo-vertical.svg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/components/EssentialLink.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/components/EssentialLink.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/layouts/MainLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/layouts/MainLayout.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/pages/ErrorNotFound.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/pages/ErrorNotFound.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/pages/IndexPage.vue" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/pages/IndexPage.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/router/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/router/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/router/routes.js" beforeDir="false" afterPath="$PROJECT_DIR$/ui/src/router/routes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.env" beforeDir="false" afterPath="$PROJECT_DIR$/device/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/client.iml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/client.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/codeStyles/codeStyleConfig.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/dataSources.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/dataSources.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/other.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/other.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/data_transport.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/data_transport.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/depth_camera.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/depth_camera.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/device_instructions.yml" beforeDir="false" afterPath="$PROJECT_DIR$/device/device_instructions.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/device_state.yml" beforeDir="false" afterPath="$PROJECT_DIR$/device/device_state.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/scripts/stereo_calibration/calibration.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/scripts/stereo_calibration/calibration.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/scripts/stereo_calibration/images.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/scripts/stereo_calibration/images.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/rectify_system.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/rectify_system.pkl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo0.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo0.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo1.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo1.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo10.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo10.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo11.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo11.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo12.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo12.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo13.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo13.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo14.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo14.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo15.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo15.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo2.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo2.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo3.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo3.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo4.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo4.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo5.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo5.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo6.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo6.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo7.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo7.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo8.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo8.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereo9.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo9.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/static/stereoMap.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereoMap.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/deploy.sh" beforeDir="false" afterPath="$PROJECT_DIR$/database/deploy.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/registry/registry.py" beforeDir="false" afterPath="$PROJECT_DIR$/database/registry/registry.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/.eslintignore" beforeDir="false" afterPath="$PROJECT_DIR$/control/.eslintignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/.eslintrc.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/.eslintrc.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/control/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/control/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/libs/.eslintrc" beforeDir="false" afterPath="$PROJECT_DIR$/control/lib/.eslintrc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/libs/build/main.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/libs/build/main.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/libs/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/control/lib/webrtc/main.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/control/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/control/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/postcss.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/postcss.config.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/public/favicon.ico" beforeDir="false" afterPath="$PROJECT_DIR$/control/public/favicon.ico" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/quasar.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/quasar.config.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/App.vue" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/components/DeviceSelector.vue" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/components/DeviceSelector.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/layouts/MainLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/layouts/MainLayout.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/main.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/pages/ErrorNotFound.vue" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/pages/ErrorNotFound.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/router/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/router/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/src/router/routes.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/router/routes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ui/tsconfig.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -45,6 +106,8 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Python Script" />
+        <option value="TypeScript File" />
+        <option value="editable-svg" />
       </list>
     </option>
   </component>
@@ -59,6 +122,9 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
   <component name="ProjectId" id="2N1ghKYQThGBhA9Mz29x0VCTfBP" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -68,26 +134,58 @@
   "keyToString": {
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "/home/henry/Desktop/shopping_cart/database",
+    "last_opened_file_path": "/home/henry/Desktop/shopping_cart",
     "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.standard": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.standard": "",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_interpreter_path": "/home/henry/.nvm/versions/node/v16.13.0/bin/node",
     "nodejs_package_manager_path": "npm",
-    "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/shopping_cart/ui/node_modules/prettier",
+    "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/shopping_cart/control/node_modules/prettier",
     "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "/home/henry/Desktop/shopping_cart/control/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/specs/dist" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/control/lib" />
+      <recent name="$PROJECT_DIR$/specs" />
+      <recent name="$PROJECT_DIR$/specs/src" />
       <recent name="$PROJECT_DIR$/database" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.build">
+    <configuration name="build" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="shopping_cart" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/shared" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/shared/build.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration default="true" type="docker-deploy" factoryName="dockerfile" temporary="true">
       <deployment type="dockerfile">
         <settings />
@@ -104,8 +202,20 @@
       <envs />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="npm.npm dev" />
+      <item itemvalue="Python.build" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.build" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="" />
@@ -120,10 +230,37 @@
       <workItem from="1680363252673" duration="15577000" />
       <workItem from="1680473182059" duration="4991000" />
       <workItem from="1680569641953" duration="46000" />
+      <workItem from="1684103691584" duration="8835000" />
+      <workItem from="1684203583821" duration="4769000" />
+      <workItem from="1684602533023" duration="78000" />
+      <workItem from="1685283921470" duration="29823000" />
+      <workItem from="1685587508169" duration="21000" />
+      <workItem from="1685905617956" duration="10236000" />
+      <workItem from="1685915956896" duration="5173000" />
+      <workItem from="1688931623839" duration="91000" />
+      <workItem from="1693166983397" duration="775000" />
+      <workItem from="1693167765105" duration="7770000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName=".env" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
   </component>
 </project>

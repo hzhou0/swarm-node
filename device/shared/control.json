@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "Control State",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "2022.5.14"
+        }
+      },
+      "required": [
+        "version"
+      ]
+    },
+    "sessionId": {
+      "description": "Generated random id representing the current session",
+      "type": "string"
+    },
+    "v": {
+      "description": "Version number of control docs issued in the current session. Starts at 0",
+      "type": "integer",
+      "minimum": 0
+    },
+    "utcEpoch": {
+      "description": "Command issue epoch utc time (ms)",
+      "type": "integer",
+      "minimum": 0
+    },
+    "webrtc": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sdp": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sdp"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "SAFE",
+        "MANUAL",
+        "AUTO"
+      ]
+    }
+  },
+  "required": [
+    "meta",
+    "sessionId",
+    "utcEpoch",
+    "v"
+  ]
+}
+

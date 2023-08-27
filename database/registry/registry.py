@@ -59,7 +59,7 @@ def reset(id: str, folder: str = "."):
 
 
 @app.command()
-def provision(username: str, password: str, couchdb_url: str = "https://7thletter.dev"):
+def provision(username: str, password: str, couchdb_url: str = "https://connect.7thletter.dev"):
     prefix = "d_"
     required_dbs = {
         prefix + e["PartitionKey"] for e in table.list_entities(select="PartitionKey")

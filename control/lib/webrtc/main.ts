@@ -31,13 +31,11 @@ const deviceConnection = new RTCPeerConnection({
 });
 deviceConnection.createDataChannel("terminal");
 
-async function publishOffer() {
+export async function publishOffer() {
   const offer = await deviceConnection.createOffer({
     offerToReceiveAudio: true,
     offerToReceiveVideo: true,
   });
   await deviceConnection.setLocalDescription(offer);
-  console.log(deviceConnection.localDescription);
+  console.log(deviceConnection.localDescription?.sdp);
 }
-
-export const a = "a";
