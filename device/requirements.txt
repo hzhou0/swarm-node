@@ -1,0 +1,5 @@
+python-dotenv==1.0.0
+opencv-python~=4.7.0.68
+numpy~=1.24.1
+nptyping==2.5.0
+dataclasses~=0.6

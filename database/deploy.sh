@@ -1,9 +1,12 @@
-#install cloudflarepriv.pem
+#install ~/cloudflarepriv.pem
 nano cloudflarepriv.pem
-sudo apt-get -y install podman
-sudo podman system prune -a
-sudo podman pull docker.io/neverlucky135/couchdb:latest
-sudo mkdir "$(pwd)"/data
-sudo podman run -d --restart always -p 443:6984 -v "$(pwd)"/data:/opt/couchdb/data -v "$(pwd)"/cloudflarepriv.pem:/opt/couchdb/etc/cloudflarepriv.pem docker.io/neverlucky135/couchdb:latest
-# deploy TURN server
-sudo podman run -d --restart always --network=host docker.io/coturn/coturn --log-file=stdout --no-auth --no-tls --no-dtls
+sudo -i
+apt-get -y install podman
+podman system prune -a
+podman pull docker.io/neverlucky135/couchdb:latest
+mkdir "$(pwd)"/data
+podman run -d --restart always --name couchdb7 -p 443:6984 -v "$(pwd)"/data:/opt/couchdb/data -v "$(pwd)"/cloudflarepriv.pem:/opt/couchdb/etc/cloudflarepriv.pem docker.io/neverlucky135/couchdb:latest
+# generate
+podman generate systemd --new --name couchdb7 > /etc/systemd/system/couchdb7.service
+systemctl enable couchdb7
+systemctl start couchdb7
