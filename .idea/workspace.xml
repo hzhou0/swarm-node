@@ -4,98 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/jsLinters/eslint.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/jsonSchemas.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/prettier.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Device Modes.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/control/lib/connection/main.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/control/shared/constants/webrtc.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/control/shared/control.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/control/shared/device.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/control/shared/specs/db_documents/control.d.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/control/shared/specs/db_documents/device.d.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/control/src/App.vue" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/control/tsconfig.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/main.tf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/registry/.device.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database/registry/.env" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/device/requirements.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/device/shared/constants/webrtc.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/device/shared/control.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/device/shared/device.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/device/shared/specs/db_documents/control.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/device/shared/specs/db_documents/device.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/shared/build.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/shared/constants/webrtc.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/shared/requirements.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/shared/specs/db_documents/control.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/shared/specs/db_documents/device.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shopping_cart.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shopping_cart.iml" afterDir="false" />
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Fix database terraform">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.env" beforeDir="false" afterPath="$PROJECT_DIR$/device/.env" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/client.iml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/client.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/codeStyles/codeStyleConfig.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/dataSources.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/dataSources.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/other.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/other.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/data_transport.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/data_transport.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/depth_camera.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/depth_camera.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/device_instructions.yml" beforeDir="false" afterPath="$PROJECT_DIR$/device/device_instructions.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/device_state.yml" beforeDir="false" afterPath="$PROJECT_DIR$/device/device_state.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/requirements.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/scripts/stereo_calibration/calibration.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/scripts/stereo_calibration/calibration.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/scripts/stereo_calibration/images.py" beforeDir="false" afterPath="$PROJECT_DIR$/device/scripts/stereo_calibration/images.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/rectify_system.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/rectify_system.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo0.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo0.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo1.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo1.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo10.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo10.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo11.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo11.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo12.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo12.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo13.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo13.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo14.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo14.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo15.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo15.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo2.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo2.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo3.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo3.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo4.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo4.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo5.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo5.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo6.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo6.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo7.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo7.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo8.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo8.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereo9.png" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereo9.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/static/stereoMap.xml" beforeDir="false" afterPath="$PROJECT_DIR$/device/static/stereoMap.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database/deploy.sh" beforeDir="false" afterPath="$PROJECT_DIR$/database/deploy.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database/registry/registry.py" beforeDir="false" afterPath="$PROJECT_DIR$/database/registry/registry.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/.eslintignore" beforeDir="false" afterPath="$PROJECT_DIR$/control/.eslintignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/.eslintrc.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/.eslintrc.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/control/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/control/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/libs/.eslintrc" beforeDir="false" afterPath="$PROJECT_DIR$/control/lib/.eslintrc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/libs/build/main.d.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/libs/build/main.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/libs/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/control/lib/webrtc/main.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/control/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/control/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/postcss.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/postcss.config.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/public/favicon.ico" beforeDir="false" afterPath="$PROJECT_DIR$/control/public/favicon.ico" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/quasar.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/quasar.config.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/App.vue" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/components/DeviceSelector.vue" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/components/DeviceSelector.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/layouts/MainLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/layouts/MainLayout.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/main.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/pages/ErrorNotFound.vue" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/pages/ErrorNotFound.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/router/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/router/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/src/router/routes.js" beforeDir="false" afterPath="$PROJECT_DIR$/control/src/router/routes.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/tsconfig.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -130,33 +40,34 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/home/henry/Desktop/shopping_cart",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.standard": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.standard": "",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_interpreter_path": "/home/henry/.nvm/versions/node/v16.13.0/bin/node",
-    "nodejs_package_manager_path": "npm",
-    "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/shopping_cart/control/node_modules/prettier",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "ts.external.directory.path": "/home/henry/Desktop/shopping_cart/control/node_modules/typescript/lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/henry/Desktop/shopping_cart&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.standard&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.standard&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_interpreter_path&quot;: &quot;/home/henry/.nvm/versions/node/v16.13.0/bin/node&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/home/henry/Desktop/shopping_cart/control/node_modules/prettier&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settings.ide.settings.new.ui&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/home/henry/Desktop/shopping_cart/control/node_modules/typescript/lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/specs/dist" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/database/docker" />
       <recent name="$PROJECT_DIR$/control/lib" />
       <recent name="$PROJECT_DIR$/specs" />
       <recent name="$PROJECT_DIR$/specs/src" />
@@ -239,8 +150,130 @@
       <workItem from="1685915956896" duration="5173000" />
       <workItem from="1688931623839" duration="91000" />
       <workItem from="1693166983397" duration="775000" />
-      <workItem from="1693167765105" duration="7770000" />
+      <workItem from="1693167765105" duration="26407000" />
+      <workItem from="1693239992304" duration="2505000" />
     </task>
+    <task id="LOCAL-00001" summary="Retool database build system">
+      <option name="closed" value="true" />
+      <created>1693175824808</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1693175824808</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693176743441</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1693176743441</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693189959884</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1693189959884</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693190104564</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1693190104564</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693190201724</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1693190201724</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693190362709</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1693190362709</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693190800483</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1693190800483</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693191310923</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1693191310923</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693194110538</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1693194110538</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693203372084</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1693203372084</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693204329114</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1693204329114</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693206569446</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1693206569446</updated>
+    </task>
+    <task id="LOCAL-00013" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693206702041</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1693206702041</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693206856955</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1693206856955</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693240646974</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1693240646974</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -259,6 +292,11 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Retool database build system" />
+    <MESSAGE value="Fix database terraform" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fix database terraform" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
