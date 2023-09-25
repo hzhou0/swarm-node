@@ -12,7 +12,7 @@ provider "google" {
   region  = "us-central1"
   zone    = "us-central1-c"
 }
-
+/*
 module "gce-container" {
   source  = "terraform-google-modules/container-vm/google"
   version = "~> 2.0"
@@ -102,3 +102,4 @@ resource "google_compute_firewall" "couchdb" {
   }
   target_tags = [local.COUCHDB_NETWORK_TAG]
 }
+*/

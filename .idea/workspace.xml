@@ -6,6 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Fix database terraform">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/.terraform.lock.hcl" beforeDir="false" afterPath="$PROJECT_DIR$/database/.terraform.lock.hcl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/main.tf" beforeDir="false" afterPath="$PROJECT_DIR$/database/main.tf" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -23,6 +25,7 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="MIXED" />
   </component>
   <component name="HighlightingSettingsPerFile">
     <setting file="file:///opt/couchdb/etc/default.ini" root0="SKIP_INSPECTION" />
@@ -151,7 +154,9 @@
       <workItem from="1688931623839" duration="91000" />
       <workItem from="1693166983397" duration="775000" />
       <workItem from="1693167765105" duration="26407000" />
-      <workItem from="1693239992304" duration="2505000" />
+      <workItem from="1693239992304" duration="5664000" />
+      <workItem from="1693267532822" duration="75000" />
+      <workItem from="1695603621918" duration="189000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -273,13 +278,22 @@
       <option name="project" value="LOCAL" />
       <updated>1693240646974</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="Fix database terraform">
+      <option name="closed" value="true" />
+      <created>1693244568343</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1693244568343</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.pem" />
     <option featureType="com.intellij.fileTypeFactory" implementationName=".env" />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
