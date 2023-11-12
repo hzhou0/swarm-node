@@ -1,0 +1,671 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Shop Cart",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/devices/audio": {
+      "get": {
+        "summary": "List Audio Devices",
+        "operationId": "list_audio_devices",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "sink",
+                    "source"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "name": "include_properties",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Properties"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AudioDevice"
+                  },
+                  "title": "Response List Audio Devices Api Devices Audio Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/devices/video": {
+      "get": {
+        "summary": "List Video Devices",
+        "operationId": "list_video_devices",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VideoDevice"
+                  },
+                  "type": "array",
+                  "title": "Response List Video Devices Api Devices Video Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stream/video": {
+      "get": {
+        "summary": "Video Stream Info",
+        "operationId": "video_stream_info",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/VideoStream"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Video Stream Info Api Stream Video Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Start Video Stream",
+        "operationId": "start_video_stream",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoStream"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Stop Video Stream",
+        "operationId": "stop_video_stream",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stream/audio": {
+      "get": {
+        "summary": "Audio Stream Info",
+        "operationId": "audio_stream_info",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AudioStream"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Audio Stream Info Api Stream Audio Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Start Audio Stream",
+        "operationId": "start_audio_stream",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioStream"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Stop Audio Stream",
+        "operationId": "stop_audio_stream",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webrtc": {
+      "get": {
+        "summary": "Webrtc Info",
+        "operationId": "webrtc_info",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/webrtcInfo"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Webrtc Offer",
+        "operationId": "webrtc_offer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/webrtcOffer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/webrtcOffer"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AudioDevice": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          },
+          "volumes": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Volumes"
+          },
+          "mute": {
+            "type": "boolean",
+            "title": "Mute"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "driver": {
+            "type": "string",
+            "title": "Driver"
+          },
+          "form_factor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "car",
+                  "computer",
+                  "hands-free",
+                  "handset",
+                  "headphone",
+                  "headset",
+                  "hifi",
+                  "internal",
+                  "microphone",
+                  "portable",
+                  "speaker",
+                  "tv",
+                  "webcam"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Form Factor"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "is_monitor": {
+            "type": "boolean",
+            "title": "Is Monitor"
+          },
+          "properties": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Properties"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "invalid",
+              "running",
+              "suspended"
+            ],
+            "title": "State"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "sink",
+              "source"
+            ],
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "default",
+          "volumes",
+          "mute",
+          "description",
+          "driver",
+          "form_factor",
+          "index",
+          "is_monitor",
+          "state",
+          "type"
+        ],
+        "title": "AudioDevice"
+      },
+      "AudioStream": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "AudioStream"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "RTCRtpCodecCapability": {
+        "properties": {
+          "mimeType": {
+            "type": "string",
+            "title": "Mimetype"
+          },
+          "clockRate": {
+            "type": "integer",
+            "title": "Clockrate"
+          },
+          "channels": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channels"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Parameters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mimeType",
+          "clockRate"
+        ],
+        "title": "RTCRtpCodecCapability"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VideoDevice": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "closed": {
+            "type": "boolean",
+            "title": "Closed"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "video_sizes": {
+            "items": {
+              "$ref": "#/components/schemas/VideoSize"
+            },
+            "type": "array",
+            "title": "Video Sizes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "index",
+          "closed",
+          "description",
+          "capabilities",
+          "video_sizes"
+        ],
+        "title": "VideoDevice"
+      },
+      "VideoSize": {
+        "properties": {
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "fps": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Fps"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format"
+          }
+        },
+        "type": "object",
+        "required": [
+          "height",
+          "width",
+          "fps",
+          "format"
+        ],
+        "title": "VideoSize"
+      },
+      "VideoStream": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "fps": {
+            "type": "number",
+            "title": "Fps"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "height",
+          "width",
+          "fps",
+          "format"
+        ],
+        "title": "VideoStream"
+      },
+      "webrtcInfo": {
+        "properties": {
+          "video_codecs": {
+            "items": {
+              "$ref": "#/components/schemas/RTCRtpCodecCapability"
+            },
+            "type": "array",
+            "title": "Video Codecs"
+          },
+          "audio_codecs": {
+            "items": {
+              "$ref": "#/components/schemas/RTCRtpCodecCapability"
+            },
+            "type": "array",
+            "title": "Audio Codecs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "video_codecs",
+          "audio_codecs"
+        ],
+        "title": "webrtcInfo"
+      },
+      "webrtcOffer": {
+        "properties": {
+          "sdp": {
+            "type": "string",
+            "title": "Sdp"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "offer",
+              "pranswer",
+              "rollback"
+            ],
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sdp",
+          "type"
+        ],
+        "title": "webrtcOffer"
+      }
+    }
+  }
+}

@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="Black">
+    <option name="enabledOnReformat" value="true" />
+    <option name="enabledOnSave" value="true" />
+    <option name="executionMode" value="BINARY" />
+    <option name="pathToExecutable" value="$USER_HOME$/.local/bin/black" />
+    <option name="sdkName" value="backend" />
+  </component>
   <component name="ProjectResources">
     <resource url="https://json-schema.org/draft-07/schema" location="$PROJECT_DIR$/specs/db_documents/webrtc.yml" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="registry" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="backend" project-jdk-type="Python SDK" />
 </project>

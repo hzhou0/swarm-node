@@ -1,6 +1,0 @@
-typer[all]~=0.7.0
-coolname~=2.2.0
-python-dotenv~=1.0.0
-PyJWT[crypto]~=2.6.0
-azure-data-tables~=12.4.2
-httpx~=0.23.3
