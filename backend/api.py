@@ -1,3 +1,4 @@
+from multiprocessing import connection
 from typing import List, Literal, Set
 
 from aiortc import (
@@ -8,7 +9,6 @@ from aiortc import (
 )
 from aiortc.contrib.media import MediaRelay, MediaPlayer
 from fastapi import APIRouter
-from pydantic.v1.dataclasses import create_pydantic_model_from_dataclass
 
 from machine.machine import MachineState
 from models import (
@@ -18,9 +18,11 @@ from models import (
     VideoDevice,
     webrtcInfo,
     webrtcOffer,
+    AudioDeviceOptions,
 )
 
 MACHINE: MachineState | None = None
+MUTATION: connection.Connection | None = None
 PEER_CONNS: Set[RTCPeerConnection] = set()
 RELAY: MediaRelay = MediaRelay()
 AUDIO_STREAM: MediaStreamTrack | None = None
@@ -45,6 +47,11 @@ def list_audio_devices(
     if not include_properties:
         res = [d.model_dump(exclude={"properties"}) for d in res]
     return res
+
+
+@api.put("/devices/audio")
+def put_audio_device(options: AudioDeviceOptions) -> None:
+    MUTATION.send(options)
 
 
 @api.get("/devices/video")

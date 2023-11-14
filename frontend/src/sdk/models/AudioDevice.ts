@@ -6,7 +6,7 @@
 export type AudioDevice = {
     name: string;
     default: boolean;
-    volumes: Record<string, number>;
+    volume: number;
     mute: boolean;
     description: string;
     driver: string;

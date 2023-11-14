@@ -11,6 +11,7 @@ export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { AudioDevice } from './models/AudioDevice';
+export type { AudioDeviceOptions } from './models/AudioDeviceOptions';
 export type { AudioStream } from './models/AudioStream';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { RTCRtpCodecCapability } from './models/RTCRtpCodecCapability';

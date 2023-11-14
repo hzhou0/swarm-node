@@ -1,6 +1,6 @@
 import sys
 from contextlib import asynccontextmanager
-from multiprocessing import Process, Manager
+from multiprocessing import Process, Manager, Pipe
 
 import uvicorn
 from fastapi import FastAPI
@@ -18,7 +18,9 @@ async def lifespan(_: FastAPI):
     assert sys.platform == "linux"
     with Manager() as manager:
         api.MACHINE = manager.Namespace()
-        p = Process(target=main, args=(api.MACHINE,), daemon=True)
+        recv_conn, send_conn = Pipe(duplex=False)
+        api.MUTATION = send_conn
+        p = Process(target=main, args=(api.MACHINE, recv_conn), daemon=True)
         p.start()
         yield
 

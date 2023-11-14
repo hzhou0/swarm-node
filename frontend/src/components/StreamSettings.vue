@@ -3,7 +3,6 @@
     <v-row class="align-center">
       <v-col cols="8">
         <v-select
-          v-model="audioOutput"
           label="Audio Output"
           hide-details
           :loading="f.data.audioDevices === undefined"
@@ -15,6 +14,7 @@
               form_factor: item.form_factor,
             })
           "
+          @update:model-value="(v) => (audioOutputName = v.name)"
         >
           <template #item="{ props }">
             <v-list-item
@@ -29,16 +29,25 @@
           min="0"
           max="1"
           step="0.01"
-          prepend-icon="mdi-volume-source"
+          :prepend-icon="
+            audioOutput?.mute ? 'mdi-volume-mute' : 'mdi-volume-source'
+          "
           thumb-label
           hide-details
+          :model-value="audioOutput?.volume"
+          @click:prepend="
+            () => {
+              if (audioOutput != null) {
+                audioOutput = { ...audioOutput, mute: !audioOutput.mute };
+              }
+            }
+          "
         ></v-slider>
       </v-col>
     </v-row>
     <v-row class="align-center">
       <v-col cols="8">
         <v-select
-          v-model="audioInput"
           label="Audio Input"
           hide-details
           :loading="f.data.audioDevices === undefined"
@@ -50,6 +59,7 @@
               form_factor: item.form_factor,
             })
           "
+          @update:model-value="(v) => (audioInputName = v.name)"
         >
           <template #item="{ props }">
             <v-list-item
@@ -64,9 +74,19 @@
           min="0"
           max="1"
           step="0.01"
-          prepend-icon="mdi-volume-source"
+          :prepend-icon="
+            audioInput?.mute ? 'mdi-volume-mute' : 'mdi-volume-source'
+          "
           thumb-label
           hide-details
+          :model-value="audioInput?.volume"
+          @click:prepend="
+            () => {
+              if (audioInput != null) {
+                audioInput = { ...audioInput, mute: !audioInput.mute };
+              }
+            }
+          "
         ></v-slider>
       </v-col>
     </v-row>
@@ -157,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { Ref, ref, watchEffect } from "vue";
+import { computed, Ref, ref, watchEffect } from "vue";
 import { client, dedupe, Fetcher } from "@/util";
 import { AudioDevice, VideoDevice, VideoSize, VideoStream } from "@/sdk";
 
@@ -168,11 +188,49 @@ const f = new Fetcher(
     audioDevices: () => client.listAudioDevices(),
     videoDevices: () => client.listVideoDevices(),
   },
-  10000,
+  1000,
 );
 
-const audioOutput: Ref<AudioDevice | null> = ref(null);
-const audioInput: Ref<AudioDevice | null> = ref(null);
+const audioOutputName: Ref<string | null> = ref(null);
+const audioOutput = computed({
+  get() {
+    return f.data.audioDevices?.find((v) => v.name == audioOutputName.value);
+  },
+  async set(val) {
+    if (val != null) {
+      if (f.data.audioDevices != null) {
+        const i = f.data.audioDevices.findIndex((v) => v.name == val.name);
+        f.data.audioDevices[i] = val;
+      }
+      await client.putAudioDevice({
+        volume: val.volume,
+        name: val.name,
+        default: val.default,
+        mute: val.mute,
+      });
+    }
+  },
+});
+const audioInputName: Ref<string | null> = ref(null);
+const audioInput = computed({
+  get() {
+    return f.data.audioDevices?.find((v) => v.name == audioInputName.value);
+  },
+  async set(val) {
+    if (val != null) {
+      if (f.data.audioDevices != null) {
+        const i = f.data.audioDevices.findIndex((v) => v.name == val.name);
+        f.data.audioDevices[i] = val;
+      }
+      await client.putAudioDevice({
+        volume: val.volume,
+        name: val.name,
+        default: val.default,
+        mute: val.mute,
+      });
+    }
+  },
+});
 const videoInput: Ref<VideoDevice | null> = ref(null);
 type VideoSetting = Partial<Omit<VideoStream, "name">>;
 const videoSettings: Ref<Record<string, VideoSetting>> = ref({});
