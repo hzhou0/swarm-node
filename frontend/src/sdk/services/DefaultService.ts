@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { AudioDevice } from '../models/AudioDevice';
+import type { AudioDeviceOptions } from '../models/AudioDeviceOptions';
 import type { AudioStream } from '../models/AudioStream';
 import type { VideoDevice } from '../models/VideoDevice';
 import type { VideoStream } from '../models/VideoStream';
@@ -34,6 +35,26 @@ export class DefaultService {
                 'type': type,
                 'include_properties': includeProperties,
             },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+
+    /**
+     * Put Audio Device
+     * @param requestBody
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public putAudioDevice(
+        requestBody: AudioDeviceOptions,
+    ): CancelablePromise<any> {
+        return this.httpRequest.request({
+            method: 'PUT',
+            url: '/api/devices/audio',
+            body: requestBody,
+            mediaType: 'application/json',
             errors: {
                 422: `Validation Error`,
             },

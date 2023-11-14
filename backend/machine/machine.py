@@ -1,11 +1,13 @@
+import itertools
 from time import sleep
 from typing import Dict
+from multiprocessing import connection
 
 import pulsectl
 import v4l2py
 from pydantic import BaseModel
 
-from models import AudioDevice, VideoDevice
+from models import AudioDevice, VideoDevice, AudioDeviceOptions
 
 
 class MachineState(BaseModel):
@@ -32,9 +34,25 @@ def refresh_devices(STATE: MachineState):
     STATE.aud = a
 
 
-def main(STATE: MachineState):
+def process_mutations(MUTATIONS: connection.Connection):
+    while MUTATIONS.poll():
+        mutation = MUTATIONS.recv()
+        match mutation:
+            case AudioDeviceOptions():
+                audio_device: AudioDeviceOptions = mutation
+                pa = pulsectl.Pulse("mutate_audio_device")
+                for d in itertools.chain(pa.sink_list(), pa.source_list()):
+                    if d.name == audio_device.name:
+                        if audio_device.default:
+                            pa.default_set(d)
+                        pa.mute(d, audio_device.mute)
+                        pa.volume_set_all_chans(d, audio_device.volume)
+
+
+def main(STATE: MachineState, MUTATIONS: connection.Connection):
     while True:
         try:
+            process_mutations(MUTATIONS)
             refresh_devices(STATE)
         except Exception as e:
             print(e)

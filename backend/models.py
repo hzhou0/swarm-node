@@ -1,23 +1,25 @@
-import dataclasses
 import re
 import subprocess
 from typing import Literal, Dict, Any, List, Type
 
 import pulsectl
 import v4l2py
-from aiortc import RTCRtpCodecCapability, RTCSessionDescription
+from aiortc import RTCRtpCodecCapability
 from pydantic import BaseModel
-from pydantic.v1.dataclasses import create_pydantic_model_from_dataclass
 
 
 class AudioStream(BaseModel):
     name: str
 
 
-class AudioDevice(AudioStream):
+class AudioDeviceOptions(BaseModel):
+    name: str
     default: bool
-    volumes: Dict[str, float]
+    volume: float
     mute: bool
+
+
+class AudioDevice(AudioDeviceOptions):
     description: str
     driver: str
     form_factor: Literal[
@@ -60,7 +62,7 @@ class AudioDevice(AudioStream):
             properties=d.proplist,
             state=d.state._value,
             type=type,
-            volumes=dict(zip(d.channel_list, d.volume.values)),
+            volume=d.volume.value_flat,
         )
 
 
