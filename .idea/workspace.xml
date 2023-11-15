@@ -4,19 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Complete device info backend+frontend">
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Control audio device options">
+      <change afterPath="$PROJECT_DIR$/frontend/src/components/AudioDeviceWidget.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/.env" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/machine/machine.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/machine/machine.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/openapi.json" beforeDir="false" afterPath="$PROJECT_DIR$/backend/openapi.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/components/StreamSettings.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/StreamSettings.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioDevice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/models/AudioDevice.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/services/DefaultService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/services/DefaultService.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,6 +56,7 @@
     </option>
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/frontend/src/components/StreamSettings.vue" root0="FORCE_HIGHLIGHTING" />
     <setting file="file:///opt/couchdb/etc/default.ini" root0="SKIP_INSPECTION" />
     <setting file="file:///opt/couchdb/etc/local.d/10-admins.ini" root0="SKIP_INSPECTION" />
     <setting file="file:///opt/couchdb/etc/local.ini" root0="SKIP_INSPECTION" />
@@ -85,40 +80,40 @@
     <option name="sortByType" value="true" />
     <option name="sortKey" value="BY_TYPE" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "deletionFromPopupRequiresConfirmation": "false",
-    "git-widget-placeholder": "main",
-    "javascript.nodejs.core.library.configured.version": "20.9.0",
-    "javascript.nodejs.core.library.typings.version": "20.8.10",
-    "last_opened_file_path": "/home/henry/Desktop/shopping_cart/frontend/node_modules/typescript",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.standard": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.standard": "",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_interpreter_path": "node",
-    "nodejs_package_manager_path": "npm",
-    "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/shopping_cart/frontend/node_modules/prettier",
-    "run.code.analysis.last.selected.profile": "aDefault",
-    "settings.editor.selected.configurable": "reference.settingsdialog.IDE.editor.colors.Console Font",
-    "ts.external.directory.path": "/home/henry/Desktop/shopping_cart/frontend/node_modules/typescript/lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;deletionFromPopupRequiresConfirmation&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;20.9.0&quot;,
+    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;20.8.10&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/henry/Desktop/shopping_cart/frontend/node_modules/typescript&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.standard&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.standard&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_interpreter_path&quot;: &quot;node&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/home/henry/Desktop/shopping_cart/frontend/node_modules/prettier&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;aDefault&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.IDE.editor.colors.Console Font&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/home/henry/Desktop/shopping_cart/frontend/node_modules/typescript/lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
-      "PLAIN_TEXT"
+  &quot;keyToStringList&quot;: {
+    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
+      &quot;PLAIN_TEXT&quot;
     ],
-    "vue.recent.templates": [
-      "Vue Composition API Component"
+    &quot;vue.recent.templates&quot;: [
+      &quot;Vue Composition API Component&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/backend/util" />
@@ -251,7 +246,8 @@
       <workItem from="1699240227413" duration="13696000" />
       <workItem from="1699831100295" duration="8736000" />
       <workItem from="1699843500085" duration="15000" />
-      <workItem from="1699843527067" duration="7812000" />
+      <workItem from="1699843527067" duration="13055000" />
+      <workItem from="1700029195814" duration="6022000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -397,7 +393,15 @@
       <option name="project" value="LOCAL" />
       <updated>1699833542444</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="Control audio device options">
+      <option name="closed" value="true" />
+      <created>1699940126142</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1699940126142</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -423,7 +427,8 @@
     <MESSAGE value="Fix database terraform" />
     <MESSAGE value="Destroy Terraform Deploy" />
     <MESSAGE value="Complete device info backend+frontend" />
-    <option name="LAST_COMMIT_MESSAGE" value="Complete device info backend+frontend" />
+    <MESSAGE value="Control audio device options" />
+    <option name="LAST_COMMIT_MESSAGE" value="Control audio device options" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -437,7 +442,7 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1699843784586" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1700031012233" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
     <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
   </component>
 </project>
