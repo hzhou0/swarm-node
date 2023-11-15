@@ -1,95 +1,17 @@
 <template>
   <v-window-item value="Stream">
-    <v-row class="align-center">
-      <v-col cols="8">
-        <v-select
-          label="Audio Output"
-          hide-details
-          :loading="f.data.audioDevices === undefined"
-          :items="f.data.audioDevices?.filter((d) => d.type === 'sink')"
-          :item-props="
-            (item: AudioDevice) => ({
-              title: item.description,
-              subtitle: item.name,
-              form_factor: item.form_factor,
-            })
-          "
-          @update:model-value="(v) => (audioOutputName = v.name)"
-        >
-          <template #item="{ props }">
-            <v-list-item
-              v-bind="props"
-              :append-icon="formfactorIcons.get(props.form_factor)"
-            ></v-list-item>
-          </template>
-        </v-select>
-      </v-col>
-      <v-col>
-        <v-slider
-          min="0"
-          max="1"
-          step="0.01"
-          :prepend-icon="
-            audioOutput?.mute ? 'mdi-volume-mute' : 'mdi-volume-source'
-          "
-          thumb-label
-          hide-details
-          :model-value="audioOutput?.volume"
-          @click:prepend="
-            () => {
-              if (audioOutput != null) {
-                audioOutput = { ...audioOutput, mute: !audioOutput.mute };
-              }
-            }
-          "
-        ></v-slider>
-      </v-col>
-    </v-row>
-    <v-row class="align-center">
-      <v-col cols="8">
-        <v-select
-          label="Audio Input"
-          hide-details
-          :loading="f.data.audioDevices === undefined"
-          :items="f.data.audioDevices?.filter((d) => d.type === 'source')"
-          :item-props="
-            (item: AudioDevice) => ({
-              title: item.description,
-              subtitle: item.name,
-              form_factor: item.form_factor,
-            })
-          "
-          @update:model-value="(v) => (audioInputName = v.name)"
-        >
-          <template #item="{ props }">
-            <v-list-item
-              v-bind="props"
-              :append-icon="formfactorIcons.get(props.form_factor)"
-            ></v-list-item>
-          </template>
-        </v-select>
-      </v-col>
-      <v-col>
-        <v-slider
-          min="0"
-          max="1"
-          step="0.01"
-          :prepend-icon="
-            audioInput?.mute ? 'mdi-volume-mute' : 'mdi-volume-source'
-          "
-          thumb-label
-          hide-details
-          :model-value="audioInput?.volume"
-          @click:prepend="
-            () => {
-              if (audioInput != null) {
-                audioInput = { ...audioInput, mute: !audioInput.mute };
-              }
-            }
-          "
-        ></v-slider>
-      </v-col>
-    </v-row>
+    <AudioDeviceWidget
+      v-model:selected-device="audioOutput"
+      v-model:selected-device-name="audioOutputName"
+      label="Audio Output"
+      :devices="f.data.audioDevices?.filter((d) => d.type === 'sink')"
+    />
+    <AudioDeviceWidget
+      v-model:selected-device="audioInput"
+      v-model:selected-device-name="audioInputName"
+      label="Audio Input"
+      :devices="f.data.audioDevices?.filter((d) => d.type === 'source')"
+    />
     <v-row>
       <v-divider></v-divider>
     </v-row>
@@ -98,11 +20,13 @@
         <v-select
           v-model="videoInput"
           label="Video Device"
+          variant="outlined"
+          prepend-inner-icon="mdi-video"
           hide-details
           :loading="f.data.videoDevices === undefined"
           :items="f.data.videoDevices"
           :item-props="
-            (item: AudioDevice) => ({
+            (item) => ({
               title: item.description,
               subtitle: item.name,
             })
@@ -116,6 +40,7 @@
           v-model="videoSettings[videoInput.name].format"
           label="Format"
           hide-details
+          variant="outlined"
           :items="
             filterVideoSettings(
               videoInput.video_sizes,
@@ -130,6 +55,7 @@
           v-model="videoSettings[videoInput.name].fps"
           label="FPS"
           hide-details
+          variant="outlined"
           clearable
           :items="
             dedupe(
@@ -147,6 +73,7 @@
           v-model="videoSettings[videoInput.name].width"
           label="Width"
           hide-details
+          variant="outlined"
           clearable
           :items="
             filterVideoSettings(
@@ -162,6 +89,7 @@
           v-model="videoSettings[videoInput.name].height"
           label="Height"
           hide-details
+          variant="outlined"
           clearable
           :items="
             filterVideoSettings(
@@ -179,7 +107,9 @@
 <script setup lang="ts">
 import { computed, Ref, ref, watchEffect } from "vue";
 import { client, dedupe, Fetcher } from "@/util";
-import { AudioDevice, VideoDevice, VideoSize, VideoStream } from "@/sdk";
+import { VideoDevice, VideoSize, VideoStream } from "@/sdk";
+import AudioDeviceWidget from "@/components/AudioDeviceWidget.vue";
+import { useStorageAsync } from "@vueuse/core";
 
 const f = new Fetcher(
   {
@@ -188,10 +118,10 @@ const f = new Fetcher(
     audioDevices: () => client.listAudioDevices(),
     videoDevices: () => client.listVideoDevices(),
   },
-  1000,
+  5000,
 );
 
-const audioOutputName: Ref<string | null> = ref(null);
+const audioOutputName: Ref<string | undefined> = ref(undefined);
 const audioOutput = computed({
   get() {
     return f.data.audioDevices?.find((v) => v.name == audioOutputName.value);
@@ -211,7 +141,7 @@ const audioOutput = computed({
     }
   },
 });
-const audioInputName: Ref<string | null> = ref(null);
+const audioInputName: Ref<string | undefined> = ref(undefined);
 const audioInput = computed({
   get() {
     return f.data.audioDevices?.find((v) => v.name == audioInputName.value);
@@ -232,16 +162,50 @@ const audioInput = computed({
   },
 });
 const videoInput: Ref<VideoDevice | null> = ref(null);
+const preferredVideoInput: Ref<string | null> = useStorageAsync(
+  "preferredVideoInput",
+  null,
+);
 type VideoSetting = Partial<Omit<VideoStream, "name">>;
-const videoSettings: Ref<Record<string, VideoSetting>> = ref({});
+const videoSettings: Ref<Record<string, VideoSetting>> = useStorageAsync(
+  "videoSettings",
+  {},
+);
+
 watchEffect(() => {
   if (f.data.videoDevices) {
     for (const d of f.data.videoDevices) {
       videoSettings.value[d.name] ??= {};
+      if (videoInput.value == null && d.name == preferredVideoInput.value) {
+        videoInput.value = d;
+      }
     }
   }
 });
 
+watchEffect(() => {
+  if (
+    videoInput.value != null &&
+    videoInput.value?.name != preferredVideoInput.value
+  ) {
+    preferredVideoInput.value = videoInput.value?.name;
+  }
+});
+
+watchEffect(() => {
+  if (f.data.audioDevices) {
+    if (audioOutputName.value == null) {
+      audioOutputName.value = f.data.audioDevices.find(
+        (v) => v.type == "sink" && v.default,
+      )?.name;
+    }
+    if (audioInputName.value == null) {
+      audioInputName.value = f.data.audioDevices.find(
+        (v) => v.type == "source" && v.default,
+      )?.name;
+    }
+  }
+});
 function filterVideoSettings<T extends keyof VideoSetting>(
   sizes: VideoSize[],
   setOptions: VideoSetting,
@@ -252,7 +216,7 @@ function filterVideoSettings<T extends keyof VideoSetting>(
     acc = acc.filter((size) => size.format == setOptions.format);
   }
   if (setOptions.fps != null && option != "fps") {
-    acc = acc.filter((size) => size.fps.includes(setOptions.fps));
+    acc = acc.filter((size) => size.fps.includes(setOptions.fps as number));
   }
   if (setOptions.height != null && option != "height") {
     acc = acc.filter((size) => size.height == setOptions.height);
@@ -262,21 +226,4 @@ function filterVideoSettings<T extends keyof VideoSetting>(
   }
   return dedupe(acc.map((size) => size[option]));
 }
-
-const formfactorIcons: Map<AudioDevice["form_factor"], string> = new Map([
-  ["car", "mdi-car"],
-  ["computer", "mdi-desktop"],
-  ["hands-free", "mdi-headset"],
-  ["handset", "mdi-phone-classic"],
-  ["headphone", "mdi-headphones"],
-  ["headset", "mdi-headset"],
-  ["hifi", "mdi-speaker-multiple"],
-  ["internal", "mdi-monitor-speaker"],
-  ["microphone", "mdi-microphone"],
-  ["portable", "mdi-cellphone-sound"],
-  ["speaker", "mdi-speaker"],
-  ["tv", "mdi-television-speaker"],
-  ["webcam", "mdi-webcam"],
-  [null, "mdi-help-circle-outline"],
-]);
 </script>

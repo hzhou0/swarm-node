@@ -47,6 +47,7 @@ def process_mutations(MUTATIONS: connection.Connection):
                             pa.default_set(d)
                         pa.mute(d, audio_device.mute)
                         pa.volume_set_all_chans(d, audio_device.volume)
+                pa.close()
 
 
 def main(STATE: MachineState, MUTATIONS: connection.Connection):
