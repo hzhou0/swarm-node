@@ -9,9 +9,8 @@ module.exports = {
     "@vue/typescript/recommended",
     "prettier",
   ],
-  plugins: ["@typescript-eslint", "prettier"],
+  plugins: ["@typescript-eslint"],
   rules: {
-    "prettier/prettier": "error",
     "vue/multi-word-component-names": "off",
   },
   parser: "vue-eslint-parser",

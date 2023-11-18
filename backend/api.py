@@ -1,5 +1,7 @@
 from multiprocessing import connection
 from typing import List, Literal, Set
+import sys
+import av
 
 from aiortc import (
     RTCRtpSender,
@@ -136,25 +138,26 @@ async def webrtc_offer(offer: webrtcOffer) -> webrtcOffer:
     PEER_CONNS.add(pc)
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
 
-    video_sender = pc.addTrack(RELAY.subscribe(VIDEO_STREAM))
-    trans = next(t for t in pc.getTransceivers() if t.sender == video_sender)
-    trans.setCodecPreferences(
-        [
-            c
-            for c in RTCRtpSender.getCapabilities("video").codecs
-            if c.mimeType == "video/H264"
-        ]
-    )
-
-    audio_sender = pc.addTrack(RELAY.subscribe(AUDIO_STREAM))
-    trans = next(t for t in pc.getTransceivers() if t.sender == audio_sender)
-    trans.setCodecPreferences(
-        [
-            c
-            for c in RTCRtpSender.getCapabilities("audio").codecs
-            if c.mimeType == "audio/opus"
-        ]
-    )
+    if VIDEO_STREAM:
+        video_sender = pc.addTrack(RELAY.subscribe(VIDEO_STREAM))
+        trans = next(t for t in pc.getTransceivers() if t.sender == video_sender)
+        trans.setCodecPreferences(
+            [
+                c
+                for c in RTCRtpSender.getCapabilities("video").codecs
+                if c.mimeType == "video/H264"
+            ]
+        )
+    if AUDIO_STREAM:
+        audio_sender = pc.addTrack(RELAY.subscribe(AUDIO_STREAM))
+        trans = next(t for t in pc.getTransceivers() if t.sender == audio_sender)
+        trans.setCodecPreferences(
+            [
+                c
+                for c in RTCRtpSender.getCapabilities("audio").codecs
+                if c.mimeType == "audio/opus"
+            ]
+        )
 
     await pc.setRemoteDescription(offer)
     await pc.setLocalDescription(await pc.createAnswer())

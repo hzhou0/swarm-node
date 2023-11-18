@@ -4,13 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Control audio device options">
-      <change afterPath="$PROJECT_DIR$/frontend/src/components/AudioDeviceWidget.vue" afterDir="false" />
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Finalize audio and video widgets">
+      <change afterPath="$PROJECT_DIR$/frontend/.prettierrc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/machine/machine.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/machine/machine.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.eslintrc.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.eslintrc.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/index.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/StreamSettings.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/StreamSettings.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/AudioDeviceWidget.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ControlPanel/AudioDeviceWidget.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ControlPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ControlPanel/ControlPanel.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/Stream.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/Stream.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/StreamSettings.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ControlPanel/StreamSettings.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/plugins/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/plugins/index.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,9 +39,9 @@
         <option value="editable-svg" />
         <option value="Blank Requirements File" />
         <option value="package.json" />
-        <option value="TypeScript File" />
         <option value="Python Script" />
         <option value="Vue Composition API Component" />
+        <option value="TypeScript File" />
       </list>
     </option>
   </component>
@@ -123,13 +131,14 @@
       <recent name="$PROJECT_DIR$/backend/machine" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/frontend/src/components" />
+      <recent name="$PROJECT_DIR$/frontend/src/components/ControlPanel" />
       <recent name="$PROJECT_DIR$/backend" />
       <recent name="$PROJECT_DIR$/backend/util" />
       <recent name="$PROJECT_DIR$/frontend/src" />
-      <recent name="$PROJECT_DIR$/stereo_calibration" />
-      <recent name="$PROJECT_DIR$" />
     </key>
     <key name="es6.move.members.recent.items">
+      <recent name="$PROJECT_DIR$/frontend/src/store.ts" />
       <recent name="$PROJECT_DIR$/frontend/src/util.ts" />
     </key>
   </component>
@@ -247,7 +256,9 @@
       <workItem from="1699831100295" duration="8736000" />
       <workItem from="1699843500085" duration="15000" />
       <workItem from="1699843527067" duration="13055000" />
-      <workItem from="1700029195814" duration="6022000" />
+      <workItem from="1700029195814" duration="6074000" />
+      <workItem from="1700202740960" duration="5212000" />
+      <workItem from="1700269043681" duration="17365000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -401,7 +412,15 @@
       <option name="project" value="LOCAL" />
       <updated>1699940126142</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="Finalize audio and video widgets">
+      <option name="closed" value="true" />
+      <created>1700035265802</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1700035265802</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -428,21 +447,22 @@
     <MESSAGE value="Destroy Terraform Deploy" />
     <MESSAGE value="Complete device info backend+frontend" />
     <MESSAGE value="Control audio device options" />
-    <option name="LAST_COMMIT_MESSAGE" value="Control audio device options" />
+    <MESSAGE value="Finalize audio and video widgets" />
+    <option name="LAST_COMMIT_MESSAGE" value="Finalize audio and video widgets" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/backend/venv/lib/python3.10/site-packages/aiortc/contrib/media.py</url>
-          <line>387</line>
-          <option name="timeStamp" value="6" />
+          <url>file://$PROJECT_DIR$/backend/api.py</url>
+          <line>73</line>
+          <option name="timeStamp" value="15" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1700031012233" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1700295965332" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
     <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
   </component>
 </project>

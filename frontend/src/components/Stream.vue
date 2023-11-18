@@ -1,30 +1,31 @@
 <template>
   <v-card>
-    <v-card-title> Hello there</v-card-title>
     <div class="ma-4">
-      <audio id="audio" :autoplay="true"></audio>
-      <video id="video" :autoplay="true" :playsinline="true"></video>
+      <audio :autoplay="true"></audio>
+      <video ref="video" :autoplay="true" :playsinline="true"></video>
     </div>
     <v-card-actions>
-      <v-btn>Start</v-btn>
-      <v-btn>Stop</v-btn>
+      <v-btn @click="start">Start</v-btn>
+      <v-btn @click="stop">Stop</v-btn>
     </v-card-actions>
   </v-card>
 </template>
 
 <script setup lang="ts">
-import { Ref, ref } from "vue";
+import { ref } from "vue";
 import { client } from "@/util";
-const config = {
-  sdpSemantics: "unified-plan",
+import { storeToRefs } from "pinia";
+import { useStreamStore } from "@/components/ControlPanel/store";
+const { videoStreamSettings } = storeToRefs(useStreamStore());
+
+const pc = new RTCPeerConnection({
   iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
-};
-
-const pc = new RTCPeerConnection(config);
-const tracks: Ref<Record<string, MediaStream>> = ref({});
-
+});
+const video = ref<HTMLVideoElement | null>(null);
 pc.addEventListener("track", (evt) => {
-  tracks.value[evt.track.kind] = evt.streams[0];
+  if (evt.track.kind == "video" && video.value) {
+    video.value.srcObject = evt.streams[0];
+  }
 });
 
 async function negotiate() {
@@ -38,6 +39,7 @@ async function negotiate() {
       await new Promise((resolve) => {
         const checkState = () => {
           if (pc.iceGatheringState === "complete") {
+            console.log("done");
             pc.removeEventListener("icegatheringstatechange", checkState);
             resolve(null);
           }
@@ -55,14 +57,19 @@ async function negotiate() {
   }
 }
 
-function stop() {
-  document.getElementById("stop").style.display = "none";
+async function start() {
+  if (!videoStreamSettings.value) {
+    return;
+  }
+  await client.startVideoStream(videoStreamSettings.value);
+  await negotiate();
+}
 
+async function stop() {
   // close peer connection
   setTimeout(function () {
     pc.close();
   }, 500);
+  await client.stopVideoStream();
 }
-
-//negotiate();
 </script>
