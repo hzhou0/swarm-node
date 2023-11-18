@@ -13,7 +13,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import StreamSettings from "@/components/StreamSettings.vue";
+import StreamSettings from "./StreamSettings.vue";
 
 const tabs = ["Machine", "Map", "Stream"];
 const tabId = ref("Stream");

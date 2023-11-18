@@ -1,3 +1,4 @@
+import os
 import sys
 from contextlib import asynccontextmanager
 from multiprocessing import Process, Manager, Pipe
@@ -22,6 +23,12 @@ async def lifespan(_: FastAPI):
         api.MUTATION = send_conn
         p = Process(target=main, args=(api.MACHINE, recv_conn), daemon=True)
         p.start()
+        # todo: find a better solution
+        # Redirect stderr to /dev/null
+        # This is done to ignore pyav outputs
+        null_fd = os.open("/dev/null", os.O_WRONLY)
+        os.dup2(null_fd, 2)
+        os.close(null_fd)
         yield
 
 
