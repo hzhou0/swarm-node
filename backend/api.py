@@ -1,7 +1,5 @@
 from multiprocessing import connection
 from typing import List, Literal, Set
-import sys
-import av
 
 from aiortc import (
     RTCRtpSender,
@@ -9,7 +7,7 @@ from aiortc import (
     MediaStreamTrack,
     RTCSessionDescription,
 )
-from aiortc.contrib.media import MediaRelay, MediaPlayer
+from aiortc.contrib.media import MediaPlayer
 from fastapi import APIRouter
 
 from machine.machine import MachineState
@@ -26,7 +24,6 @@ from models import (
 MACHINE: MachineState | None = None
 MUTATION: connection.Connection | None = None
 PEER_CONNS: Set[RTCPeerConnection] = set()
-RELAY: MediaRelay = MediaRelay()
 AUDIO_STREAM: MediaStreamTrack | None = None
 AUDIO_STREAM_INFO: AudioStream | None = None
 VIDEO_STREAM: MediaStreamTrack | None = None
@@ -139,7 +136,7 @@ async def webrtc_offer(offer: webrtcOffer) -> webrtcOffer:
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
 
     if VIDEO_STREAM:
-        video_sender = pc.addTrack(RELAY.subscribe(VIDEO_STREAM))
+        video_sender = pc.addTrack(VIDEO_STREAM)
         trans = next(t for t in pc.getTransceivers() if t.sender == video_sender)
         trans.setCodecPreferences(
             [
@@ -149,7 +146,7 @@ async def webrtc_offer(offer: webrtcOffer) -> webrtcOffer:
             ]
         )
     if AUDIO_STREAM:
-        audio_sender = pc.addTrack(RELAY.subscribe(AUDIO_STREAM))
+        audio_sender = pc.addTrack(AUDIO_STREAM)
         trans = next(t for t in pc.getTransceivers() if t.sender == audio_sender)
         trans.setCodecPreferences(
             [

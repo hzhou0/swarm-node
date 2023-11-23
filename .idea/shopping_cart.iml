@@ -9,6 +9,7 @@
       <excludeFolder url="file://$MODULE_DIR$/stereo_calibration/venv" />
       <excludeFolder url="file://$MODULE_DIR$/backend/venv" />
       <excludeFolder url="file://$MODULE_DIR$/old_frontend/.quasar" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/public" />
     </content>
     <orderEntry type="jdk" jdkName="backend" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

@@ -1,34 +1,39 @@
+import faulthandler
+import multiprocessing
 import os
+import shutil
 import sys
 from contextlib import asynccontextmanager
 from multiprocessing import Process, Manager, Pipe
+from multiprocessing.managers import SyncManager
+from time import sleep
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 
 import api
-from machine.machine import main
+from util import configure_logger, process_governor
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     assert sys.platform == "linux"
+    manager: SyncManager
     with Manager() as manager:
-        api.MACHINE = manager.Namespace()
-        recv_conn, send_conn = Pipe(duplex=False)
-        api.MUTATION = send_conn
-        p = Process(target=main, args=(api.MACHINE, recv_conn), daemon=True)
+        faulthandler.enable()
+        configure_logger()
+        state = manager.dict()
+        mutations = manager.dict()
+        bootstrapped = manager.Event()
+        p = Process(target=process_governor, args=(state, mutations, bootstrapped))
         p.start()
-        # todo: find a better solution
-        # Redirect stderr to /dev/null
-        # This is done to ignore pyav outputs
-        null_fd = os.open("/dev/null", os.O_WRONLY)
-        os.dup2(null_fd, 2)
-        os.close(null_fd)
+        bootstrapped.wait()
+        api.MACHINE = state["machine"]
+        api.MUTATION = mutations["machine"]
         yield
 
 
@@ -63,10 +68,17 @@ for route in server.routes:
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method("spawn")
+    if os.getenv("env") == "dev":
+        shutil.rmtree("log")
+        os.mkdir("log")
+
     # Workaround for https://github.com/encode/uvicorn/issues/1579
     class Server(uvicorn.Server):
         def install_signal_handlers(self) -> None:
             pass
 
-    config = uvicorn.Config(server, host="127.0.0.1", port=8080, workers=1)
+    config = uvicorn.Config(
+        server, host="127.0.0.1", port=8080, workers=1, access_log=False
+    )
     Server(config=config).run()

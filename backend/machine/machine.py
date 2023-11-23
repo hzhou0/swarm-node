@@ -1,4 +1,5 @@
 import itertools
+import logging
 from time import sleep
 from typing import Dict
 from multiprocessing import connection
@@ -50,7 +51,7 @@ def process_mutations(MUTATIONS: connection.Connection):
                 pa.close()
 
 
-def main(STATE: MachineState, MUTATIONS: connection.Connection):
+def main(STATE: MachineState, MUTATIONS: connection.Connection, LOG: logging.Logger):
     while True:
         try:
             process_mutations(MUTATIONS)
