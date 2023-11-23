@@ -1,6 +1,6 @@
 <template>
   <v-row class="align-center">
-    <v-col cols="9">
+    <v-col cols="8">
       <v-select
         :model-value="selectedDevice"
         :label="label"
@@ -21,11 +21,7 @@
         <template #item="{ props }">
           <v-list-item
             v-bind="props"
-            :prepend-icon="
-              formFactorIcons.get(
-                props.form_factor as AudioDevice['form_factor'],
-              )
-            "
+            :prepend-icon="formFactorIcons.get(props.form_factor as AudioDevice['form_factor'])"
           ></v-list-item>
         </template>
       </v-select>
@@ -52,9 +48,7 @@
         min="0"
         max="1"
         step="0.01"
-        :prepend-icon="
-          selectedDevice?.mute ? 'mdi-volume-mute' : 'mdi-volume-source'
-        "
+        :prepend-icon="selectedDevice?.mute ? 'mdi-volume-mute' : 'mdi-volume-source'"
         thumb-label
         hide-details
         :model-value="selectedDevice?.volume"
@@ -131,22 +125,21 @@ defineEmits<{
   (e: "update:selectedDevice"): AudioDevice;
 }>();
 
-const formFactorIcons: Map<AudioDevice["form_factor"] | undefined, string> =
-  new Map([
-    ["car", "mdi-car"],
-    ["computer", "mdi-desktop"],
-    ["hands-free", "mdi-headset"],
-    ["handset", "mdi-phone-classic"],
-    ["headphone", "mdi-headphones"],
-    ["headset", "mdi-headset"],
-    ["hifi", "mdi-speaker-multiple"],
-    ["internal", "mdi-monitor-speaker"],
-    ["microphone", "mdi-microphone"],
-    ["portable", "mdi-cellphone-sound"],
-    ["speaker", "mdi-speaker"],
-    ["tv", "mdi-television-speaker"],
-    ["webcam", "mdi-webcam"],
-    [null, "mdi-help-circle-outline"],
-    [undefined, "mdi-help-circle-outline"],
-  ]);
+const formFactorIcons: Map<AudioDevice["form_factor"] | undefined, string> = new Map([
+  ["car", "mdi-car"],
+  ["computer", "mdi-desktop"],
+  ["hands-free", "mdi-headset"],
+  ["handset", "mdi-phone-classic"],
+  ["headphone", "mdi-headphones"],
+  ["headset", "mdi-headset"],
+  ["hifi", "mdi-speaker-multiple"],
+  ["internal", "mdi-monitor-speaker"],
+  ["microphone", "mdi-microphone"],
+  ["portable", "mdi-cellphone-sound"],
+  ["speaker", "mdi-speaker"],
+  ["tv", "mdi-television-speaker"],
+  ["webcam", "mdi-webcam"],
+  [null, "mdi-help-circle-outline"],
+  [undefined, "mdi-help-circle-outline"],
+]);
 </script>

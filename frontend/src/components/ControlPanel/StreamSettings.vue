@@ -32,12 +32,13 @@
       </v-col>
     </v-row>
     <v-row v-if="videoInput">
-      <v-col>
+      <v-col cols="6">
         <v-select
           v-model="videoSettings[videoInput.name].format"
           label="Format"
           hide-details
           variant="outlined"
+          density="compact"
           :items="
             filterVideoSettings(
               videoInput.video_sizes,
@@ -47,12 +48,13 @@
           "
         ></v-select>
       </v-col>
-      <v-col>
+      <v-col cols="6">
         <v-select
           v-model="videoSettings[videoInput.name].fps"
           label="FPS"
           hide-details
           variant="outlined"
+          density="compact"
           clearable
           :items="
             dedupe(
@@ -65,12 +67,13 @@
           "
         ></v-select>
       </v-col>
-      <v-col>
+      <v-col cols="6">
         <v-select
           v-model="videoSettings[videoInput.name].width"
           label="Width"
           hide-details
           variant="outlined"
+          density="compact"
           clearable
           :items="
             filterVideoSettings(
@@ -81,12 +84,13 @@
           "
         ></v-select>
       </v-col>
-      <v-col>
+      <v-col cols="6">
         <v-select
           v-model="videoSettings[videoInput.name].height"
           label="Height"
           hide-details
           variant="outlined"
+          density="compact"
           clearable
           :items="
             filterVideoSettings(

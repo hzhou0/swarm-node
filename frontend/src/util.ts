@@ -36,9 +36,7 @@ export class Fetcher<T extends { [k: string]: () => Promise<any> }> {
     const dataKeys: (keyof T)[] = Object.keys(this.dataSources);
     await Promise.allSettled(
       dataKeys.map(async (k) => {
-        this._data.value[k] = await this.dataSources[k]().catch(
-          () => undefined,
-        );
+        this._data.value[k] = await this.dataSources[k]().catch(() => undefined);
       }),
     );
   };
