@@ -138,3 +138,8 @@ class webrtcInfo(BaseModel):
 class webrtcOffer(BaseModel):
     sdp: str
     type: Literal["answer", "offer", "pranswer", "rollback"]
+
+
+class MachineState(BaseModel):
+    vid: Dict[str, VideoDevice] = {}
+    aud: Dict[str, AudioDevice] = {}

@@ -1,4 +1,3 @@
-from multiprocessing import connection
 from typing import List, Literal, Set
 
 from aiortc import (
@@ -8,9 +7,13 @@ from aiortc import (
     RTCSessionDescription,
 )
 from aiortc.contrib.media import MediaPlayer
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.routing import APIRoute
+from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 
-from machine.machine import MachineState
+from processes import PROCESSES
 from models import (
     AudioDevice,
     AudioStream,
@@ -21,8 +24,6 @@ from models import (
     AudioDeviceOptions,
 )
 
-MACHINE: MachineState | None = None
-MUTATION: connection.Connection | None = None
 PEER_CONNS: Set[RTCPeerConnection] = set()
 AUDIO_STREAM: MediaStreamTrack | None = None
 AUDIO_STREAM_INFO: AudioStream | None = None
@@ -55,7 +56,7 @@ def put_audio_device(options: AudioDeviceOptions) -> None:
 
 @api.get("/devices/video")
 def list_video_devices() -> List[VideoDevice]:
-    return [*MACHINE.vid.values()]
+    return [*PROCESSES.machine.state.vid.values()]
 
 
 @api.get("/stream/video")
@@ -160,3 +161,29 @@ async def webrtc_offer(offer: webrtcOffer) -> webrtcOffer:
     await pc.setLocalDescription(await pc.createAnswer())
 
     return webrtcOffer(sdp=pc.localDescription.sdp, type=pc.localDescription.type)
+
+
+server = FastAPI(docs_url=None, title="Shop Cart")
+server.mount("/public", StaticFiles(directory="public"))
+server.include_router(api)
+server.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@server.get("/", include_in_schema=False)
+def swagger():
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Shop Cart",
+        swagger_favicon_url="/public/favicon.png",
+    )
+
+
+for route in server.routes:
+    if isinstance(route, APIRoute):
+        route.operation_id = route.name
