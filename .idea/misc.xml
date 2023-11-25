@@ -10,5 +10,5 @@
   <component name="ProjectResources">
     <resource url="https://json-schema.org/draft-07/schema" location="$PROJECT_DIR$/specs/db_documents/webrtc.yml" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="backend" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (shopping_cart)" project-jdk-type="Python SDK" />
 </project>

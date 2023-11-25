@@ -11,7 +11,7 @@
       <excludeFolder url="file://$MODULE_DIR$/old_frontend/.quasar" />
       <excludeFolder url="file://$MODULE_DIR$/backend/public" />
     </content>
-    <orderEntry type="jdk" jdkName="backend" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.10 (shopping_cart)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PackageRequirementsSettings">
