@@ -1,27 +1,31 @@
 import atexit
-import ctypes
+import collections
 import logging
 import multiprocessing
 import pickle
 import signal
+import struct
 import sys
 from multiprocessing import Process, Pipe
 from multiprocessing.connection import Connection
 from multiprocessing.shared_memory import SharedMemory
-from multiprocessing.synchronize import RLock, Event
-from typing import Callable, Any, TypeVar, Generic
+from multiprocessing.synchronize import Lock
+from typing import Callable, Any, TypeVar, Generic, NamedTuple, Generator
 
-from util import configure_logger
+from pydantic import BaseModel
 
-Mutations = TypeVar("Mutations")
-State = TypeVar("State")
 
-shared_mem_blocks: list[SharedMemory] = []
+"""
+Shared memory blocks are initially created by the reader process.
+If the block is too small, the writer process will create a larger block to use.
+The process that creates the block will manage it, and perform cleanup on exit. 
+"""
+managed_mem_blocks: set[SharedMemory] = set()
 
 
 def exit_handler():
-    logging.info("Exiting: cleaning up shared memory")
-    for shm in shared_mem_blocks:
+    logging.info(f"Exiting: cleaning up {len(managed_mem_blocks)} shared memory blocks")
+    for shm in managed_mem_blocks:
         shm.close()
         shm.unlink()
 
@@ -34,13 +38,15 @@ atexit.register(exit_handler)
 signal.signal(signal.SIGINT, kill_handler)
 signal.signal(signal.SIGTERM, kill_handler)
 
+State = TypeVar("State")
+Mutation = TypeVar("Mutation")
+Event = TypeVar("Event")
 
-class Daemon(Generic[State, Mutations]):
+
+class Daemon(Generic[State, Mutation, Event]):
     def __init__(
         self,
-        target: Callable[
-            [RLock, Event, SharedMemory, ctypes.c_int, Connection, logging.Logger], Any
-        ],
+        target: Callable[[SharedMemory, Lock, Connection], Any],
         name: str,
         logger: logging.Logger = logging.getLogger(),
     ):
@@ -48,67 +54,105 @@ class Daemon(Generic[State, Mutations]):
         self.name = name
         self.logger = logger
 
-        self._proc_logger = configure_logger(f"proc:{name}")
         self._state: State | None = None
-        self._state_lock: RLock = multiprocessing.RLock()
-        self._state_mem = SharedMemory(create=True, size=1000 * 1000)
-        shared_mem_blocks.append(self._state_mem)
-        self._state_len: ctypes.c_int = multiprocessing.Value(
-            ctypes.c_int, 0, lock=False
-        )
-        self._state_new: Event = multiprocessing.Event()
-        self._conn = None
-        self.proc = None
+        self._state_lock: Lock = multiprocessing.Lock()
+        self._state_mem = SharedMemory(create=True, size=1024 * 1024)
+        managed_mem_blocks.add(self._state_mem)
+        self._conn = self._proc = None
         self.start()
 
-    def __del__(self):
-        self._state_mem.close()
-        self._state_mem.unlink()
-
     def start(self):
-        recv_conn, send_conn = Pipe(duplex=True)
-        self._conn: Connection = send_conn
-        self.proc = Process(
+        child_conn, parent_conn = Pipe(duplex=True)
+        self._conn = parent_conn
+        self._proc = Process(
             target=self.target,
             args=(
-                self._state_lock,
-                self._state_new,
                 self._state_mem,
-                self._state_len,
-                recv_conn,
-                self._proc_logger,
+                self._state_lock,
+                child_conn,
             ),
             daemon=True,
             name=self.name,
         )
-        self.proc.start()
+        self._proc.start()
+        logging.info(f"Started process {self._proc.name}, pid={self._proc.pid}")
 
     @property
     def state(self) -> State | None:
-        if self._state_new.is_set():
+        while True:
+            header = Header.from_mem(self._state_mem)
+            if not header.is_memory:
+                break
+            self._state_mem = pickle.loads(self._state_mem.buf[obj_slice(header)])
+        if header.is_new:
             with self._state_lock:
-                self._state_new.clear()
-                self._state = pickle.loads(self._state_mem.buf[: self._state_len.value])
+                Header(is_new=False, obj_len=header.obj_len).write(self._state_mem)
+                self._state = pickle.loads(self._state_mem.buf[obj_slice(header)])
         return self._state
 
-    def mutate(self, mutation: Mutations):
+    def mutate(self, mutation: Mutation):
+        self._conn: Connection
         self._conn.send(mutation)
 
     @property
+    def events(self) -> Generator[Event, None, None]:
+        self._conn: Connection
+        while self._conn.poll():
+            yield self._conn.recv()
+
+    def flush_events(self):
+        collections.deque(self.events, maxlen=0)
+
+    @property
     def failed(self):
-        return not self.proc.is_alive()
+        return not self._proc.is_alive()
 
     def restart_if_failed(self):
         if not self.failed:
             return
         self.logger.error(f"process:{self.name} failed, attempting restart")
-        self.proc.close()
+        self._proc.close()
         self.start()
         self.logger.error(f"process:{self.name} successfully restarted")
 
 
-def write_buffer(mem: SharedMemory, x: Any):
-    x_bytes = pickle.dumps(x)
-    x_len = len(x_bytes)
-    mem.buf[:x_len] = x_bytes
-    return x_len
+class Header(NamedTuple):
+    obj_len: int
+    is_new: bool
+    is_memory: bool = False
+    # Not present in tuple, class variables
+    spec = "n??"
+    start = 0
+    end = start + struct.calcsize(spec)
+
+    def write(self, mem: SharedMemory):
+        struct.pack_into(self.spec, mem.buf, self.start, *self)
+
+    @classmethod
+    def from_mem(cls, mem: SharedMemory):
+        return cls._make(struct.unpack_from(cls.spec, mem.buf, cls.start))
+
+
+def obj_slice(header: Header) -> slice:
+    return slice(header.end, header.end + header.obj_len)
+
+
+def write_state(mem: SharedMemory, lock: Lock, obj: BaseModel) -> SharedMemory:
+    obj_bytes = pickle.dumps(obj)
+    content_end = Header.end + len(obj_bytes)
+    if content_end > mem.size:
+        new_mem = SharedMemory(create=True, size=content_end * 2)
+        managed_mem_blocks.add(new_mem)
+        new_mem_bytes = pickle.dumps(new_mem)
+        new_mem_header = Header(is_new=True, obj_len=len(new_mem_bytes), is_memory=True)
+        with lock:
+            new_mem_header.write(mem)
+            mem.buf[obj_slice(new_mem_header)] = new_mem_bytes
+        mem.close()
+        logging.warning(f"Reallocated memory, new size: {new_mem.size}")
+        mem = new_mem
+    obj_header = Header(obj_len=len(obj_bytes), is_new=True)
+    with lock:
+        obj_header.write(mem)
+        mem.buf[obj_slice(obj_header)] = obj_bytes
+    return mem
