@@ -4,17 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Process manager">
-      <change afterPath="$PROJECT_DIR$/backend/deps.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/processes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Refactor process manager">
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/shopping_cart.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shopping_cart.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/machine/machine.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/machine/machine.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deb_list.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/ipc.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/ipc.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/machine/machine.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/machine/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/util.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/webrtc.json" beforeDir="false" afterPath="$PROJECT_DIR$/webrtc.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -79,7 +81,7 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+    <option name="selectedTabId" value="ProjectErrors" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 2
@@ -111,8 +113,8 @@
     "nodejs_interpreter_path": "node",
     "nodejs_package_manager_path": "npm",
     "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/shopping_cart/frontend/node_modules/prettier",
-    "run.code.analysis.last.selected.profile": "aDefault",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "build.tools",
     "ts.external.directory.path": "/home/henry/Desktop/shopping_cart/frontend/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   },
@@ -272,7 +274,10 @@
       <workItem from="1700710266317" duration="12963000" />
       <workItem from="1700803134842" duration="10124000" />
       <workItem from="1700813266918" duration="4181000" />
-      <workItem from="1700882572866" duration="17523000" />
+      <workItem from="1700882572866" duration="26265000" />
+      <workItem from="1700945064315" duration="8175000" />
+      <workItem from="1700964333338" duration="4353000" />
+      <workItem from="1700968693318" duration="11654000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -474,7 +479,23 @@
       <option name="project" value="LOCAL" />
       <updated>1700723738554</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="Refactor process manager">
+      <option name="closed" value="true" />
+      <created>1700902753711</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1700902753711</updated>
+    </task>
+    <task id="LOCAL-00027" summary="Refactor process manager">
+      <option name="closed" value="true" />
+      <created>1700902776732</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1700902776732</updated>
+    </task>
+    <option name="localTasksCounter" value="28" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -504,21 +525,11 @@
     <MESSAGE value="Finalize audio and video widgets" />
     <MESSAGE value="Video streaming first iteration" />
     <MESSAGE value="Process manager" />
-    <option name="LAST_COMMIT_MESSAGE" value="Process manager" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/backend/main.py</url>
-          <line>28</line>
-          <option name="timeStamp" value="35" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="Refactor process manager" />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor process manager" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1700901454431" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1700988953114" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
     <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
   </component>
 </project>

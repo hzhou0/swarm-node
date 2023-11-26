@@ -21,6 +21,7 @@
         <list>
           <option value="talib.abstract.*" />
           <option value="int.__await__" />
+          <option value="pulsectl.pulsectl.PulseSourceInfo.*" />
         </list>
       </option>
     </inspection_tool>

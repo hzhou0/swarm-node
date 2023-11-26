@@ -1,34 +1,25 @@
+import asyncio
+import time
 from typing import List, Literal, Set
 
-from aiortc import (
-    RTCRtpSender,
-    RTCPeerConnection,
-    MediaStreamTrack,
-    RTCSessionDescription,
-)
-from aiortc.contrib.media import MediaPlayer
-from fastapi import APIRouter, FastAPI
+from aiortc import RTCPeerConnection
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
-from processes import PROCESSES
 from models import (
     AudioDevice,
-    AudioStream,
-    VideoStream,
+    AudioTrack,
+    VideoTrack,
     VideoDevice,
-    webrtcInfo,
-    webrtcOffer,
+    WebrtcOffer,
     AudioDeviceOptions,
 )
+from processes import PROCESSES
 
 PEER_CONNS: Set[RTCPeerConnection] = set()
-AUDIO_STREAM: MediaStreamTrack | None = None
-AUDIO_STREAM_INFO: AudioStream | None = None
-VIDEO_STREAM: MediaStreamTrack | None = None
-VIDEO_STREAM_INFO: VideoStream | None = None
 
 api = APIRouter(prefix="/api")
 
@@ -41,7 +32,7 @@ api = APIRouter(prefix="/api")
 def list_audio_devices(
     type: Literal["sink", "source"] | None = None, include_properties: bool = False
 ):
-    res = MACHINE.aud.values()
+    res = PROCESSES.machine.state.devices.audio.values()
     if type is not None:
         res = [d for d in res if d.type == type]
     if not include_properties:
@@ -51,116 +42,55 @@ def list_audio_devices(
 
 @api.put("/devices/audio")
 def put_audio_device(options: AudioDeviceOptions) -> None:
-    MUTATION.send(options)
+    PROCESSES.machine.mutate(options)
 
 
 @api.get("/devices/video")
 def list_video_devices() -> List[VideoDevice]:
-    return [*PROCESSES.machine.state.vid.values()]
+    return [*PROCESSES.machine.state.devices.video.values()]
 
 
 @api.get("/stream/video")
-def video_stream_info() -> VideoStream | None:
-    return VIDEO_STREAM_INFO
+def video_stream_info() -> VideoTrack | None:
+    return PROCESSES.machine.state.tracks.video.local_info
 
 
 @api.put("/stream/video")
-def start_video_stream(stream: VideoStream) -> None:
-    global VIDEO_STREAM, VIDEO_STREAM_INFO
-    if VIDEO_STREAM is not None:
-        VIDEO_STREAM.stop()
-    VIDEO_STREAM = MediaPlayer(
-        stream.name,
-        format="v4l2",
-        options={
-            "video_size": f"{stream.width}x{stream.height}",
-            "framerate": str(stream.fps),
-            "input_format": stream.format,
-        },
-    ).video
-    VIDEO_STREAM_INFO = stream
+def start_video_stream(track: VideoTrack) -> None:
+    PROCESSES.machine.mutate(track)
 
 
 @api.delete("/stream/video")
 def stop_video_stream() -> None:
-    global VIDEO_STREAM, VIDEO_STREAM_INFO
-    if VIDEO_STREAM is not None:
-        VIDEO_STREAM.stop()
-    VIDEO_STREAM = VIDEO_STREAM_INFO = None
+    PROCESSES.machine.mutate("STOP_LOCAL_VIDEO")
 
 
 @api.get("/stream/audio")
-def audio_stream_info() -> AudioStream | None:
-    return AUDIO_STREAM_INFO
+def audio_stream_info() -> AudioTrack | None:
+    return PROCESSES.machine.state.tracks.audio.local_info
 
 
 @api.put("/stream/audio")
-def start_audio_stream(stream: AudioStream) -> None:
-    global AUDIO_STREAM, AUDIO_STREAM_INFO
-    if AUDIO_STREAM is not None:
-        AUDIO_STREAM.stop()
-    AUDIO_STREAM = MediaPlayer(
-        stream.name,
-        format="pulse",
-    ).audio
-    AUDIO_STREAM_INFO = stream
+def start_audio_stream(track: AudioTrack) -> None:
+    PROCESSES.machine.mutate(track)
 
 
 @api.delete("/stream/audio")
 def stop_audio_stream() -> None:
-    global AUDIO_STREAM, AUDIO_STREAM_INFO
-    if AUDIO_STREAM is not None:
-        AUDIO_STREAM.stop()
-    AUDIO_STREAM = AUDIO_STREAM_INFO = None
-
-
-@api.get("/webrtc")
-def webrtc_info() -> webrtcInfo:
-    return webrtcInfo(
-        video_codecs=RTCRtpSender.getCapabilities("video").codecs,
-        audio_codecs=RTCRtpSender.getCapabilities("audio").codecs,
-    )
-
-
-async def on_connectionstatechange(pc: RTCPeerConnection):
-    print("Connection state is %s" % pc.connectionState)
-    if pc.connectionState == "failed":
-        await pc.close()
-        PEER_CONNS.discard(pc)
+    PROCESSES.machine.mutate("STOP_LOCAL_AUDIO")
 
 
 @api.post("/webrtc")
-async def webrtc_offer(offer: webrtcOffer) -> webrtcOffer:
-    offer = RTCSessionDescription(sdp=offer.sdp, type=offer.type)
-    pc = RTCPeerConnection()
-    PEER_CONNS.add(pc)
-    pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
-
-    if VIDEO_STREAM:
-        video_sender = pc.addTrack(VIDEO_STREAM)
-        trans = next(t for t in pc.getTransceivers() if t.sender == video_sender)
-        trans.setCodecPreferences(
-            [
-                c
-                for c in RTCRtpSender.getCapabilities("video").codecs
-                if c.mimeType == "video/H264"
-            ]
-        )
-    if AUDIO_STREAM:
-        audio_sender = pc.addTrack(AUDIO_STREAM)
-        trans = next(t for t in pc.getTransceivers() if t.sender == audio_sender)
-        trans.setCodecPreferences(
-            [
-                c
-                for c in RTCRtpSender.getCapabilities("audio").codecs
-                if c.mimeType == "audio/opus"
-            ]
-        )
-
-    await pc.setRemoteDescription(offer)
-    await pc.setLocalDescription(await pc.createAnswer())
-
-    return webrtcOffer(sdp=pc.localDescription.sdp, type=pc.localDescription.type)
+async def webrtc_offer(offer: WebrtcOffer) -> WebrtcOffer:
+    PROCESSES.machine.flush_events()
+    PROCESSES.machine.mutate(offer)
+    end = time.time() + 60
+    while time.time() < end:
+        event = next(PROCESSES.machine.events, None)
+        if isinstance(event, WebrtcOffer):
+            return event
+        await asyncio.sleep(0.1)
+    raise HTTPException(status_code=500, detail="webrtc reply never received")
 
 
 server = FastAPI(docs_url=None, title="Shop Cart")

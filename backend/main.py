@@ -1,23 +1,18 @@
 import faulthandler
 import multiprocessing
 import os
-import shutil
 import sys
 
 import uvicorn
 
 from processes import Processes
-from util import configure_logger
+from util import configure_root_logger
 
 if __name__ == "__main__":
     assert sys.platform == "linux"
     multiprocessing.set_start_method("spawn")
     faulthandler.enable()
-    configure_logger()
-    if os.getenv("env") == "dev":
-        shutil.rmtree("log")
-        os.mkdir("log")
-
+    configure_root_logger(clear_log_files=os.getenv("env") == "dev")
     Processes.init()
 
     # Workaround for https://github.com/encode/uvicorn/issues/1579
@@ -29,6 +24,6 @@ if __name__ == "__main__":
     from api import server
 
     config = uvicorn.Config(
-        server, host="127.0.0.1", port=8080, workers=1, access_log=True
+        server, host="127.0.0.1", port=8080, workers=1, access_log=False
     )
     Server(config=config).run()

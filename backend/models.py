@@ -1,6 +1,6 @@
 import re
 import subprocess
-from typing import Literal, Dict, Any, List, Type
+from typing import Literal, Dict, Any, List
 
 import pulsectl
 import v4l2py
@@ -8,7 +8,7 @@ from aiortc import RTCRtpCodecCapability
 from pydantic import BaseModel
 
 
-class AudioStream(BaseModel):
+class AudioTrack(BaseModel):
     name: str
 
 
@@ -73,7 +73,7 @@ class VideoSize(BaseModel):
     format: str
 
 
-class VideoStream(BaseModel):
+class VideoTrack(BaseModel):
     name: str
     height: int
     width: int
@@ -130,16 +130,46 @@ class VideoDevice(BaseModel):
         )
 
 
-class webrtcInfo(BaseModel):
+class WebrtcInfo(BaseModel):
     video_codecs: List[RTCRtpCodecCapability]
     audio_codecs: List[RTCRtpCodecCapability]
 
 
-class webrtcOffer(BaseModel):
+class WebrtcOffer(BaseModel):
     sdp: str
     type: Literal["answer", "offer", "pranswer", "rollback"]
 
 
+class AudioDuplexInfo(BaseModel):
+    remote: bool = False
+    local: bool = False
+    local_info: AudioTrack | None = None
+
+
+class VideoDuplexInfo(BaseModel):
+    remote: bool = False
+    local: bool = False
+    local_info: VideoTrack | None = None
+
+
 class MachineState(BaseModel):
-    vid: Dict[str, VideoDevice] = {}
-    aud: Dict[str, AudioDevice] = {}
+    class Devices(BaseModel):
+        video: dict[str, VideoDevice] = {}
+        audio: dict[str, AudioDevice] = {}
+
+    class Tracks(BaseModel):
+        video: VideoDuplexInfo = VideoDuplexInfo()
+        audio: AudioDuplexInfo = AudioDuplexInfo()
+
+    devices: Devices = Devices()
+    tracks: Tracks = Tracks()
+
+
+MachineMutation = (
+    AudioDeviceOptions
+    | WebrtcOffer
+    | VideoTrack
+    | AudioTrack
+    | Literal["STOP_LOCAL_VIDEO", "STOP_LOCAL_AUDIO"]
+)
+MachineEvent = WebrtcOffer
