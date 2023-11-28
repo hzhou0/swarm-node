@@ -12,9 +12,6 @@ from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
 from typing import Callable, Any, TypeVar, Generic, NamedTuple, Generator
 
-from pydantic import BaseModel
-
-
 """
 Shared memory blocks are initially created by the reader process.
 If the block is too small, the writer process will create a larger block to use.
@@ -137,7 +134,7 @@ def obj_slice(header: Header) -> slice:
     return slice(header.end, header.end + header.obj_len)
 
 
-def write_state(mem: SharedMemory, lock: Lock, obj: BaseModel) -> SharedMemory:
+def write_state(mem: SharedMemory, lock: Lock, obj: object) -> SharedMemory:
     obj_bytes = pickle.dumps(obj)
     content_end = Header.end + len(obj_bytes)
     if content_end > mem.size:
