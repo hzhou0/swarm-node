@@ -1,6 +1,7 @@
 import asyncio
+import dataclasses
 import time
-from typing import List, Literal, Set
+from typing import Literal, Set
 
 from aiortc import RTCPeerConnection
 from fastapi import APIRouter, FastAPI, HTTPException
@@ -26,7 +27,7 @@ api = APIRouter(prefix="/api")
 
 @api.get(
     "/devices/audio",
-    response_model=List[AudioDevice],
+    response_model=list[AudioDevice],
     response_model_exclude_unset=True,
 )
 def list_audio_devices(
@@ -36,7 +37,7 @@ def list_audio_devices(
     if type is not None:
         res = [d for d in res if d.type == type]
     if not include_properties:
-        res = [d.model_dump(exclude={"properties"}) for d in res]
+        res = [dataclasses.replace(d, properties=None) for d in res]
     return res
 
 
@@ -46,7 +47,7 @@ def put_audio_device(options: AudioDeviceOptions) -> None:
 
 
 @api.get("/devices/video")
-def list_video_devices() -> List[VideoDevice]:
+def list_video_devices() -> list[VideoDevice]:
     return [*PROCESSES.machine.state.devices.video.values()]
 
 

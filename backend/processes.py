@@ -35,4 +35,5 @@ def process_governor():
         time.sleep(1)
 
 
+# noinspection PyTypeChecker
 PROCESSES: Processes = None

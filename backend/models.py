@@ -1,24 +1,27 @@
 import re
 import subprocess
-from typing import Literal, Dict, Any, List
+from dataclasses import dataclass, field
+from typing import Literal, Any
 
-import pulsectl
 import v4l2py
 from aiortc import RTCRtpCodecCapability
-from pydantic import BaseModel
+from pulsectl import PulseSourceInfo
 
 
-class AudioTrack(BaseModel):
+@dataclass(slots=True)
+class AudioTrack:
     name: str
 
 
-class AudioDeviceOptions(BaseModel):
+@dataclass(slots=True)
+class AudioDeviceOptions:
     name: str
     default: bool
     volume: float
     mute: bool
 
 
+@dataclass(slots=True)
 class AudioDevice(AudioDeviceOptions):
     description: str
     driver: str
@@ -36,17 +39,18 @@ class AudioDevice(AudioDeviceOptions):
         "speaker",
         "tv",
         "webcam",
-    ] | None
+        None
+    ]
     index: int
     is_monitor: bool
-    properties: Dict[str, Any] | None = None
     state: Literal["idle", "invalid", "running", "suspended"]
     type: Literal["sink", "source"]
+    properties: dict[str, Any] | None = None
 
     @classmethod
     def from_pa(
         cls,
-        d: pulsectl.PulseSourceInfo,
+        d: PulseSourceInfo,
         default_name: str,
         type: Literal["sink", "source"],
     ):
@@ -55,9 +59,9 @@ class AudioDevice(AudioDeviceOptions):
             description=d.description,
             driver=d.driver,
             form_factor=d.proplist.get("device.form_factor"),
-            index=bool(d.index),
+            index=d.index,
             is_monitor=d.proplist.get("device.class") == "monitor",
-            mute=d.mute,
+            mute=bool(d.mute),
             name=d.name,
             properties=d.proplist,
             state=d.state._value,
@@ -66,14 +70,16 @@ class AudioDevice(AudioDeviceOptions):
         )
 
 
-class VideoSize(BaseModel):
+@dataclass(slots=True)
+class VideoSize:
     height: int
     width: int
-    fps: List[float]
+    fps: list[float]
     format: str
 
 
-class VideoTrack(BaseModel):
+@dataclass(slots=True)
+class VideoTrack:
     name: str
     height: int
     width: int
@@ -81,17 +87,18 @@ class VideoTrack(BaseModel):
     format: str
 
 
-class VideoDevice(BaseModel):
+@dataclass(slots=True)
+class VideoDevice:
     name: str
     index: int
     closed: bool
     description: str
-    capabilities: List[str]
-    video_sizes: List[VideoSize]
+    capabilities: list[str]
+    video_sizes: tuple[VideoSize, ...]
 
     @classmethod
     def from_v4l2(cls, d: v4l2py.Device):
-        video_sizes: Dict[str, VideoSize] = {}
+        video_sizes: dict[str, VideoSize] = {}
         format_descriptions = {f.pixel_format: f.description for f in d.info.formats}
         proc = subprocess.run(
             f"ffmpeg -f v4l2 -list_formats all -i {d.filename}".split(" "),
@@ -126,38 +133,45 @@ class VideoDevice(BaseModel):
                 for flag in d.info.capabilities.__class__
                 if flag in d.info.capabilities
             ],
-            video_sizes=video_sizes.values(),
+            video_sizes=tuple(video_sizes.values()),
         )
 
 
-class WebrtcInfo(BaseModel):
-    video_codecs: List[RTCRtpCodecCapability]
-    audio_codecs: List[RTCRtpCodecCapability]
+@dataclass(slots=True)
+class WebrtcInfo:
+    video_codecs: list[RTCRtpCodecCapability]
+    audio_codecs: list[RTCRtpCodecCapability]
 
 
-class WebrtcOffer(BaseModel):
+@dataclass(slots=True)
+class WebrtcOffer:
     sdp: str
     type: Literal["answer", "offer", "pranswer", "rollback"]
 
 
-class AudioDuplexInfo(BaseModel):
+@dataclass(slots=True)
+class AudioDuplexInfo:
     remote: bool = False
     local: bool = False
     local_info: AudioTrack | None = None
 
 
-class VideoDuplexInfo(BaseModel):
+@dataclass(slots=True)
+class VideoDuplexInfo:
     remote: bool = False
     local: bool = False
     local_info: VideoTrack | None = None
 
 
-class MachineState(BaseModel):
-    class Devices(BaseModel):
-        video: dict[str, VideoDevice] = {}
-        audio: dict[str, AudioDevice] = {}
+@dataclass(slots=True)
+class MachineState:
+    @dataclass(slots=True)
+    class Devices:
+        video: dict[str, VideoDevice] = field(default_factory=dict)
+        audio: dict[str, AudioDevice] = field(default_factory=dict)
 
-    class Tracks(BaseModel):
+    @dataclass(slots=True)
+    class Tracks:
         video: VideoDuplexInfo = VideoDuplexInfo()
         audio: AudioDuplexInfo = AudioDuplexInfo()
 
