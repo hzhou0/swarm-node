@@ -28,6 +28,7 @@
               subtitle: item.name,
             })
           "
+          autofocus
         ></v-select>
       </v-col>
     </v-row>

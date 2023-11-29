@@ -125,7 +125,7 @@ defineEmits<{
   (e: "update:selectedDevice"): AudioDevice;
 }>();
 
-const formFactorIcons: Map<AudioDevice["form_factor"] | undefined, string> = new Map([
+const formFactorIcons: Map<AudioDevice["form_factor"] | null | undefined, string> = new Map([
   ["car", "mdi-car"],
   ["computer", "mdi-desktop"],
   ["hands-free", "mdi-headset"],
