@@ -10,11 +10,11 @@ export type AudioDevice = {
     mute: boolean;
     description: string;
     driver: string;
-    form_factor: ('car' | 'computer' | 'hands-free' | 'handset' | 'headphone' | 'headset' | 'hifi' | 'internal' | 'microphone' | 'portable' | 'speaker' | 'tv' | 'webcam' | null);
+    form_factor: 'car' | 'computer' | 'hands-free' | 'handset' | 'headphone' | 'headset' | 'hifi' | 'internal' | 'microphone' | 'portable' | 'speaker' | 'tv' | 'webcam';
     index: number;
     is_monitor: boolean;
-    properties?: (Record<string, any> | null);
     state: 'idle' | 'invalid' | 'running' | 'suspended';
     type: 'sink' | 'source';
+    properties?: (Record<string, any> | null);
 };
 

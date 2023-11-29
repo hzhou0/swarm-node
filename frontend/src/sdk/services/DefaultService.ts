@@ -4,11 +4,9 @@
 /* eslint-disable */
 import type { AudioDevice } from '../models/AudioDevice';
 import type { AudioDeviceOptions } from '../models/AudioDeviceOptions';
-import type { AudioStream } from '../models/AudioStream';
 import type { VideoDevice } from '../models/VideoDevice';
-import type { VideoStream } from '../models/VideoStream';
-import type { webrtcInfo } from '../models/webrtcInfo';
-import type { webrtcOffer } from '../models/webrtcOffer';
+import type { WebrtcOffer_Input } from '../models/WebrtcOffer_Input';
+import type { WebrtcOffer_Output } from '../models/WebrtcOffer_Output';
 
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
@@ -74,114 +72,14 @@ export class DefaultService {
     }
 
     /**
-     * Video Stream Info
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public videoStreamInfo(): CancelablePromise<(VideoStream | null)> {
-        return this.httpRequest.request({
-            method: 'GET',
-            url: '/api/stream/video',
-        });
-    }
-
-    /**
-     * Start Video Stream
-     * @param requestBody
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public startVideoStream(
-        requestBody: VideoStream,
-    ): CancelablePromise<any> {
-        return this.httpRequest.request({
-            method: 'PUT',
-            url: '/api/stream/video',
-            body: requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-
-    /**
-     * Stop Video Stream
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public stopVideoStream(): CancelablePromise<any> {
-        return this.httpRequest.request({
-            method: 'DELETE',
-            url: '/api/stream/video',
-        });
-    }
-
-    /**
-     * Audio Stream Info
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public audioStreamInfo(): CancelablePromise<(AudioStream | null)> {
-        return this.httpRequest.request({
-            method: 'GET',
-            url: '/api/stream/audio',
-        });
-    }
-
-    /**
-     * Start Audio Stream
-     * @param requestBody
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public startAudioStream(
-        requestBody: AudioStream,
-    ): CancelablePromise<any> {
-        return this.httpRequest.request({
-            method: 'PUT',
-            url: '/api/stream/audio',
-            body: requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-
-    /**
-     * Stop Audio Stream
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public stopAudioStream(): CancelablePromise<any> {
-        return this.httpRequest.request({
-            method: 'DELETE',
-            url: '/api/stream/audio',
-        });
-    }
-
-    /**
-     * Webrtc Info
-     * @returns webrtcInfo Successful Response
-     * @throws ApiError
-     */
-    public webrtcInfo(): CancelablePromise<webrtcInfo> {
-        return this.httpRequest.request({
-            method: 'GET',
-            url: '/api/webrtc',
-        });
-    }
-
-    /**
      * Webrtc Offer
      * @param requestBody
-     * @returns webrtcOffer Successful Response
+     * @returns WebrtcOffer_Output Successful Response
      * @throws ApiError
      */
     public webrtcOffer(
-        requestBody: webrtcOffer,
-    ): CancelablePromise<webrtcOffer> {
+        requestBody: WebrtcOffer_Input,
+    ): CancelablePromise<WebrtcOffer_Output> {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/webrtc',

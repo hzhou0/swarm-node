@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AudioStream = {
+export type AudioTrack = {
     name: string;
 };
 

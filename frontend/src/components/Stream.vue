@@ -28,7 +28,7 @@
 import { ref, shallowRef, ShallowRef } from "vue";
 import { client } from "@/util";
 import { storeToRefs } from "pinia";
-import { useStreamStore } from "@/components/ControlPanel/store";
+import { useStreamStore } from "@/components/control_panel/store";
 import InfoPane from "@/components/InfoPane.vue";
 
 const { videoStreamSettings } = storeToRefs(useStreamStore());
@@ -114,6 +114,12 @@ async function negotiate() {
     const answer = await client.webrtcOffer({
       sdp: offer.sdp as string,
       type: offer.type,
+      tracks: {
+        client_video: false,
+        client_audio: false,
+        machine_audio: null,
+        machine_video: videoStreamSettings.value,
+      },
     });
     return newPC.setRemoteDescription(answer);
   } catch (e) {
@@ -125,15 +131,12 @@ async function start() {
   if (!videoStreamSettings.value) {
     return;
   }
-  await client.startVideoStream(videoStreamSettings.value);
   await negotiate();
 }
 
 async function stop() {
-  // close peer connection
   pc.value?.close();
   pc.value = null;
   pcStats.value = null;
-  //await client.stopVideoStream();
 }
 </script>

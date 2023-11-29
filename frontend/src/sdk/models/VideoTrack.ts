@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type VideoStream = {
+export type VideoTrack = {
     name: string;
     height: number;
     width: number;

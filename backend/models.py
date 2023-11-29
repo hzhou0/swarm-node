@@ -8,12 +8,7 @@ from aiortc import RTCRtpCodecCapability
 from pulsectl import PulseSourceInfo
 
 
-@dataclass(slots=True)
-class AudioTrack:
-    name: str
-
-
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class AudioDeviceOptions:
     name: str
     default: bool
@@ -21,7 +16,7 @@ class AudioDeviceOptions:
     mute: bool
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class AudioDevice(AudioDeviceOptions):
     description: str
     driver: str
@@ -39,7 +34,7 @@ class AudioDevice(AudioDeviceOptions):
         "speaker",
         "tv",
         "webcam",
-        None
+        None,
     ]
     index: int
     is_monitor: bool
@@ -70,7 +65,7 @@ class AudioDevice(AudioDeviceOptions):
         )
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class VideoSize:
     height: int
     width: int
@@ -78,16 +73,7 @@ class VideoSize:
     format: str
 
 
-@dataclass(slots=True)
-class VideoTrack:
-    name: str
-    height: int
-    width: int
-    fps: float
-    format: str
-
-
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class VideoDevice:
     name: str
     index: int
@@ -137,30 +123,39 @@ class VideoDevice:
         )
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class WebrtcInfo:
     video_codecs: list[RTCRtpCodecCapability]
     audio_codecs: list[RTCRtpCodecCapability]
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
+class VideoTrack:
+    name: str
+    height: int
+    width: int
+    fps: float
+    format: str
+
+
+@dataclass(slots=True, frozen=True)
+class AudioTrack:
+    name: str
+
+
+@dataclass(slots=True, frozen=True)
+class Tracks:
+    client_video: bool = False
+    client_audio: bool = False
+    machine_video: VideoTrack | None = None
+    machine_audio: AudioTrack | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class WebrtcOffer:
     sdp: str
     type: Literal["answer", "offer", "pranswer", "rollback"]
-
-
-@dataclass(slots=True)
-class AudioDuplexInfo:
-    remote: bool = False
-    local: bool = False
-    local_info: AudioTrack | None = None
-
-
-@dataclass(slots=True)
-class VideoDuplexInfo:
-    remote: bool = False
-    local: bool = False
-    local_info: VideoTrack | None = None
+    tracks: Tracks
 
 
 @dataclass(slots=True)
@@ -170,20 +165,9 @@ class MachineState:
         video: dict[str, VideoDevice] = field(default_factory=dict)
         audio: dict[str, AudioDevice] = field(default_factory=dict)
 
-    @dataclass(slots=True)
-    class Tracks:
-        video: VideoDuplexInfo = VideoDuplexInfo()
-        audio: AudioDuplexInfo = AudioDuplexInfo()
-
     devices: Devices = Devices()
-    tracks: Tracks = Tracks()
+    webrtc_offer: WebrtcOffer | None = None
 
 
-MachineMutation = (
-    AudioDeviceOptions
-    | WebrtcOffer
-    | VideoTrack
-    | AudioTrack
-    | Literal["STOP_LOCAL_VIDEO", "STOP_LOCAL_AUDIO"]
-)
+MachineMutation = AudioDeviceOptions | WebrtcOffer
 MachineEvent = WebrtcOffer
