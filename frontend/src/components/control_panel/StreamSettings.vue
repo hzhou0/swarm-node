@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
 import { dedupe } from "@/util";
-import { VideoSize } from "@/sdk";
+import { models_VideoSize } from "@/sdk";
 import AudioDeviceWidget from "./AudioDeviceWidget.vue";
 import { VideoSetting, useStreamStore } from "./store";
 import { storeToRefs } from "pinia";
@@ -124,7 +124,7 @@ const {
 } = storeToRefs(useStreamStore());
 
 function filterVideoSettings<T extends keyof VideoSetting>(
-  sizes: VideoSize[],
+  sizes: models_VideoSize[],
   setOptions: VideoSetting,
   option: T,
 ) {

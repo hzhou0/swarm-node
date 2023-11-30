@@ -1,60 +1,52 @@
 import asyncio
-import dataclasses
+import logging
+import os
 import time
-from typing import Literal, Set
+from typing import Literal
 
-from aiortc import RTCPeerConnection
-from fastapi import APIRouter, FastAPI, HTTPException
-from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.routing import APIRoute
-from starlette.middleware.cors import CORSMiddleware
-from starlette.staticfiles import StaticFiles
+import msgspec
+from litestar.config.cors import CORSConfig
+from litestar.exceptions import HTTPException
+from litestar.logging import LoggingConfig
+from litestar.openapi import OpenAPIConfig
+from litestar.static_files import StaticFilesConfig
 
 from models import (
     AudioDevice,
-    AudioTrack,
-    VideoTrack,
     VideoDevice,
     WebrtcOffer,
     AudioDeviceOptions,
 )
 from processes import PROCESSES
-
-PEER_CONNS: Set[RTCPeerConnection] = set()
-
-api = APIRouter(prefix="/api")
+from litestar import Litestar, Router, get, put, post
 
 
-@api.get(
-    "/devices/audio",
-    response_model=list[AudioDevice],
-    response_model_exclude_unset=True,
-)
+@get("/devices/audio", sync_to_thread=False)
 def list_audio_devices(
     type: Literal["sink", "source"] | None = None, include_properties: bool = False
-):
+) -> list[AudioDevice]:
     res = PROCESSES.machine.state().devices.audio.values()
     if type is not None:
         res = [d for d in res if d.type == type]
     if not include_properties:
-        res = [dataclasses.replace(d, properties=None) for d in res]
+        res = [msgspec.structs.replace(d, properties=None) for d in res]
     return res
 
 
-@api.put("/devices/audio")
-def put_audio_device(options: AudioDeviceOptions) -> None:
-    PROCESSES.machine.mutate(options)
+@put("/devices/audio", sync_to_thread=False)
+def put_audio_device(data: AudioDeviceOptions) -> None:
+    PROCESSES.machine.mutate(data)
 
 
-@api.get("/devices/video")
+@get("/devices/video", sync_to_thread=False)
 def list_video_devices() -> list[VideoDevice]:
     return [*PROCESSES.machine.state().devices.video.values()]
 
 
-@api.post("/webrtc")
-async def webrtc_offer(offer: WebrtcOffer) -> WebrtcOffer:
+@post("/webrtc")
+async def webrtc_offer(data: WebrtcOffer) -> WebrtcOffer:
     prev_offer = PROCESSES.machine.state().webrtc_offer
-    PROCESSES.machine.mutate(offer)
+    PROCESSES.machine.mutate(data)
     end = time.time() + 20
     while time.time() < end:
         cur_offer = PROCESSES.machine.state().webrtc_offer
@@ -64,27 +56,37 @@ async def webrtc_offer(offer: WebrtcOffer) -> WebrtcOffer:
     raise HTTPException(status_code=500, detail="webrtc reply never received")
 
 
-server = FastAPI(docs_url=None, title="Shop Cart")
-server.mount("/public", StaticFiles(directory="public"))
-server.include_router(api)
-server.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+route_handlers = [
+    list_audio_devices,
+    put_audio_device,
+    list_video_devices,
+    webrtc_offer,
+]
+for route in route_handlers:
+    route.operation_id = route.handler_name
 
-
-@server.get("/", include_in_schema=False)
-def swagger():
-    return get_swagger_ui_html(
-        openapi_url="/openapi.json",
+api = Router(path="/api", route_handlers=route_handlers)
+server = Litestar(
+    route_handlers=[api],
+    static_files_config=[StaticFilesConfig(directories=["public"], path="/public")],
+    cors_config=CORSConfig(
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    ),
+    logging_config=LoggingConfig(
+        root={"level": logging.getLevelName(logging.INFO), "handlers": ["console"]},
+        formatters={
+            "standard": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            }
+        },
+    ),
+    openapi_config=OpenAPIConfig(
         title="Shop Cart",
-        swagger_favicon_url="/public/favicon.png",
-    )
-
-
-for route in server.routes:
-    if isinstance(route, APIRoute):
-        route.operation_id = route.name
+        version="0.1.0",
+    ),
+    debug=os.getenv("env") == "dev",
+)
+pass

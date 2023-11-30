@@ -3,11 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { Tracks } from './Tracks';
+import type { models_Tracks } from './models_Tracks';
 
-export type WebrtcOffer_Output = {
+export type models_WebrtcOffer = {
     sdp: string;
     type: 'answer' | 'offer' | 'pranswer' | 'rollback';
-    tracks: Tracks;
+    tracks: models_Tracks;
 };
 

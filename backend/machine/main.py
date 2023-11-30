@@ -6,6 +6,7 @@ from multiprocessing.synchronize import Lock
 from typing import Literal
 
 import pulsectl_asyncio
+import uvloop
 import v4l2py
 from aiortc import (
     RTCPeerConnection,
@@ -175,6 +176,7 @@ def main(
     state_lock: Lock,
     pipe: connection.Connection,
 ):
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     global _state_mem, _state_lock
     _state_mem, _state_lock = state_mem, state_lock
     configure_root_logger()

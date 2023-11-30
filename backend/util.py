@@ -15,7 +15,10 @@ def configure_root_logger(clear_log_files=False):
     rl.setLevel(logging.INFO)
     rl.handlers.clear()
     stream_handler = logging.StreamHandler(sys.stdout)
-    stream_fmt = "%(processName)s:%(levelname)s:    %(message)s    %(filename)s:%(lineno)d,%(funcName)s()    %(asctime)s"
+    stream_fmt = (
+        "%(processName)s:%(levelname)s:    %(message)s    "
+        "%(filename)s:%(lineno)d,%(funcName)s()    %(asctime)s"
+    )
     stream_handler.setFormatter(logging.Formatter(stream_fmt))
     rl.addHandler(stream_handler)
     file_handler = RotatingFileHandler(
@@ -23,7 +26,10 @@ def configure_root_logger(clear_log_files=False):
         maxBytes=1024 * 1024,
         backupCount=5,
     )
-    file_fmt = "%(processName)s:%(name)s:%(levelname)s:    %(message)s    %(pathname)s:%(lineno)d,%(funcName)s()    %(asctime)s"
+    file_fmt = (
+        "%(processName)s:%(name)s:%(levelname)s:    %(message)s    "
+        "%(pathname)s:%(lineno)d,%(funcName)s()    %(asctime)s"
+    )
     file_handler.setFormatter(logging.Formatter(file_fmt))
     rl.addHandler(file_handler)
     return rl

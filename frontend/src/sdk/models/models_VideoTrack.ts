@@ -3,7 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AudioTrack = {
+export type models_VideoTrack = {
     name: string;
+    height: number;
+    width: number;
+    fps: number;
+    format: string;
 };
 

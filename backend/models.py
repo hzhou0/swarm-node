@@ -1,22 +1,20 @@
 import re
 import subprocess
-from dataclasses import dataclass, field
 from typing import Literal, Any
 
 import v4l2py
 from aiortc import RTCRtpCodecCapability
 from pulsectl import PulseSourceInfo
+from msgspec import Struct, field
 
 
-@dataclass(slots=True, frozen=True)
-class AudioDeviceOptions:
+class AudioDeviceOptions(Struct, frozen=True):
     name: str
     default: bool
     volume: float
     mute: bool
 
 
-@dataclass(slots=True, frozen=True)
 class AudioDevice(AudioDeviceOptions):
     description: str
     driver: str
@@ -49,6 +47,7 @@ class AudioDevice(AudioDeviceOptions):
         default_name: str,
         type: Literal["sink", "source"],
     ):
+        # noinspection PyProtectedMember
         return cls(
             default=d.name == default_name,
             description=d.description,
@@ -65,16 +64,14 @@ class AudioDevice(AudioDeviceOptions):
         )
 
 
-@dataclass(slots=True, frozen=True)
-class VideoSize:
+class VideoSize(Struct, frozen=True):
     height: int
     width: int
     fps: list[float]
     format: str
 
 
-@dataclass(slots=True, frozen=True)
-class VideoDevice:
+class VideoDevice(Struct, frozen=True):
     name: str
     index: int
     closed: bool
@@ -123,14 +120,12 @@ class VideoDevice:
         )
 
 
-@dataclass(slots=True, frozen=True)
-class WebrtcInfo:
+class WebrtcInfo(Struct, frozen=True):
     video_codecs: list[RTCRtpCodecCapability]
     audio_codecs: list[RTCRtpCodecCapability]
 
 
-@dataclass(slots=True, frozen=True)
-class VideoTrack:
+class VideoTrack(Struct, frozen=True):
     name: str
     height: int
     width: int
@@ -138,34 +133,29 @@ class VideoTrack:
     format: str
 
 
-@dataclass(slots=True, frozen=True)
-class AudioTrack:
+class AudioTrack(Struct, frozen=True):
     name: str
 
 
-@dataclass(slots=True, frozen=True)
-class Tracks:
+class Tracks(Struct, frozen=True):
     client_video: bool = False
     client_audio: bool = False
     machine_video: VideoTrack | None = None
     machine_audio: AudioTrack | None = None
 
 
-@dataclass(slots=True, frozen=True)
-class WebrtcOffer:
+class WebrtcOffer(Struct, frozen=True):
     sdp: str
     type: Literal["answer", "offer", "pranswer", "rollback"]
     tracks: Tracks
 
 
-@dataclass(slots=True)
-class MachineState:
-    @dataclass(slots=True)
-    class Devices:
+class MachineState(Struct):
+    class Devices(Struct):
         video: dict[str, VideoDevice] = field(default_factory=dict)
         audio: dict[str, AudioDevice] = field(default_factory=dict)
 
-    devices: Devices = Devices()
+    devices: Devices = field(default_factory=Devices)
     webrtc_offer: WebrtcOffer | None = None
 
 

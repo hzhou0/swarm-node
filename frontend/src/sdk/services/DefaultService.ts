@@ -2,11 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { AudioDevice } from '../models/AudioDevice';
-import type { AudioDeviceOptions } from '../models/AudioDeviceOptions';
-import type { VideoDevice } from '../models/VideoDevice';
-import type { WebrtcOffer_Input } from '../models/WebrtcOffer_Input';
-import type { WebrtcOffer_Output } from '../models/WebrtcOffer_Output';
+import type { models_AudioDevice } from '../models/models_AudioDevice';
+import type { models_AudioDeviceOptions } from '../models/models_AudioDeviceOptions';
+import type { models_VideoDevice } from '../models/models_VideoDevice';
+import type { models_WebrtcOffer } from '../models/models_WebrtcOffer';
 
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
@@ -16,16 +15,16 @@ export class DefaultService {
     constructor(public readonly httpRequest: BaseHttpRequest) {}
 
     /**
-     * List Audio Devices
+     * ListAudioDevices
      * @param type
      * @param includeProperties
-     * @returns AudioDevice Successful Response
+     * @returns models_AudioDevice Request fulfilled, document follows
      * @throws ApiError
      */
     public listAudioDevices(
-        type?: ('sink' | 'source' | null),
-        includeProperties: boolean = false,
-    ): CancelablePromise<Array<AudioDevice>> {
+        type?: 'sink' | 'source',
+        includeProperties?: boolean,
+    ): CancelablePromise<Array<models_AudioDevice>> {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/devices/audio',
@@ -34,19 +33,19 @@ export class DefaultService {
                 'include_properties': includeProperties,
             },
             errors: {
-                422: `Validation Error`,
+                400: `Bad request syntax or unsupported method`,
             },
         });
     }
 
     /**
-     * Put Audio Device
+     * PutAudioDevice
      * @param requestBody
-     * @returns any Successful Response
+     * @returns any Request fulfilled, document follows
      * @throws ApiError
      */
     public putAudioDevice(
-        requestBody: AudioDeviceOptions,
+        requestBody: models_AudioDeviceOptions,
     ): CancelablePromise<any> {
         return this.httpRequest.request({
             method: 'PUT',
@@ -54,17 +53,17 @@ export class DefaultService {
             body: requestBody,
             mediaType: 'application/json',
             errors: {
-                422: `Validation Error`,
+                400: `Bad request syntax or unsupported method`,
             },
         });
     }
 
     /**
-     * List Video Devices
-     * @returns VideoDevice Successful Response
+     * ListVideoDevices
+     * @returns models_VideoDevice Request fulfilled, document follows
      * @throws ApiError
      */
-    public listVideoDevices(): CancelablePromise<Array<VideoDevice>> {
+    public listVideoDevices(): CancelablePromise<Array<models_VideoDevice>> {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/devices/video',
@@ -72,21 +71,21 @@ export class DefaultService {
     }
 
     /**
-     * Webrtc Offer
+     * WebrtcOffer
      * @param requestBody
-     * @returns WebrtcOffer_Output Successful Response
+     * @returns models_WebrtcOffer Document created, URL follows
      * @throws ApiError
      */
     public webrtcOffer(
-        requestBody: WebrtcOffer_Input,
-    ): CancelablePromise<WebrtcOffer_Output> {
+        requestBody: models_WebrtcOffer,
+    ): CancelablePromise<models_WebrtcOffer> {
         return this.httpRequest.request({
             method: 'POST',
             url: '/api/webrtc',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
-                422: `Validation Error`,
+                400: `Bad request syntax or unsupported method`,
             },
         });
     }

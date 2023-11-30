@@ -4,30 +4,36 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Move models from basemodel to dataclasses">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Streamline API">
+      <change afterPath="$PROJECT_DIR$/backend/requirements.dev.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/shopping_cart.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shopping_cart.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/_gen_openapi.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/_gen_openapi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/_gen_openapi.py" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/gen_openapi.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/ipc.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/ipc.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/machine/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/machine/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/openapi.json" beforeDir="false" afterPath="$PROJECT_DIR$/backend/openapi.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/App.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/ControlPanel/AudioDeviceWidget.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/AudioDeviceWidget.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/ControlPanel/ControlPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/ControlPanel.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/ControlPanel/StreamSettings.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/StreamSettings.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/ControlPanel/store.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/store.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/Stream.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/Stream.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/openapi.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/processes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/processes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/util.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/control_panel/AudioDeviceWidget.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/AudioDeviceWidget.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/control_panel/StreamSettings.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/StreamSettings.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/control_panel/store.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/store.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/sdk/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioDevice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/models/AudioDevice.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioStream.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/RTCRtpCodecCapability.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/VideoStream.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/webrtcInfo.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/webrtcOffer.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioDevice.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioDeviceOptions.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioTrack.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/HTTPValidationError.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/Tracks.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/ValidationError.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/VideoDevice.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/VideoSize.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/VideoTrack.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/WebrtcOffer_Input.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/WebrtcOffer_Output.ts" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/sdk/services/DefaultService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/services/DefaultService.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -96,7 +102,7 @@
     <option name="stateVersion" value="1" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+    <option name="selectedTabId" value="ProjectErrors" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 2
@@ -118,7 +124,7 @@
     "git-widget-placeholder": "main",
     "javascript.nodejs.core.library.configured.version": "20.10.0",
     "javascript.nodejs.core.library.typings.version": "20.10.0",
-    "last_opened_file_path": "/home/henry/Desktop/shopping_cart",
+    "last_opened_file_path": "/home/henry/Desktop/shopping_cart/backend",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.standard": "true",
     "node.js.detected.package.tslint": "true",
@@ -147,18 +153,18 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/backend" />
       <recent name="$PROJECT_DIR$/backend/util" />
       <recent name="$PROJECT_DIR$/frontend/public" />
       <recent name="$PROJECT_DIR$/frontend/src/assets" />
       <recent name="$PROJECT_DIR$/backend/public" />
-      <recent name="$PROJECT_DIR$/backend/machine" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/frontend" />
       <recent name="$PROJECT_DIR$/backend" />
       <recent name="$PROJECT_DIR$/frontend/src/components" />
       <recent name="$PROJECT_DIR$/frontend/src/components/ControlPanel" />
       <recent name="$PROJECT_DIR$/backend/util" />
-      <recent name="$PROJECT_DIR$/frontend/src" />
     </key>
     <key name="es6.move.members.recent.items">
       <recent name="$PROJECT_DIR$/frontend/src/store.ts" />
@@ -187,7 +193,18 @@
       <envs />
       <method v="2" />
     </configuration>
+    <configuration name="gen_sdk" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/frontend/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="gen_sdk" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
     <list>
+      <item itemvalue="npm.gen_sdk" />
       <item itemvalue="npm.dev" />
       <item itemvalue="Python.main" />
       <item itemvalue="Shell Script.trace" />
@@ -195,6 +212,7 @@
     <recent_temporary>
       <list>
         <item itemvalue="npm.dev" />
+        <item itemvalue="npm.gen_sdk" />
       </list>
     </recent_temporary>
   </component>
@@ -290,6 +308,10 @@
       <workItem from="1701146890131" duration="2748000" />
       <workItem from="1701210010862" duration="1594000" />
       <workItem from="1701220223574" duration="13986000" />
+      <workItem from="1701240468696" duration="5439000" />
+      <workItem from="1701287626217" duration="3702000" />
+      <workItem from="1701293403489" duration="1249000" />
+      <workItem from="1701301731638" duration="9503000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -566,11 +588,16 @@
           <line>313</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/backend/api.py</url>
+          <line>91</line>
+          <option name="timeStamp" value="14" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1701235497740" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1701314296912" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
     <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
   </component>
 </project>
