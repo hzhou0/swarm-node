@@ -10,16 +10,13 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
-export type { AudioDevice } from './models/AudioDevice';
-export type { AudioDeviceOptions } from './models/AudioDeviceOptions';
-export type { AudioTrack } from './models/AudioTrack';
-export type { HTTPValidationError } from './models/HTTPValidationError';
-export type { Tracks } from './models/Tracks';
-export type { ValidationError } from './models/ValidationError';
-export type { VideoDevice } from './models/VideoDevice';
-export type { VideoSize } from './models/VideoSize';
-export type { VideoTrack } from './models/VideoTrack';
-export type { WebrtcOffer_Input } from './models/WebrtcOffer_Input';
-export type { WebrtcOffer_Output } from './models/WebrtcOffer_Output';
+export type { models_AudioDevice } from './models/models_AudioDevice';
+export type { models_AudioDeviceOptions } from './models/models_AudioDeviceOptions';
+export type { models_AudioTrack } from './models/models_AudioTrack';
+export type { models_Tracks } from './models/models_Tracks';
+export type { models_VideoDevice } from './models/models_VideoDevice';
+export type { models_VideoSize } from './models/models_VideoSize';
+export type { models_VideoTrack } from './models/models_VideoTrack';
+export type { models_WebrtcOffer } from './models/models_WebrtcOffer';
 
 export { DefaultService } from './services/DefaultService';

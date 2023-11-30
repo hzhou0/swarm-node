@@ -7,6 +7,8 @@ import signal
 import struct
 import sys
 from multiprocessing import Process, Pipe
+
+# noinspection PyProtectedMember
 from multiprocessing.connection import Connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock

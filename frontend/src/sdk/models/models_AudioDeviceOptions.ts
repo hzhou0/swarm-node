@@ -3,10 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type VideoSize = {
-    height: number;
-    width: number;
-    fps: Array<number>;
-    format: string;
+export type models_AudioDeviceOptions = {
+    name: string;
+    default: boolean;
+    volume: number;
+    mute: boolean;
 };
 

@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AudioDevice = {
+export type models_AudioDevice = {
     name: string;
     default: boolean;
     volume: number;
@@ -15,6 +15,6 @@ export type AudioDevice = {
     is_monitor: boolean;
     state: 'idle' | 'invalid' | 'running' | 'suspended';
     type: 'sink' | 'source';
-    properties?: (Record<string, any> | null);
+    properties?: (null | Record<string, any>);
 };
 

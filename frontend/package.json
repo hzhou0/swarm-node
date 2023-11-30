@@ -6,7 +6,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix --ignore-path .gitignore",
-    "gen_sdk": "../backend/_gen_openapi.py && openapi --input ../backend/openapi.json --output src/sdk --client fetch --name Client --useUnionTypes"
+    "gen_sdk": "./gen_openapi.py"
   },
   "dependencies": {
     "@mdi/font": "7.0.96",

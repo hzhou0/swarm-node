@@ -112,20 +112,20 @@
   </v-row>
 </template>
 <script setup lang="ts">
-import { AudioDevice } from "@/sdk";
+import { models_AudioDevice } from "@/sdk";
 
 defineProps<{
-  selectedDevice: AudioDevice | null | undefined;
+  selectedDevice: models_AudioDevice | null | undefined;
   selectedDeviceName: string | undefined;
-  devices: AudioDevice[] | undefined;
+  devices: models_AudioDevice[] | undefined;
   label: string;
 }>();
 defineEmits<{
   (e: "update:selectedDeviceName"): string;
-  (e: "update:selectedDevice"): AudioDevice;
+  (e: "update:selectedDevice"): models_AudioDevice;
 }>();
 
-const formFactorIcons: Map<AudioDevice["form_factor"] | null | undefined, string> = new Map([
+const formFactorIcons: Map<models_AudioDevice["form_factor"] | null | undefined, string> = new Map([
   ["car", "mdi-car"],
   ["computer", "mdi-desktop"],
   ["hands-free", "mdi-headset"],

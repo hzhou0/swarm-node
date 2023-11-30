@@ -3,14 +3,14 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { VideoSize } from './VideoSize';
+import type { models_VideoSize } from './models_VideoSize';
 
-export type VideoDevice = {
+export type models_VideoDevice = {
     name: string;
     index: number;
     closed: boolean;
     description: string;
     capabilities: Array<string>;
-    video_sizes: Array<VideoSize>;
+    video_sizes: Array<models_VideoSize>;
 };
 
