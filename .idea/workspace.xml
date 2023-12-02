@@ -4,37 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Streamline API">
-      <change afterPath="$PROJECT_DIR$/backend/requirements.dev.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shopping_cart.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shopping_cart.iml" afterDir="false" />
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Rebase using litestar">
+      <change afterPath="$PROJECT_DIR$/frontend/src/models.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/_gen_openapi.py" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/gen_openapi.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/ipc.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/ipc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/machine/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/machine/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/server.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/openapi.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/processes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/processes.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/util.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/gen_openapi.py" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/gen_openapi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/components/control_panel/AudioDeviceWidget.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/AudioDeviceWidget.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/control_panel/StreamSettings.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/StreamSettings.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/components/control_panel/store.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/store.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioDevice.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioDeviceOptions.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/AudioTrack.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/HTTPValidationError.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/Tracks.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/ValidationError.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/VideoDevice.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/VideoSize.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/VideoTrack.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/WebrtcOffer_Input.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/WebrtcOffer_Output.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/services/DefaultService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/services/DefaultService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/sdk/models/models_AudioDevice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/sdk/models/models_AudioDevice.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -124,7 +106,7 @@
     "git-widget-placeholder": "main",
     "javascript.nodejs.core.library.configured.version": "20.10.0",
     "javascript.nodejs.core.library.typings.version": "20.10.0",
-    "last_opened_file_path": "/home/henry/Desktop/shopping_cart/backend",
+    "last_opened_file_path": "/home/henry/Desktop/shopping_cart/frontend/gen_openapi.py",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.standard": "true",
     "node.js.detected.package.tslint": "true",
@@ -135,12 +117,13 @@
     "nodejs_package_manager_path": "npm",
     "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/shopping_cart/frontend/node_modules/prettier",
     "run.code.analysis.last.selected.profile": "pProject Default",
-    "settings.editor.selected.configurable": "com.jetbrains.python.black.configuration.BlackFormatterConfigurable",
+    "settings.editor.selected.configurable": "swagger",
     "ts.external.directory.path": "/home/henry/Desktop/shopping_cart/frontend/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   },
   "keyToStringList": {
     "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
+      "JSON",
       "PLAIN_TEXT"
     ],
     "vue.recent.templates": [
@@ -160,11 +143,11 @@
       <recent name="$PROJECT_DIR$/backend/public" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/frontend/scratch" />
       <recent name="$PROJECT_DIR$/frontend" />
       <recent name="$PROJECT_DIR$/backend" />
       <recent name="$PROJECT_DIR$/frontend/src/components" />
       <recent name="$PROJECT_DIR$/frontend/src/components/ControlPanel" />
-      <recent name="$PROJECT_DIR$/backend/util" />
     </key>
     <key name="es6.move.members.recent.items">
       <recent name="$PROJECT_DIR$/frontend/src/store.ts" />
@@ -311,7 +294,15 @@
       <workItem from="1701240468696" duration="5439000" />
       <workItem from="1701287626217" duration="3702000" />
       <workItem from="1701293403489" duration="1249000" />
-      <workItem from="1701301731638" duration="9503000" />
+      <workItem from="1701301731638" duration="11721000" />
+      <workItem from="1701329069574" duration="5134000" />
+      <workItem from="1701402840204" duration="8668000" />
+      <workItem from="1701411667216" duration="279000" />
+      <workItem from="1701412039946" duration="622000" />
+      <workItem from="1701473914851" duration="1199000" />
+      <workItem from="1701476844919" duration="1298000" />
+      <workItem from="1701494142264" duration="19000" />
+      <workItem from="1701494168566" duration="3634000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -545,7 +536,15 @@
       <option name="project" value="LOCAL" />
       <updated>1700989254751</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="Rebase using litestar">
+      <option name="closed" value="true" />
+      <created>1701314661913</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1701314661913</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -578,7 +577,8 @@
     <MESSAGE value="Refactor process manager" />
     <MESSAGE value="Video Streaming in machine process" />
     <MESSAGE value="Move models from basemodel to dataclasses" />
-    <option name="LAST_COMMIT_MESSAGE" value="Move models from basemodel to dataclasses" />
+    <MESSAGE value="Rebase using litestar" />
+    <option name="LAST_COMMIT_MESSAGE" value="Rebase using litestar" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -588,16 +588,21 @@
           <line>313</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/backend/api.py</url>
-          <line>91</line>
-          <option name="timeStamp" value="14" />
-        </line-breakpoint>
       </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1701314296912" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/shopping_cart$models.coverage" NAME="models Coverage Results" MODIFIED="1701496847596" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1701497759105" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/shopping_cart$Doctests_in_inspect.coverage" NAME="Doctests in inspect Coverage Results" MODIFIED="1701494573698" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend/venv/lib/python3.10/site-packages/msgspec" />
     <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
+    <SUITE FILE_PATH="coverage/shopping_cart$gen_openapi.coverage" NAME="gen_openapi Coverage Results" MODIFIED="1701497638196" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>

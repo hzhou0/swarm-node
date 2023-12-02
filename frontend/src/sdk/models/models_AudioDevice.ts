@@ -10,7 +10,7 @@ export type models_AudioDevice = {
     mute: boolean;
     description: string;
     driver: string;
-    form_factor: 'car' | 'computer' | 'hands-free' | 'handset' | 'headphone' | 'headset' | 'hifi' | 'internal' | 'microphone' | 'portable' | 'speaker' | 'tv' | 'webcam';
+    form_factor: 'car' | 'computer' | 'hands-free' | 'handset' | 'headphone' | 'headset' | 'hifi' | 'internal' | 'microphone' | 'portable' | 'speaker' | 'tv' | 'webcam' | 'unknown';
     index: number;
     is_monitor: boolean;
     state: 'idle' | 'invalid' | 'running' | 'suspended';

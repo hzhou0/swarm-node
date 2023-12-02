@@ -1,10 +1,10 @@
 import { defineStore } from "pinia";
 import { computed, ComputedRef, ref, Ref, watch } from "vue";
 import { client, Fetcher } from "@/util";
-import { models_AudioDevice, models_VideoDevice, models_VideoTrack } from "@/sdk";
+import { AudioDevice, VideoDevice, VideoTrack } from "@/models";
 import { useStorageAsync } from "@vueuse/core/index";
 
-export type VideoSetting = Partial<Omit<models_VideoTrack, "name">>;
+export type VideoSetting = Partial<Omit<VideoTrack, "name">>;
 
 export const useStreamStore = defineStore("Stream", () => {
   const f = new Fetcher(
@@ -15,7 +15,7 @@ export const useStreamStore = defineStore("Stream", () => {
     5000,
   );
   const data = f.data;
-  async function setAudioDevice(val: models_AudioDevice | undefined) {
+  async function setAudioDevice(val: AudioDevice | undefined) {
     if (val != null) {
       if (f.data.audioDevices != null) {
         const i = f.data.audioDevices.findIndex((v) => v.name == val.name);
@@ -63,7 +63,7 @@ export const useStreamStore = defineStore("Stream", () => {
     },
     set: setAudioDevice,
   });
-  const videoInput: Ref<models_VideoDevice | null> = ref(null);
+  const videoInput: Ref<VideoDevice | null> = ref(null);
   const preferredVideoInput: Ref<string | null> = useStorageAsync("preferredVideoInput", null);
   watch(videoInput, (v) => {
     if (v != null) {
@@ -71,7 +71,7 @@ export const useStreamStore = defineStore("Stream", () => {
     }
   });
   const videoSettings: Ref<Record<string, VideoSetting>> = useStorageAsync("videoSettings", {});
-  const videoStreamSettings: ComputedRef<models_VideoTrack | null> = computed(() => {
+  const videoStreamSettings: ComputedRef<VideoTrack | null> = computed(() => {
     if (videoInput.value == null || !(videoInput.value.name in videoSettings.value)) {
       return null;
     }

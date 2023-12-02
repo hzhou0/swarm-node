@@ -21,7 +21,7 @@ if __name__ == "__main__":
             pass
 
     # imported here because it depends on PROCESSES
-    from api import server
+    from server import server
 
     config = uvicorn.Config(
         server, host="127.0.0.1", port=8080, workers=1, access_log=False

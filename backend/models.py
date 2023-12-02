@@ -32,7 +32,7 @@ class AudioDevice(AudioDeviceOptions):
         "speaker",
         "tv",
         "webcam",
-        None,
+        "unknown",
     ]
     index: int
     is_monitor: bool
@@ -52,7 +52,7 @@ class AudioDevice(AudioDeviceOptions):
             default=d.name == default_name,
             description=d.description,
             driver=d.driver,
-            form_factor=d.proplist.get("device.form_factor"),
+            form_factor=d.proplist.get("device.form_factor", "unknown"),
             index=d.index,
             is_monitor=d.proplist.get("device.class") == "monitor",
             mute=bool(d.mute),

@@ -89,4 +89,3 @@ server = Litestar(
     ),
     debug=os.getenv("env") == "dev",
 )
-pass
