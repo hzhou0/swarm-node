@@ -10,13 +10,14 @@
       <excludeFolder url="file://$MODULE_DIR$/old_frontend/.quasar" />
       <excludeFolder url="file://$MODULE_DIR$/backend/public" />
       <excludeFolder url="file://$MODULE_DIR$/stereo_calibration" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/log" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.10 (shopping_cart)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PackageRequirementsSettings">
     <option name="requirementsPath" value="$MODULE_DIR$/backend/requirements.txt" />
-    <option name="versionSpecifier" value="Strong equality (==x.y.z)" />
     <option name="modifyBaseFiles" value="true" />
   </component>
   <component name="PyNamespacePackagesService">

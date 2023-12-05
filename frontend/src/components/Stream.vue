@@ -2,7 +2,7 @@
   <v-card>
     <v-row justify="center">
       <v-col cols="auto">
-        <audio :autoplay="true"></audio>
+        <audio ref="audio" :autoplay="true"></audio>
         <video
           ref="video"
           :autoplay="true"
@@ -28,10 +28,10 @@
 import { ref, shallowRef, ShallowRef } from "vue";
 import { client } from "@/util";
 import { storeToRefs } from "pinia";
-import { useStreamStore } from "@/components/control_panel/store";
+import { useStreamStore } from "@/store/devices";
 import InfoPane from "@/components/InfoPane.vue";
 
-const { videoStreamSettings } = storeToRefs(useStreamStore());
+const { videoTrackSettings } = storeToRefs(useStreamStore());
 
 const video = ref<HTMLVideoElement | null>(null);
 const videoUIMode = ref(0);
@@ -118,7 +118,7 @@ async function negotiate() {
         client_video: false,
         client_audio: false,
         machine_audio: null,
-        machine_video: videoStreamSettings.value,
+        machine_video: videoTrackSettings.value,
       },
     });
     return newPC.setRemoteDescription(answer);
@@ -128,7 +128,7 @@ async function negotiate() {
 }
 
 async function start() {
-  if (!videoStreamSettings.value) {
+  if (!videoTrackSettings.value) {
     return;
   }
   await negotiate();

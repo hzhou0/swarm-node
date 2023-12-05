@@ -112,7 +112,7 @@
   </v-row>
 </template>
 <script setup lang="ts">
-import { AudioDevice } from "@/models";
+import { AudioDevice } from "@/generated/models";
 
 defineProps<{
   selectedDevice: AudioDevice | null | undefined;
