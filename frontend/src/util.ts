@@ -1,14 +1,10 @@
 import { ref, Ref } from "vue";
-import { Client } from "@/sdk";
-
-const baseClient = new Client({
-  BASE: import.meta.env.DEV ? "http://localhost:8080" : window.location.origin,
-  HEADERS: {
-    "Content-Type": "application/json",
-  },
-});
-export const client = baseClient.default;
-
+import * as sdk from "@/generated/sdk";
+sdk.defaults.baseUrl = import.meta.env.DEV ? "http://localhost:8080" : window.location.origin;
+sdk.defaults.headers = {
+  "Content-Type": "application/json",
+};
+export const client = sdk;
 export class Fetcher<T extends { [k: string]: () => Promise<any> }> {
   private _data: Ref<{ [P in keyof T]?: Awaited<ReturnType<T[P]>> }> = ref({});
   private handler?: number;

@@ -18,6 +18,11 @@ class AudioDeviceOptions(Struct, frozen=True):
 class AudioDevice(AudioDeviceOptions):
     description: str
     driver: str
+    index: int
+    is_monitor: bool
+    state: Literal["idle", "invalid", "running", "suspended"]
+    type: Literal["sink", "source"]
+    properties: dict[str, Any] | None = None
     form_factor: Literal[
         "car",
         "computer",
@@ -33,12 +38,7 @@ class AudioDevice(AudioDeviceOptions):
         "tv",
         "webcam",
         "unknown",
-    ]
-    index: int
-    is_monitor: bool
-    state: Literal["idle", "invalid", "running", "suspended"]
-    type: Literal["sink", "source"]
-    properties: dict[str, Any] | None = None
+    ] | None = None
 
     @classmethod
     def from_pa(
@@ -52,7 +52,7 @@ class AudioDevice(AudioDeviceOptions):
             default=d.name == default_name,
             description=d.description,
             driver=d.driver,
-            form_factor=d.proplist.get("device.form_factor", "unknown"),
+            form_factor=d.proplist.get("device.form_factor"),
             index=d.index,
             is_monitor=d.proplist.get("device.class") == "monitor",
             mute=bool(d.mute),
