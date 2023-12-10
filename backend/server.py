@@ -5,6 +5,7 @@ import time
 from typing import Literal
 
 import msgspec
+from litestar import Litestar, Router, get, put
 from litestar.config.cors import CORSConfig
 from litestar.exceptions import HTTPException
 from litestar.logging import LoggingConfig
@@ -18,7 +19,6 @@ from models import (
     AudioDeviceOptions,
 )
 from processes import PROCESSES
-from litestar import Litestar, Router, get, put, post
 
 
 @get("/devices/audio", sync_to_thread=False)
@@ -43,7 +43,7 @@ def list_video_devices() -> list[VideoDevice]:
     return [*PROCESSES.machine.state().devices.video.values()]
 
 
-@post("/webrtc")
+@put("/webrtc")
 async def webrtc_offer(data: WebrtcOffer) -> WebrtcOffer:
     prev_offer = PROCESSES.machine.state().webrtc_offer
     PROCESSES.machine.mutate(data)

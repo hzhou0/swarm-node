@@ -12,8 +12,24 @@
       </v-col>
     </v-row>
     <v-card-actions>
-      <v-btn v-if="pc == null" prepend-icon="mdi-play" @click="start">Connect</v-btn>
-      <v-btn v-else prepend-icon="mdi-stop" @click="stop">Disconnect</v-btn>
+      <v-btn
+        v-if="stream.tracks.machineAudio == null && stream.tracks.machineVideo == null"
+        prepend-icon="mdi-play"
+        @click="stream.negotiate(true, true)"
+      >
+        Connect
+      </v-btn>
+      <v-btn v-else prepend-icon="mdi-stop" @click="stopMediaStreams">Disconnect</v-btn>
+      <v-slider
+        v-model="playerState.volume"
+        min="0"
+        max="1"
+        step="0.01"
+        :prepend-icon="playerState.mute ? 'mdi-volume-mute' : 'mdi-volume-source'"
+        hide-details
+        style="max-width: 20%"
+        @click:prepend="playerState.mute = !playerState.mute"
+      ></v-slider>
       <v-spacer></v-spacer>
       <v-btn-toggle v-model="videoUIMode" mandatory>
         <v-btn icon="mdi-video"></v-btn>
@@ -21,122 +37,44 @@
         <v-btn icon="mdi-information"></v-btn>
       </v-btn-toggle>
     </v-card-actions>
-    <InfoPane v-if="videoUIMode == 2" :model-value="pcStats"></InfoPane>
+    <InfoPane v-if="videoUIMode == 2" :model-value="stream.pcStats"></InfoPane>
   </v-card>
 </template>
 <script setup lang="ts">
-import { ref, shallowRef, ShallowRef } from "vue";
-import { client } from "@/util";
-import { storeToRefs } from "pinia";
-import { useStreamStore } from "@/store/devices";
+import { ref, watch, watchEffect } from "vue";
 import InfoPane from "@/components/InfoPane.vue";
+import { useStreamStore } from "@/store/stream";
 
-const { videoTrackSettings } = storeToRefs(useStreamStore());
+const stream = useStreamStore();
 
-const video = ref<HTMLVideoElement | null>(null);
+const video = ref<HTMLAudioElement | null>(null);
+const audio = ref<HTMLVideoElement | null>(null);
+const playerState = ref({
+  mute: false,
+  volume: 1,
+});
+watchEffect(() => {
+  if (audio.value) {
+    audio.value.muted = playerState.value.mute;
+    audio.value.volume = playerState.value.volume;
+  }
+});
+watch(stream.tracks, (val) => {
+  if (video.value) {
+    video.value.srcObject = val.machineVideo;
+  }
+  if (audio.value) {
+    audio.value.srcObject = val.machineAudio;
+  }
+});
+function stopMediaStreams() {
+  stream.negotiate(false, false);
+  if (video.value) {
+    video.value.srcObject = null;
+  }
+  if (audio.value) {
+    audio.value.srcObject = null;
+  }
+}
 const videoUIMode = ref(0);
-
-const pc = shallowRef<RTCPeerConnection | null>(null);
-
-type InterfaceToType<T> = T extends object ? Pick<T, keyof T> : T;
-type InterfaceToTypeDeep<T> = { [P in keyof T]: InterfaceToType<T[P]> };
-type RTCPeerConnectionStats = InterfaceToTypeDeep<{
-  transport?: RTCTransportStats;
-  candidatePair?: RTCIceCandidatePairStats;
-  inbound_video?: RTCInboundRtpStreamStats;
-  inbound_audio?: RTCInboundRtpStreamStats;
-  outbound_video?: RTCOutboundRtpStreamStats;
-  outbound_audio?: RTCOutboundRtpStreamStats;
-  remote?: RTCIceCandidate;
-}>;
-const pcStats: ShallowRef<RTCPeerConnectionStats | null> = shallowRef(null);
-
-setInterval(async () => {
-  if (pc.value == null) {
-    return;
-  }
-  const newStats: RTCPeerConnectionStats = {};
-  const stats = (await pc.value.getStats()) as Map<
-    string | undefined,
-    NonNullable<RTCPeerConnectionStats[keyof RTCPeerConnectionStats]>
-  >;
-  stats.forEach((s) => {
-    if (s.type == "transport") {
-      newStats.transport = s as RTCTransportStats;
-    } else if (s.type == "inbound-rtp" && "kind" in s && s.kind == "video") {
-      newStats.inbound_video = s as RTCInboundRtpStreamStats;
-    } else if (s.type == "inbound-rtp" && "kind" in s && s.kind == "audio") {
-      newStats.inbound_audio = s as RTCInboundRtpStreamStats;
-    } else if (s.type == "outbound-rtp" && "kind" in s && s.kind == "video") {
-      newStats.outbound_video = s as RTCOutboundRtpStreamStats;
-    } else if (s.type == "outbound-rtp" && "kind" in s && s.kind == "audio") {
-      newStats.outbound_audio = s as RTCOutboundRtpStreamStats;
-    }
-  });
-  const candidatePairId = newStats.transport?.selectedCandidatePairId;
-  if (candidatePairId) {
-    newStats.candidatePair = stats.get(candidatePairId) as RTCIceCandidatePairStats;
-  }
-  const remoteCandidateId = newStats.candidatePair?.remoteCandidateId;
-  if (remoteCandidateId) {
-    newStats.remote = stats.get(remoteCandidateId) as RTCIceCandidate;
-  }
-  pcStats.value = newStats;
-}, 1000);
-
-async function negotiate() {
-  const newPC = new RTCPeerConnection({
-    iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
-  });
-  pc.value = newPC;
-  newPC.addEventListener("track", (evt) => {
-    if (evt.track.kind == "video" && video.value) {
-      video.value.srcObject = evt.streams[0];
-    }
-  });
-  newPC.addTransceiver("video", { direction: "recvonly" });
-  newPC.addTransceiver("audio", { direction: "recvonly" });
-  try {
-    const offer = await newPC.createOffer();
-    await newPC.setLocalDescription(offer);
-
-    if (newPC.iceGatheringState !== "complete") {
-      await new Promise((resolve) => {
-        const checkState = () => {
-          if (newPC.iceGatheringState === "complete") {
-            newPC.removeEventListener("icegatheringstatechange", checkState);
-            resolve(null);
-          }
-        };
-        newPC.addEventListener("icegatheringstatechange", checkState);
-      });
-    }
-    const answer = await client.webrtcOffer({
-      sdp: offer.sdp as string,
-      type: offer.type,
-      tracks: {
-        client_video: false,
-        client_audio: false,
-        machine_audio: null,
-        machine_video: videoTrackSettings.value,
-      },
-    });
-    return newPC.setRemoteDescription(answer);
-  } catch (e) {
-    alert(e);
-  }
-}
-
-async function start() {
-  if (!videoTrackSettings.value) {
-    return;
-  }
-  await negotiate();
-}
-
-async function stop() {
-  pc.value?.close();
-  pc.value = null;
-  pcStats.value = null;
-}
 </script>
