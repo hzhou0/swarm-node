@@ -6,7 +6,7 @@ import { useStorageAsync } from "@vueuse/core/index";
 
 export type VideoSetting = Partial<Omit<VideoTrack, "name">>;
 
-export const useStreamStore = defineStore("Stream", () => {
+export const useDeviceStore = defineStore("Device", () => {
   const f = new Fetcher(
     {
       audioDevices: () => client.listAudioDevices(),

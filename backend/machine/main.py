@@ -120,7 +120,9 @@ async def handle_offer(offer: WebrtcOffer):
         else:
             direction = "sendonly"
         track_or_kind = MediaPlayer(
-            offer.tracks.machine_audio.name, format="pulse"
+            offer.tracks.machine_audio.name,
+            format="pulse",
+            options={"fragment_size": "512"},
         ).audio
     elif offer.tracks.client_video:
         direction = "recvonly"

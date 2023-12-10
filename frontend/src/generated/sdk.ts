@@ -134,7 +134,7 @@ export function listVideoDevices(opts?: Oazapfts.RequestOpts) {
  */
 export function webrtcOffer(modelsWebrtcOffer: WebrtcOffer, opts?: Oazapfts.RequestOpts) {
     return oazapfts.ok(oazapfts.fetchJson<{
-        status: 201;
+        status: 200;
         data: WebrtcOffer;
     } | {
         status: 400;
@@ -147,7 +147,7 @@ export function webrtcOffer(modelsWebrtcOffer: WebrtcOffer, opts?: Oazapfts.Requ
         };
     }>("/api/webrtc", oazapfts.json({
         ...opts,
-        method: "POST",
+        method: "PUT",
         body: modelsWebrtcOffer
     })));
 }
