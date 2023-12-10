@@ -90,20 +90,30 @@ export const useStreamStore = defineStore("Stream", () => {
     });
     pc.value = newPC;
 
+    dataChannel.value = null;
+    const newDataChannel = newPC.createDataChannel("control", { ordered: false });
+    newDataChannel.onopen = () => {
+      dataChannel.value = newDataChannel;
+    };
+
     tracks.value.machineAudio = null;
     tracks.value.machineVideo = null;
     newPC.addEventListener("track", (evt) => {
       if (evt.track.kind == "video" && machineVideo) {
-        tracks.value.machineVideo = evt.streams[0];
+        const videoOnly = new MediaStream();
+        evt.streams[0].getVideoTracks().forEach((track) => {
+          videoOnly.addTrack(track.clone());
+        });
+        tracks.value.machineVideo = videoOnly;
       } else if (evt.track.kind == "audio" && machineAudio) {
-        tracks.value.machineAudio = evt.streams[0];
+        const audioOnly = new MediaStream();
+        evt.streams[0].getAudioTracks().forEach((track) => {
+          audioOnly.addTrack(track.clone());
+        });
+        tracks.value.machineAudio = audioOnly;
       }
     });
-    dataChannel.value = null;
-    const newDataChannel = newPC.createDataChannel("control", { ordered: false });
-    newDataChannel.onopen = (evt) => {
-      dataChannel.value = newDataChannel;
-    };
+
     if (machineAudio) {
       if (tracks.value.clientAudio) {
         newPC.addTransceiver("audio", { direction: "sendrecv" });

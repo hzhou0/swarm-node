@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from multiprocessing import connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
@@ -13,6 +14,8 @@ from aiortc import (
     RTCSessionDescription,
     RTCRtpSender,
     RTCDataChannel,
+    RTCConfiguration,
+    RTCIceServer,
 )
 from aiortc.contrib.media import MediaPlayer
 
@@ -79,7 +82,17 @@ def on_datachannel(channel: RTCDataChannel):
 
 
 async def handle_offer(offer: WebrtcOffer):
-    pc = RTCPeerConnection()
+    import aioice.stun
+
+    # aioice attempts stun lookup on privet network ports: these queries will never resolve
+    # These attempts will timeout after 5 seconds, making connection take 5+ seconds
+    # Modifying retry globals here to make it fail faster and retry more aggresively
+    # Retries follow an exponential fallback: 1,2,4,8 * RETRY_RTO
+    aioice.stun.RETRY_MAX = 2
+    aioice.stun.RETRY_RTO = 0.01
+    pc = RTCPeerConnection(
+        RTCConfiguration([RTCIceServer(urls="stun:stun.l.google.com:19302")])
+    )
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
     pc.add_listener("datachannel", lambda channel: on_datachannel(channel))
 
@@ -137,7 +150,9 @@ async def handle_offer(offer: WebrtcOffer):
         )
 
     await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))
+    start = time.time()
     await pc.setLocalDescription(await pc.createAnswer())
+    logging.info(f"ICE Candidates gathered in {time.time() - start}")
     _state.webrtc_offer = WebrtcOffer(
         sdp=pc.localDescription.sdp, type=pc.localDescription.type, tracks=offer.tracks
     )
