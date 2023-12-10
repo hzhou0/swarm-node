@@ -1,7 +1,8 @@
+aioice
 aiortc==1.6.0
 v4l2py==2.3.0
 pulsectl_asyncio==1.1.1
-litestar @ git+https://github.com/hzhou0/litestar@main
+litestar==2.4.3
 uvicorn[standard]==0.23.2
 uvloop==0.19.0
 pulsectl==23.5.2

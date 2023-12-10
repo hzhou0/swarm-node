@@ -47,8 +47,8 @@ import { useStreamStore } from "@/store/stream";
 
 const stream = useStreamStore();
 
-const video = ref<HTMLAudioElement | null>(null);
-const audio = ref<HTMLVideoElement | null>(null);
+const video = ref<HTMLVideoElement | null>(null);
+const audio = ref<HTMLAudioElement | null>(null);
 const playerState = ref({
   mute: false,
   volume: 1,
