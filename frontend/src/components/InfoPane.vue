@@ -1,5 +1,5 @@
 <template>
-  <v-row v-if="modelValue != null" no-gutters>
+  <v-row v-if="modelValue != null">
     <v-col cols="auto">
       <v-text-field
         v-model="search"
