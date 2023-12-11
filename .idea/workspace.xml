@@ -4,19 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Optimize aioice stun process, mediastream fixes">
-      <change beforePath="$PROJECT_DIR$/.gitattributes" beforeDir="false" afterPath="$PROJECT_DIR$/.gitattributes" afterDir="false" />
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="UI changes, fix git lfs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/requirements.dev.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements-dev.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/public/favicon.ico" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/public/test.mp4" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/App.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/InfoPane.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/InfoPane.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/Stream.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/Stream.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/control_panel/ControlPanel.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/ControlPanel.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/plugins/vuetify.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/plugins/vuetify.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/store/devices.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/store/devices.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/stereo_calibration/static/rectify_system.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/stereo_calibration/static/rectify_system.pkl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/control_panel/AudioDeviceWidget.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/control_panel/AudioDeviceWidget.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -322,7 +312,7 @@
       <workItem from="1702248084906" duration="47000" />
       <workItem from="1702248140188" duration="1793000" />
       <workItem from="1702251302599" duration="7907000" />
-      <workItem from="1702278654470" duration="392000" />
+      <workItem from="1702278654470" duration="858000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -596,7 +586,15 @@
       <option name="project" value="LOCAL" />
       <updated>1702245831363</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="UI changes, fix git lfs">
+      <option name="closed" value="true" />
+      <created>1702279172647</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1702279172647</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -640,7 +638,8 @@
     <MESSAGE value="Switch generated sdks" />
     <MESSAGE value="Initial PoC on datachannels" />
     <MESSAGE value="Optimize aioice stun process, mediastream fixes" />
-    <option name="LAST_COMMIT_MESSAGE" value="Optimize aioice stun process, mediastream fixes" />
+    <MESSAGE value="UI changes, fix git lfs" />
+    <option name="LAST_COMMIT_MESSAGE" value="UI changes, fix git lfs" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
