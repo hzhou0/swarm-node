@@ -121,8 +121,8 @@ defineProps<{
   label: string;
 }>();
 defineEmits<{
-  (e: "update:selectedDeviceName"): string;
-  (e: "update:selectedDevice"): AudioDevice;
+  "update:selectedDeviceName": [val: string];
+  "update:selectedDevice": [val: AudioDevice];
 }>();
 
 const formFactorIcons: Map<AudioDevice["form_factor"] | null | undefined, string> = new Map([
