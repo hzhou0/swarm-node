@@ -2,11 +2,24 @@
   <v-app>
     <v-main>
       <v-app-bar density="compact">
-        <v-app-bar-nav-icon></v-app-bar-nav-icon>
-        <v-app-bar-title>Control Panel</v-app-bar-title>
+        <v-app-bar-nav-icon @click="showControlPanel = !showControlPanel"></v-app-bar-nav-icon>
+        <v-app-bar-title v-if="!mobile">Control Panel</v-app-bar-title>
         <v-spacer></v-spacer>
         <v-btn @click="streamStore?.dataChannel?.send('hi there')">Send datachannel</v-btn>
+        <template v-if="mobile" #extension>
+          <v-btn-toggle
+            :model-value="streamStatus"
+            style="pointer-events: none"
+            multiple
+            rounded="0"
+            color="success"
+            class="flex-wrap pa-2"
+          >
+            <v-btn v-for="name in streamStatusMembers" :key="name" size="x-small">{{ name }}</v-btn>
+          </v-btn-toggle>
+        </template>
         <v-btn-toggle
+          v-if="!mobile"
           variant="outlined"
           :model-value="streamStatus"
           class="mx-4"
@@ -19,11 +32,13 @@
         </v-btn-toggle>
       </v-app-bar>
       <v-container fluid>
-        <v-row class="fill-height" no-gutters>
+        <v-row class="fill-height">
+          <v-slide-x-transition>
+            <v-col v-if="showControlPanel" lg="4" sm="12">
+              <ControlPanel></ControlPanel>
+            </v-col>
+          </v-slide-x-transition>
           <v-col>
-            <ControlPanel></ControlPanel>
-          </v-col>
-          <v-col cols="8">
             <Stream />
           </v-col>
         </v-row>
@@ -35,7 +50,11 @@
 import Stream from "@/components/Stream.vue";
 import ControlPanel from "@/components/control_panel/ControlPanel.vue";
 import { useStreamStore } from "@/store/stream";
-import { computed } from "vue";
+import { computed, ref } from "vue";
+import { useDisplay } from "vuetify";
+
+const showControlPanel = ref(true);
+const { mobile } = useDisplay();
 
 const streamStore = useStreamStore();
 if (streamStore.pc == null) {

@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { computed, ComputedRef, ref, Ref, watch } from "vue";
 import { client, Fetcher } from "@/util";
 import { AudioDevice, VideoDevice, VideoTrack } from "@/generated/models";
-import { useStorageAsync } from "@vueuse/core/index";
+import { useStorageAsync } from "@vueuse/core";
 
 export type VideoSetting = Partial<Omit<VideoTrack, "name">>;
 
