@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Fix types">
-      <change afterPath="$PROJECT_DIR$/tunnels/main.tf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Cloudflare infrastructure Terraform">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -96,7 +94,7 @@
     "git-widget-placeholder": "main",
     "javascript.nodejs.core.library.configured.version": "20.10.0",
     "javascript.nodejs.core.library.typings.version": "20.10.4",
-    "last_opened_file_path": "/home/henry/Desktop/shopping_cart/frontend/public",
+    "last_opened_file_path": "/home/henry/Desktop/shopping_cart/backend_iso/isolinux",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.standard": "true",
     "node.js.detected.package.tslint": "true",
@@ -114,6 +112,7 @@
   },
   "keyToStringList": {
     "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
+      "TEXT",
       "JSON",
       "PLAIN_TEXT"
     ],
@@ -127,18 +126,18 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/backend_iso/isolinux" />
+      <recent name="$PROJECT_DIR$/backend_iso" />
       <recent name="$PROJECT_DIR$/frontend/public" />
       <recent name="$PROJECT_DIR$/frontend/src/store" />
       <recent name="$PROJECT_DIR$/backend" />
-      <recent name="$PROJECT_DIR$/backend/util" />
-      <recent name="$PROJECT_DIR$/frontend/src/assets" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/backend_iso/dist" />
+      <recent name="$PROJECT_DIR$/backend_iso" />
+      <recent name="$PROJECT_DIR$/backend_iso/http" />
       <recent name="$PROJECT_DIR$/frontend/src/store" />
       <recent name="$PROJECT_DIR$/backend" />
-      <recent name="$PROJECT_DIR$/backend/dist" />
-      <recent name="$PROJECT_DIR$/frontend/src" />
-      <recent name="$PROJECT_DIR$/frontend/scratch" />
     </key>
     <key name="es6.move.members.recent.items">
       <recent name="$PROJECT_DIR$/frontend/src/store.ts" />
@@ -316,7 +315,8 @@
       <workItem from="1702278654470" duration="2167000" />
       <workItem from="1702704468119" duration="25000" />
       <workItem from="1702704503193" duration="4396000" />
-      <workItem from="1702762730943" duration="7876000" />
+      <workItem from="1702762730943" duration="8390000" />
+      <workItem from="1702790862352" duration="33224000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -606,7 +606,15 @@
       <option name="project" value="LOCAL" />
       <updated>1702279612327</updated>
     </task>
-    <option name="localTasksCounter" value="37" />
+    <task id="LOCAL-00037" summary="Cloudflare infrastructure Terraform">
+      <option name="closed" value="true" />
+      <created>1702771001844</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1702771001844</updated>
+    </task>
+    <option name="localTasksCounter" value="38" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -670,7 +678,8 @@
     <MESSAGE value="Optimize aioice stun process, mediastream fixes" />
     <MESSAGE value="UI changes, fix git lfs" />
     <MESSAGE value="Fix types" />
-    <option name="LAST_COMMIT_MESSAGE" value="Fix types" />
+    <MESSAGE value="Cloudflare infrastructure Terraform" />
+    <option name="LAST_COMMIT_MESSAGE" value="Cloudflare infrastructure Terraform" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
