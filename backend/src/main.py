@@ -6,12 +6,13 @@ import sys
 import uvicorn
 
 from processes import Processes
-from util import configure_root_logger
+from util import configure_root_logger, provision_app_dirs
 
 if __name__ == "__main__":
     assert sys.platform == "linux"
     multiprocessing.set_start_method("spawn")
     faulthandler.enable()
+    provision_app_dirs()
     configure_root_logger(clear_log_files=os.getenv("env") == "dev")
     Processes.init()
 

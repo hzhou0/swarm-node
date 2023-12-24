@@ -2,16 +2,15 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/backend" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/frontend" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/shared/venv" />
       <excludeFolder url="file://$MODULE_DIR$/stereo_calibration/venv" />
-      <excludeFolder url="file://$MODULE_DIR$/backend/venv" />
       <excludeFolder url="file://$MODULE_DIR$/old_frontend/.quasar" />
-      <excludeFolder url="file://$MODULE_DIR$/backend/public" />
       <excludeFolder url="file://$MODULE_DIR$/stereo_calibration" />
       <excludeFolder url="file://$MODULE_DIR$/backend/dist" />
-      <excludeFolder url="file://$MODULE_DIR$/backend/log" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/src/log" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/src/venv" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.10 (shopping_cart)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
@@ -24,7 +23,6 @@
     <option name="namespacePackageFolders">
       <list>
         <option value="$MODULE_DIR$/stereo_calibration" />
-        <option value="$MODULE_DIR$/backend" />
       </list>
     </option>
   </component>
