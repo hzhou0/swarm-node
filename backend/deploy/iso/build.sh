@@ -1,4 +1,8 @@
 #!/bin/bash
+if [[ -z "$CF_TUNNEL_TOKEN" ]]; then
+  echo "Error: CF_TUNNEL_TOKEN is not set."
+  exit 1
+fi
 cd "$(dirname "$0")" || exit
 mkdir -p dist
 cd ./dist || exit
@@ -28,15 +32,14 @@ fi
 xorriso -osirrox on -indev "${original_iso}" -extract / "${tmp_dir}"
 
 # Copy the preseed file to the appropriate location
-chmod +w -R "${tmp_dir}"/install.amd/
-gunzip "${tmp_dir}"/install.amd/initrd.gz
-cat "${preseed_file}" > ${tmp_dir}/"preseed.cfg"
-cat "../post_install.sh" > ${tmp_dir}/"post_install.sh"
-cat "../grub/grub.cfg" > ${tmp_dir}/boot/grub/grub.cfg
-cat "../isolinux/gtk.cfg" > ${tmp_dir}/isolinux/gtk.cfg
-cat "../isolinux/isolinux.cfg" > ${tmp_dir}/isolinux/isolinux.cfg
-gzip "${tmp_dir}"/install.amd/initrd
-chmod -w -R "${tmp_dir}"/install.amd/
+sudo gunzip "${tmp_dir}"/install.amd/initrd.gz
+sudo cp "${preseed_file}" ${tmp_dir}/"preseed.cfg"
+sudo cp "../post_install.sh" ${tmp_dir}/"post_install.sh"
+echo -e "\necho '$CF_TUNNEL_TOKEN' > /home/node/CF_TUNNEL_TOKEN" | sudo tee -a ${tmp_dir}/"post_install.sh" > /dev/null
+sudo cp "../grub/grub.cfg" ${tmp_dir}/boot/grub/grub.cfg
+sudo cp "../isolinux/gtk.cfg" ${tmp_dir}/isolinux/gtk.cfg
+sudo cp "../isolinux/isolinux.cfg" ${tmp_dir}/isolinux/isolinux.cfg
+sudo gzip "${tmp_dir}"/install.amd/initrd
 
 cd "${tmp_dir}" || exit
 chmod +w md5sum.txt
@@ -45,7 +48,7 @@ chmod -w md5sum.txt
 cd ..
 
 
-xorrisofs -o "${output_iso}" \
+sudo xorrisofs -o "${output_iso}" \
   -b isolinux/isolinux.bin -c isolinux/boot.cat \
   -no-emul-boot -boot-load-size 4 -boot-info-table \
   -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \

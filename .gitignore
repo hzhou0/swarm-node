@@ -4,3 +4,4 @@ backend/log/**
 backend/dist/**
 **/terraform.tfstate
 **/.terraform/**
+swarmnode
