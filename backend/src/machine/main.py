@@ -28,7 +28,7 @@ from models import (
     MachineState,
     MachineMutation,
 )
-from util import configure_root_logger
+from util import configure_root_logger, ice_servers
 
 _state = MachineState()
 _pc: RTCPeerConnection = RTCPeerConnection()
@@ -76,9 +76,18 @@ async def on_connectionstatechange(pc: RTCPeerConnection):
 
 def on_datachannel(channel: RTCDataChannel):
     def on_message(message):
+        logging.info(time.time())
         logging.info(f"Received message {message}")
 
     channel.on("message", on_message)
+
+
+_rtc_config = RTCConfiguration(
+    [
+        RTCIceServer(urls=s.urls, username=s.username, credential=s.credential)
+        for s in ice_servers
+    ]
+)
 
 
 async def handle_offer(offer: WebrtcOffer):
@@ -90,9 +99,7 @@ async def handle_offer(offer: WebrtcOffer):
     # Retries follow an exponential fallback: 1,2,4,8 * RETRY_RTO
     aioice.stun.RETRY_MAX = 2
     aioice.stun.RETRY_RTO = 0.01
-    pc = RTCPeerConnection(
-        RTCConfiguration([RTCIceServer(urls="stun:stun.l.google.com:19302")])
-    )
+    pc = RTCPeerConnection(_rtc_config)
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
     pc.add_listener("datachannel", lambda channel: on_datachannel(channel))
 

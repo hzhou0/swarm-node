@@ -50,6 +50,14 @@ export type VideoDevice = {
     capabilities: string[];
     video_sizes: VideoSize[];
 };
+export type IceServer = {
+    urls: string;
+    username?: null | string;
+    credential?: null | string;
+};
+export type WebrtcInfo = {
+    ice_servers: IceServer[];
+};
 export type VideoTrack = {
     name: string;
     height: number;
@@ -100,7 +108,7 @@ export function listAudioDevices({ $type, includeProperties }: {
 /**
  * PutAudioDevice
  */
-export function putAudioDevice(modelsAudioDeviceOptions: AudioDeviceOptions, opts?: Oazapfts.RequestOpts) {
+export function putAudioDevice(audioDeviceOptions: AudioDeviceOptions, opts?: Oazapfts.RequestOpts) {
     return oazapfts.ok(oazapfts.fetchJson<{
         status: 200;
     } | {
@@ -115,7 +123,7 @@ export function putAudioDevice(modelsAudioDeviceOptions: AudioDeviceOptions, opt
     }>("/api/devices/audio", oazapfts.json({
         ...opts,
         method: "PUT",
-        body: modelsAudioDeviceOptions
+        body: audioDeviceOptions
     })));
 }
 /**
@@ -130,9 +138,20 @@ export function listVideoDevices(opts?: Oazapfts.RequestOpts) {
     }));
 }
 /**
+ * WebrtcInfo
+ */
+export function webrtcInfo(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 200;
+        data: WebrtcInfo;
+    }>("/api/webrtc", {
+        ...opts
+    }));
+}
+/**
  * WebrtcOffer
  */
-export function webrtcOffer(modelsWebrtcOffer: WebrtcOffer, opts?: Oazapfts.RequestOpts) {
+export function webrtcOffer(webrtcOffer: WebrtcOffer, opts?: Oazapfts.RequestOpts) {
     return oazapfts.ok(oazapfts.fetchJson<{
         status: 200;
         data: WebrtcOffer;
@@ -148,6 +167,6 @@ export function webrtcOffer(modelsWebrtcOffer: WebrtcOffer, opts?: Oazapfts.Requ
     }>("/api/webrtc", oazapfts.json({
         ...opts,
         method: "PUT",
-        body: modelsWebrtcOffer
+        body: webrtcOffer
     })));
 }

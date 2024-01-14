@@ -1,6 +1,3 @@
 **/__pycache__
-**/node_modules/**
 backend/src/venv/
-**/terraform.tfstate
-**/.terraform/**
-swarmnode
+**/.env

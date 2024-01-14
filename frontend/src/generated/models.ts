@@ -73,6 +73,12 @@ export interface VideoSize {
   format: string;
 }
 
+export interface IceServer {
+  urls: string;
+  username?: string | null;
+  credential?: string | null;
+}
+
 export interface MachineState {
   devices?: Devices;
   webrtc_offer?: null | WebrtcOffer;
@@ -99,16 +105,6 @@ export interface VideoTrack {
   format: string;
 }
 
-export interface RTCRtpCodecCapability {
-  mimeType: string;
-  clockRate: number;
-  channels?: number | null;
-  parameters?: {
-    [k: string]: number | string | null;
-  };
-}
-
 export interface WebrtcInfo {
-  video_codecs: RTCRtpCodecCapability[];
-  audio_codecs: RTCRtpCodecCapability[];
+  ice_servers: IceServer[];
 }

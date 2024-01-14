@@ -18,8 +18,10 @@ from models import (
     VideoDevice,
     WebrtcOffer,
     AudioDeviceOptions,
+    WebrtcInfo,
 )
 from processes import PROCESSES
+from util import ice_servers
 
 
 @get("/devices/audio", sync_to_thread=False)
@@ -44,6 +46,11 @@ def list_video_devices() -> list[VideoDevice]:
     return [*PROCESSES.machine.state().devices.video.values()]
 
 
+@get("/webrtc", sync_to_thread=False)
+def webrtc_info() -> WebrtcInfo:
+    return WebrtcInfo(ice_servers=ice_servers)
+
+
 @put("/webrtc")
 async def webrtc_offer(data: WebrtcOffer) -> WebrtcOffer:
     prev_offer = PROCESSES.machine.state().webrtc_offer
@@ -62,6 +69,7 @@ route_handlers = [
     put_audio_device,
     list_video_devices,
     webrtc_offer,
+    webrtc_info,
 ]
 for route in route_handlers:
     route.operation_id = route.handler_name
@@ -69,8 +77,14 @@ for route in route_handlers:
 api = Router(path="/api", route_handlers=route_handlers)
 server = Litestar(
     route_handlers=[api],
-    static_files_config=[StaticFilesConfig(directories=["public"], path="/public"),
-                         StaticFilesConfig(directories=[Path(__file__).parent.parent.parent/"frontend/dist"], path="/", html_mode=True)],
+    static_files_config=[
+        StaticFilesConfig(directories=["public"], path="/public"),
+        StaticFilesConfig(
+            directories=[Path(__file__).parent.parent.parent / "frontend/dist"],
+            path="/",
+            html_mode=True,
+        ),
+    ],
     cors_config=CORSConfig(
         allow_origins=["*"],
         allow_credentials=True,

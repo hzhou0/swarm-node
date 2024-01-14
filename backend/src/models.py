@@ -120,9 +120,14 @@ class VideoDevice(Struct, frozen=True):
         )
 
 
+class IceServer(Struct, frozen=True):
+    urls: str
+    username: str | None = None
+    credential: str | None = None
+
+
 class WebrtcInfo(Struct, frozen=True):
-    video_codecs: list[RTCRtpCodecCapability]
-    audio_codecs: list[RTCRtpCodecCapability]
+    ice_servers: list[IceServer]
 
 
 class VideoTrack(Struct, frozen=True):

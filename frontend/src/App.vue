@@ -41,7 +41,7 @@
         </v-btn-toggle>
       </v-app-bar>
       <v-container fluid>
-        <v-row class="fill-height">
+        <v-row>
           <v-slide-x-transition>
             <v-col v-if="showControlPanel" lg="4" sm="12">
               <ControlPanel></ControlPanel>
@@ -52,6 +52,20 @@
           </v-col>
         </v-row>
       </v-container>
+      <v-footer absolute app class="ma-0 pa-0">
+        <v-spacer></v-spacer>
+        <v-btn
+          v-for="uri in schemaEndpoints"
+          :key="uri"
+          class="ma-1"
+          variant="flat"
+          size="x-small"
+          append-icon="mdi-open-in-new"
+          density="comfortable"
+          @click="openNewTab(uri)"
+          >{{ uri.split("/").at(-1) }}
+        </v-btn>
+      </v-footer>
     </v-main>
   </v-app>
 </template>
@@ -99,4 +113,17 @@ const streamStatus = computed(() => {
   }
   return streamStatus;
 });
+
+const schemaEndpoints = [
+  "/schema/swagger",
+  "/schema/redoc",
+  "/schema/elements",
+  "/schema/rapidoc",
+  "/schema/openapi.yaml",
+  "/schema/openapi.json",
+];
+
+function openNewTab(uri: string) {
+  window.open(uri);
+}
 </script>

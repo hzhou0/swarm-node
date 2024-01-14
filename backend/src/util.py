@@ -1,9 +1,14 @@
 import logging
+import os
 import shutil
 import sys
 from logging.handlers import RotatingFileHandler
 from multiprocessing import current_process
 from pathlib import Path
+
+import msgspec
+from aiortc import RTCIceServer
+from models import IceServer
 
 root_dir = Path.home().joinpath("swarmnode")
 log_dir = root_dir / "log"
@@ -41,3 +46,11 @@ def configure_root_logger(clear_log_files=False):
     file_handler.setFormatter(logging.Formatter(file_fmt))
     rl.addHandler(file_handler)
     return rl
+
+
+try:
+    ice_servers = msgspec.json.decode(os.environ["ICE_SERVERS"], type=list[IceServer])
+    print(f"Discovered ice_servers from environment")
+except Exception as e:
+    print("Using default ice servers")
+    ice_servers = [IceServer(urls="stun:stun.l.google.com:19302")]

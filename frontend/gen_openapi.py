@@ -1,4 +1,4 @@
-#!/home/henry/Desktop/shopping_cart/backend/venv/bin/python
+#!/usr/bin/env -S sh -c '"$(dirname "$(readlink -f "$0")")/../backend/src/venv/bin/python" "$0" "$@"'
 # noinspection PyPep8
 import json
 import re
@@ -11,7 +11,9 @@ import msgspec
 import inspect
 import shutil
 
-sys.path.insert(1, str(Path(__file__).parent.parent.joinpath("backend").absolute()))
+sys.path.insert(
+    1, str(Path(__file__).parent.parent.joinpath("backend", "src").absolute())
+)
 from server import server
 
 npm_bin_dir = Path(__file__).parent.joinpath("node_modules/.bin")
