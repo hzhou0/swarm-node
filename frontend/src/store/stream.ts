@@ -81,7 +81,6 @@ export const useStreamStore = defineStore("Stream", () => {
     if (dataChannel.value == null) {
       return;
     }
-    //dataChannel.value.send("hello world");
   }, 1000);
 
   async function negotiate(machineAudio = false, machineVideo = false) {
@@ -135,18 +134,6 @@ export const useStreamStore = defineStore("Stream", () => {
     try {
       const offer = await newPC.createOffer();
       await newPC.setLocalDescription(offer);
-
-      if (newPC.iceGatheringState !== "complete") {
-        await new Promise((resolve) => {
-          const checkState = () => {
-            if (newPC.iceGatheringState === "complete") {
-              newPC.removeEventListener("icegatheringstatechange", checkState);
-              resolve(null);
-            }
-          };
-          newPC.addEventListener("icegatheringstatechange", checkState);
-        });
-      }
       let audioTrack = null;
       if (audioOutputName.value && machineAudio) {
         audioTrack = {

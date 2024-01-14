@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Literal
 
 import msgspec
@@ -68,7 +69,8 @@ for route in route_handlers:
 api = Router(path="/api", route_handlers=route_handlers)
 server = Litestar(
     route_handlers=[api],
-    static_files_config=[StaticFilesConfig(directories=["public"], path="/public")],
+    static_files_config=[StaticFilesConfig(directories=["public"], path="/public"),
+                         StaticFilesConfig(directories=[Path(__file__).parent.parent.parent/"frontend/dist"], path="/", html_mode=True)],
     cors_config=CORSConfig(
         allow_origins=["*"],
         allow_credentials=True,

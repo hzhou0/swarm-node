@@ -5,7 +5,16 @@
         <v-app-bar-nav-icon @click="showControlPanel = !showControlPanel"></v-app-bar-nav-icon>
         <v-app-bar-title v-if="!mobile">Control Panel</v-app-bar-title>
         <v-spacer></v-spacer>
-        <v-btn @click="streamStore?.dataChannel?.send('hi there')">Send datachannel</v-btn>
+        <v-text-field
+          v-model="message"
+          density="compact"
+          hide-details
+          append-inner-icon="mdi-send"
+          @click:append-inner="
+            console.log(Date.now() / 1000);
+            streamStore?.dataChannel?.send(message);
+          "
+        ></v-text-field>
         <template v-if="mobile" #extension>
           <v-btn-toggle
             :model-value="streamStatus"
@@ -60,6 +69,7 @@ const streamStore = useStreamStore();
 if (streamStore.pc == null) {
   streamStore.negotiate(false, false);
 }
+const message = ref("hello world");
 const streamStatusMembers = [
   "Client Audio",
   "Client Video",

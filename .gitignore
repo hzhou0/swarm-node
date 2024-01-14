@@ -1,7 +1,6 @@
 **/__pycache__
 **/node_modules/**
-backend/log/**
-backend/dist/**
+backend/src/venv/
 **/terraform.tfstate
 **/.terraform/**
 swarmnode
