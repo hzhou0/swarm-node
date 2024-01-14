@@ -4,38 +4,43 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Add deb iso build script">
-      <change afterPath="$PROJECT_DIR$/backend/deploy/service/main.go" afterDir="false" />
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Initial deployment service commit">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/main.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/runConfigurations/main.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shopping_cart.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shopping_cart.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/main.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/runConfigurations/run.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shopping_cart.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/swarm-node.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/build.sh" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deps.sh" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/ipc.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/ipc.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/machine/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/machine/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/machine/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/machine/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/processes.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/processes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/public/favicon.ico" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/public/favicon.ico" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/public/favicon.png" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/public/favicon.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/requirements-dev.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/trace.sh" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/util.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend_iso/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/iso/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend_iso/build.sh" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/iso/build.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend_iso/grub/grub.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/iso/grub/grub.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend_iso/isolinux/gtk.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/iso/isolinux/gtk.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend_iso/isolinux/isolinux.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/iso/isolinux/isolinux.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend_iso/post_install.sh" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/iso/post_install.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend_iso/preseed.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/iso/preseed.cfg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tunnels/.terraform.lock.hcl" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/tunnels/.terraform.lock.hcl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tunnels/main.tf" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/tunnels/main.tf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tunnels/outputs.tf" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/tunnels/outputs.tf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tunnels/variables.tf" beforeDir="false" afterPath="$PROJECT_DIR$/backend/deploy/tunnels/variables.tf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/deploy.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/webResources.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/build.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/grub/grub.cfg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/isolinux/gtk.cfg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/isolinux/isolinux.cfg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/post_install.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/preseed.cfg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/service/cloudflare.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/service/data/names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/service/go.mod" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/service/go.sum" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/service/main.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/service/swarmnode.service" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/tunnels/.terraform.lock.hcl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/tunnels/main.tf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/tunnels/outputs.tf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/deploy/tunnels/variables.tf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/install" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/install" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/machine/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/machine/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/server.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/store/stream.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/store/stream.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -110,44 +115,46 @@
     <option name="sortByType" value="true" />
     <option name="sortKey" value="BY_TYPE" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;deletionFromPopupRequiresConfirmation&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;javascript.nodejs.core.library.configured.version&quot;: &quot;20.10.0&quot;,
-    &quot;javascript.nodejs.core.library.typings.version&quot;: &quot;20.10.4&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/henry/Desktop/shopping_cart/backend/src/venv/bin/python3&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.standard&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.standard&quot;: &quot;&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_interpreter_path&quot;: &quot;node&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;npm.dev.executor&quot;: &quot;Run&quot;,
-    &quot;prettierjs.PrettierConfiguration.Package&quot;: &quot;/home/henry/Desktop/shopping_cart/frontend/node_modules/prettier&quot;,
-    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/home/henry/Desktop/shopping_cart/frontend/node_modules/typescript/lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.main.executor": "Run",
+    "Python.run.executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "deletionFromPopupRequiresConfirmation": "false",
+    "git-widget-placeholder": "main",
+    "javascript.nodejs.core.library.configured.version": "20.10.0",
+    "javascript.nodejs.core.library.typings.version": "20.10.4",
+    "last_opened_file_path": "/home/henry/Desktop/swarm-node",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.standard": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.standard": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_interpreter_path": "node",
+    "nodejs_package_manager_path": "npm",
+    "npm.build.executor": "Run",
+    "npm.dev.executor": "Run",
+    "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/swarm-node/frontend/node_modules/prettier",
+    "run.code.analysis.last.selected.profile": "pProject Default",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "ts.external.directory.path": "/home/henry/Desktop/swarm-node/frontend/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
-      &quot;TEXT&quot;,
-      &quot;JSON&quot;,
-      &quot;PLAIN_TEXT&quot;
+  "keyToStringList": {
+    "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
+      "TEXT",
+      "JSON",
+      "PLAIN_TEXT"
     ],
-    &quot;vue.recent.templates&quot;: [
-      &quot;Vue Composition API Component&quot;
+    "vue.recent.templates": [
+      "Vue Composition API Component"
     ]
   }
-}</component>
+}]]></component>
   <component name="PyCoverageOptionsProvider">
     <option name="myUseBundledCoveragePy" value="true" />
   </component>
@@ -160,11 +167,11 @@
       <recent name="$PROJECT_DIR$/backend" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/backend/deploy/service" />
       <recent name="$PROJECT_DIR$/backend/deploy" />
       <recent name="$PROJECT_DIR$/backend" />
       <recent name="$PROJECT_DIR$/backend/src" />
       <recent name="$PROJECT_DIR$/backend_iso/dist" />
-      <recent name="$PROJECT_DIR$/backend_iso" />
     </key>
     <key name="es6.move.members.recent.items">
       <recent name="$PROJECT_DIR$/frontend/src/store.ts" />
@@ -176,11 +183,21 @@
       <command value="offer" />
     </option>
   </component>
-  <component name="RunManager" selected="Python.main">
+  <component name="RunManager" selected="Python.run">
     <configuration default="true" type="docker-deploy" factoryName="dockerfile" temporary="true">
       <deployment type="dockerfile">
         <settings />
       </deployment>
+      <method v="2" />
+    </configuration>
+    <configuration name="build" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/frontend/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="build" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
       <method v="2" />
     </configuration>
     <configuration name="dev" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
@@ -204,13 +221,15 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="npm.build" />
       <item itemvalue="npm.dev" />
       <item itemvalue="npm.gen_sdk" />
-      <item itemvalue="Python.main" />
+      <item itemvalue="Python.run" />
       <item itemvalue="Shell Script.trace" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="npm.build" />
         <item itemvalue="npm.dev" />
         <item itemvalue="npm.gen_sdk" />
       </list>
@@ -353,7 +372,11 @@
       <workItem from="1703132878150" duration="858000" />
       <workItem from="1703146451487" duration="85000" />
       <workItem from="1703220457842" duration="30000" />
-      <workItem from="1703374113331" duration="6328000" />
+      <workItem from="1703374113331" duration="7156000" />
+      <workItem from="1703392576450" duration="2546000" />
+      <workItem from="1703538847970" duration="60000" />
+      <workItem from="1703538919626" duration="132000" />
+      <workItem from="1705192896339" duration="5537000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -659,7 +682,15 @@
       <option name="project" value="LOCAL" />
       <updated>1702873024288</updated>
     </task>
-    <option name="localTasksCounter" value="39" />
+    <task id="LOCAL-00039" summary="Initial deployment service commit">
+      <option name="closed" value="true" />
+      <created>1703389277660</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1703389277660</updated>
+    </task>
+    <option name="localTasksCounter" value="40" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -725,7 +756,8 @@
     <MESSAGE value="Fix types" />
     <MESSAGE value="Cloudflare infrastructure Terraform" />
     <MESSAGE value="Add deb iso build script" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add deb iso build script" />
+    <MESSAGE value="Initial deployment service commit" />
+    <option name="LAST_COMMIT_MESSAGE" value="Initial deployment service commit" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -745,6 +777,21 @@
           <line>933</line>
           <option name="timeStamp" value="85" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/backend/src/venv/lib/python3.11/site-packages/aioice/stun.py</url>
+          <line>300</line>
+          <option name="timeStamp" value="86" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/backend/src/venv/lib/python3.11/site-packages/aioice/stun.py</url>
+          <line>298</line>
+          <option name="timeStamp" value="87" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/backend/src/machine/main.py</url>
+          <line>91</line>
+          <option name="timeStamp" value="89" />
+        </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
@@ -761,5 +808,7 @@
     <SUITE FILE_PATH="coverage/shopping_cart$main.coverage" NAME="main Coverage Results" MODIFIED="1702889059165" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
     <SUITE FILE_PATH="coverage/shopping_cart$gen_openapi.coverage" NAME="gen_openapi Coverage Results" MODIFIED="1702177563389" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/frontend" />
     <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
+    <SUITE FILE_PATH="coverage/shopping_cart$run.coverage" NAME="run Coverage Results" MODIFIED="1703393410621" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
+    <SUITE FILE_PATH="coverage/swarm_node$run.coverage" NAME="run Coverage Results" MODIFIED="1705203648731" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

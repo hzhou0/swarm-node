@@ -12,7 +12,7 @@
       <excludeFolder url="file://$MODULE_DIR$/backend/src/log" />
       <excludeFolder url="file://$MODULE_DIR$/backend/src/venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.10 (shopping_cart)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.11 (swarm-node)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PackageRequirementsSettings">
