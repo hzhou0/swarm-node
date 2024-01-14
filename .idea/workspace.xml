@@ -4,43 +4,29 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Initial deployment service commit">
+    <list default="true" id="20aff856-d0e3-4658-9eb4-59b1b45eff25" name="Changes" comment="Refactor out deployment code, demo ready">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/main.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/runConfigurations/run.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shopping_cart.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/swarm-node.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations/run.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/runConfigurations/run.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/deploy.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/vcs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/.idea/webResources.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/build.sh" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/grub/grub.cfg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/isolinux/gtk.cfg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/isolinux/isolinux.cfg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/post_install.sh" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/iso/preseed.cfg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/service/cloudflare.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/service/data/names.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/service/go.mod" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/service/go.sum" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/service/main.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/service/swarmnode.service" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/tunnels/.terraform.lock.hcl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/tunnels/main.tf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/tunnels/outputs.tf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/deploy/tunnels/variables.tf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/install" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/install" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/install" beforeDir="false" afterPath="$PROJECT_DIR$/backend/install" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/src/machine/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/machine/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/required-debs.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/required-debs.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/src/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/util.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/dist/assets/index-63f2ab40.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/dist/assets/index-ecbdea05.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/dist/assets/webfontloader-bb10a857.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/dist/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/dist/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/gen_openapi.py" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/gen_openapi.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/App.vue" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/generated/models.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/generated/models.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/generated/sdk.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/generated/sdk.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/store/stream.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/store/stream.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/install" beforeDir="false" afterPath="$PROJECT_DIR$/install" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/webrtc.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,6 +50,9 @@
         <option value="Python Script" />
       </list>
     </option>
+  </component>
+  <component name="FormatOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -98,9 +87,6 @@
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
-  </component>
-  <component name="OptimizeOnSaveOptions">
-    <option name="myRunOnSave" value="true" />
   </component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="ProjectErrors" />
@@ -138,6 +124,7 @@
     "nodejs_package_manager_path": "npm",
     "npm.build.executor": "Run",
     "npm.dev.executor": "Run",
+    "npm.gen_sdk.executor": "Run",
     "prettierjs.PrettierConfiguration.Package": "/home/henry/Desktop/swarm-node/frontend/node_modules/prettier",
     "run.code.analysis.last.selected.profile": "pProject Default",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
@@ -167,9 +154,9 @@
       <recent name="$PROJECT_DIR$/backend" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/backend" />
       <recent name="$PROJECT_DIR$/backend/deploy/service" />
       <recent name="$PROJECT_DIR$/backend/deploy" />
-      <recent name="$PROJECT_DIR$/backend" />
       <recent name="$PROJECT_DIR$/backend/src" />
       <recent name="$PROJECT_DIR$/backend_iso/dist" />
     </key>
@@ -230,8 +217,8 @@
     <recent_temporary>
       <list>
         <item itemvalue="npm.build" />
-        <item itemvalue="npm.dev" />
         <item itemvalue="npm.gen_sdk" />
+        <item itemvalue="npm.dev" />
       </list>
     </recent_temporary>
   </component>
@@ -376,7 +363,8 @@
       <workItem from="1703392576450" duration="2546000" />
       <workItem from="1703538847970" duration="60000" />
       <workItem from="1703538919626" duration="132000" />
-      <workItem from="1705192896339" duration="5537000" />
+      <workItem from="1705192896339" duration="6389000" />
+      <workItem from="1705253975929" duration="13018000" />
     </task>
     <task id="LOCAL-00001" summary="Retool database build system">
       <option name="closed" value="true" />
@@ -690,7 +678,15 @@
       <option name="project" value="LOCAL" />
       <updated>1703389277660</updated>
     </task>
-    <option name="localTasksCounter" value="40" />
+    <task id="LOCAL-00040" summary="Refactor out deployment code, demo ready">
+      <option name="closed" value="true" />
+      <created>1705204819895</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1705204819895</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -757,7 +753,8 @@
     <MESSAGE value="Cloudflare infrastructure Terraform" />
     <MESSAGE value="Add deb iso build script" />
     <MESSAGE value="Initial deployment service commit" />
-    <option name="LAST_COMMIT_MESSAGE" value="Initial deployment service commit" />
+    <MESSAGE value="Refactor out deployment code, demo ready" />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactor out deployment code, demo ready" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -787,11 +784,6 @@
           <line>298</line>
           <option name="timeStamp" value="87" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/backend/src/machine/main.py</url>
-          <line>91</line>
-          <option name="timeStamp" value="89" />
-        </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
@@ -809,6 +801,6 @@
     <SUITE FILE_PATH="coverage/shopping_cart$gen_openapi.coverage" NAME="gen_openapi Coverage Results" MODIFIED="1702177563389" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/frontend" />
     <SUITE FILE_PATH="coverage/shopping_cart$build.coverage" NAME="build Coverage Results" MODIFIED="1685288834910" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/shared" />
     <SUITE FILE_PATH="coverage/shopping_cart$run.coverage" NAME="run Coverage Results" MODIFIED="1703393410621" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/backend" />
-    <SUITE FILE_PATH="coverage/swarm_node$run.coverage" NAME="run Coverage Results" MODIFIED="1705203648731" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/swarm_node$run.coverage" NAME="run Coverage Results" MODIFIED="1705272943616" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

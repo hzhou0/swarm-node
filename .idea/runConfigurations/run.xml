@@ -1,12 +1,11 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="run" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
     <module name="swarm-node" />
-    <option name="ENV_FILES" value="" />
+    <option name="ENV_FILES" value="$PROJECT_DIR$/backend/.env" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
       <env name="PYTHONUNBUFFERED" value="1" />
-      <env name="env" value="dev" />
     </envs>
     <option name="SDK_HOME" value="" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />

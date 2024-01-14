@@ -5,6 +5,7 @@ import { useDeviceStore } from "@/store/devices";
 
 type InterfaceToType<T> = T extends object ? Pick<T, keyof T> : T;
 type InterfaceToTypeDeep<T> = { [P in keyof T]: InterfaceToType<T[P]> };
+
 interface RTCDataChannelStats extends RTCStats {
   label: string;
   protcol: string;
@@ -15,6 +16,7 @@ interface RTCDataChannelStats extends RTCStats {
   messagesReceived: number;
   bytesReceived: number;
 }
+
 type RTCPeerConnectionStats = InterfaceToTypeDeep<{
   transport?: RTCTransportStats;
   candidatePair?: RTCIceCandidatePairStats;
@@ -84,8 +86,19 @@ export const useStreamStore = defineStore("Stream", () => {
   }, 1000);
 
   async function negotiate(machineAudio = false, machineVideo = false) {
+    let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+    try {
+      iceServers = (await client.webrtcInfo()).ice_servers.map((v) => ({
+        urls: v.urls,
+        credential: v.credential ?? undefined,
+        username: v.username ?? undefined,
+      }));
+    } catch (error) {
+      console.error(error);
+      console.log("Falling back to default iceServers");
+    }
     const newPC = new RTCPeerConnection({
-      iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }],
+      iceServers: iceServers,
     });
     pc.value = newPC;
 
@@ -134,6 +147,7 @@ export const useStreamStore = defineStore("Stream", () => {
     try {
       const offer = await newPC.createOffer();
       await newPC.setLocalDescription(offer);
+
       let audioTrack = null;
       if (audioOutputName.value && machineAudio) {
         audioTrack = {
