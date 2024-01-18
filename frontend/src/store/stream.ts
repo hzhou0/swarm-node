@@ -99,7 +99,9 @@ export const useStreamStore = defineStore("Stream", () => {
     }
     const newPC = new RTCPeerConnection({
       iceServers: iceServers,
+      iceCandidatePoolSize: 10,
     });
+    newPC.oniceconnectionstatechange;
     pc.value = newPC;
 
     dataChannel.value = null;
@@ -145,6 +147,25 @@ export const useStreamStore = defineStore("Stream", () => {
       newPC.addTransceiver("video", { direction: "sendonly" });
     }
     try {
+      await newPC.setLocalDescription(await newPC.createOffer());
+
+      if (newPC.iceGatheringState !== "complete") {
+        await new Promise((resolve) => {
+          const end = () => {
+            newPC.removeEventListener("icegatheringstatechange", checkState);
+            resolve(null);
+          };
+          const checkState = () => {
+            if (newPC.iceGatheringState === "complete") {
+              end();
+            }
+          };
+          setTimeout(() => {
+            end();
+          }, 1000);
+          newPC.addEventListener("icegatheringstatechange", checkState);
+        });
+      }
       const offer = await newPC.createOffer();
       await newPC.setLocalDescription(offer);
 
@@ -168,7 +189,7 @@ export const useStreamStore = defineStore("Stream", () => {
           machine_video: videoTrack,
         },
       });
-      return newPC.setRemoteDescription(answer);
+      await newPC.setRemoteDescription(answer);
     } catch (e) {
       alert(e);
     }

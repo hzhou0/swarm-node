@@ -7,7 +7,7 @@ from multiprocessing import current_process
 from pathlib import Path
 
 import msgspec
-from aiortc import RTCIceServer
+
 from models import IceServer
 
 root_dir = Path.home().joinpath("swarmnode")

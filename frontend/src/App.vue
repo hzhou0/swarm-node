@@ -10,10 +10,7 @@
           density="compact"
           hide-details
           append-inner-icon="mdi-send"
-          @click:append-inner="
-            console.log(Date.now() / 1000);
-            streamStore?.dataChannel?.send(message);
-          "
+          @click:append-inner="streamStore?.dataChannel?.send(message + `;${Date.now() / 1000}`)"
         ></v-text-field>
         <template v-if="mobile" #extension>
           <v-btn-toggle

@@ -75,9 +75,9 @@ async def on_connectionstatechange(pc: RTCPeerConnection):
 
 
 def on_datachannel(channel: RTCDataChannel):
-    def on_message(message):
-        logging.info(time.time())
+    def on_message(message: str):
         logging.info(f"Received message {message}")
+        logging.info(f"Latency: {time.time()-float(message.split(';')[-1])}s")
 
     channel.on("message", on_message)
 
@@ -97,12 +97,11 @@ async def handle_offer(offer: WebrtcOffer):
     # These attempts will timeout after 5 seconds, making connection take 5+ seconds
     # Modifying retry globals here to make it fail faster and retry more aggresively
     # Retries follow an exponential fallback: 1,2,4,8 * RETRY_RTO
-    aioice.stun.RETRY_MAX = 2
-    aioice.stun.RETRY_RTO = 0.01
+    aioice.stun.RETRY_MAX = 1
+    aioice.stun.RETRY_RTO = 0.2
     pc = RTCPeerConnection(_rtc_config)
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
     pc.add_listener("datachannel", lambda channel: on_datachannel(channel))
-
     direction: Literal["sendrecv", "sendonly", "recvonly", None] = None
     track_or_kind = "video"
     if offer.tracks.machine_video:
@@ -156,10 +155,12 @@ async def handle_offer(offer: WebrtcOffer):
             ]
         )
 
+    logging.info(offer.sdp)
     await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))
     start = time.time()
     await pc.setLocalDescription(await pc.createAnswer())
     logging.info(f"ICE Candidates gathered in {time.time() - start}")
+    logging.info(pc.localDescription.sdp)
     _state.webrtc_offer = WebrtcOffer(
         sdp=pc.localDescription.sdp, type=pc.localDescription.type, tracks=offer.tracks
     )
