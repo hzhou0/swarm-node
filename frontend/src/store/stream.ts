@@ -83,7 +83,11 @@ export const useStreamStore = defineStore("Stream", () => {
     if (dataChannel.value == null) {
       return;
     }
-  }, 1000);
+  }, 2000);
+
+  setInterval(() => {
+    dataChannel.value?.send("heartbeat");
+  }, 5000);
 
   async function negotiate(machineAudio = false, machineVideo = false) {
     let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];

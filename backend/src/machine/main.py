@@ -4,7 +4,7 @@ import time
 from multiprocessing import connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
-from typing import Literal
+from typing import Literal, Callable
 
 import pulsectl_asyncio
 import uvloop
@@ -32,6 +32,7 @@ from util import configure_root_logger, ice_servers
 
 _state = MachineState()
 _pc: RTCPeerConnection = RTCPeerConnection()
+_datachannel: RTCDataChannel | None = None
 
 _state_mem: SharedMemory | None = None
 _state_lock: Lock | None = None
@@ -42,52 +43,70 @@ def _commit_state():
     _state_mem = write_state(_state_mem, _state_lock, _state)
 
 
+def loop_forever(interval: float) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        async def inner(*args, **kwargs):
+            while True:
+                try:
+                    await func(*args, **kwargs)
+                except Exception as e:
+                    logging.exception(e)
+                await asyncio.sleep(interval)
+
+        return inner
+
+    return decorator
+
+
+@loop_forever(2.0)
 async def refresh_devices():
-    while True:
-        try:
-            v = {}
-            for d in v4l2py.iter_video_capture_devices():
-                d.open()
-                device = VideoDevice.from_v4l2(d)
-                v[device.name] = device
-                d.close()
-            _state.devices.video = v
+    v = {}
+    for d in v4l2py.iter_video_capture_devices():
+        d.open()
+        device = VideoDevice.from_v4l2(d)
+        v[device.name] = device
+        d.close()
+    _state.devices.video = v
 
-            async with pulsectl_asyncio.PulseAsync("enumerate_devices") as pa:
-                default_sink = (await pa.server_info()).default_sink_name
-                default_source = (await pa.server_info()).default_source_name
-                sinks, sources = await asyncio.gather(pa.sink_list(), pa.source_list())
-                a = [AudioDevice.from_pa(d, default_sink, "sink") for d in sinks]
-                a += [AudioDevice.from_pa(d, default_source, "source") for d in sources]
-                a = {audio_device.name: audio_device for audio_device in a}
-            _state.devices.audio = a
+    async with pulsectl_asyncio.PulseAsync("enumerate_devices") as pa:
+        default_sink = (await pa.server_info()).default_sink_name
+        default_source = (await pa.server_info()).default_source_name
+        sinks, sources = await asyncio.gather(pa.sink_list(), pa.source_list())
+        a = [AudioDevice.from_pa(d, default_sink, "sink") for d in sinks]
+        a += [AudioDevice.from_pa(d, default_source, "source") for d in sources]
+        a = {audio_device.name: audio_device for audio_device in a}
+    _state.devices.audio = a
 
-            _commit_state()
-        except Exception as e:
-            logging.exception(e)
-        await asyncio.sleep(2)
+    _commit_state()
+
+
+@loop_forever(2.0)
+async def keep_alive():
+    if _datachannel is not None:
+        _datachannel.send("")
 
 
 async def on_connectionstatechange(pc: RTCPeerConnection):
     logging.info(f"Connection state is {pc.connectionState}")
-    if pc.connectionState == "failed":
+    if pc.connectionState == "failed" or pc.connectionState == "closed":
         await pc.close()
+        global _datachannel
+        _datachannel = None
 
 
 def on_datachannel(channel: RTCDataChannel):
     def on_message(message: str):
         logging.info(f"Received message {message}")
-        logging.info(f"Latency: {time.time()-float(message.split(';')[-1])}s")
+        try:
+            logging.info(
+                f"Latency: {int(time.time()-float(message.split(';')[-1]))*1000}ms"
+            )
+        except:
+            pass
 
     channel.on("message", on_message)
-
-
-_rtc_config = RTCConfiguration(
-    [
-        RTCIceServer(urls=s.urls, username=s.username, credential=s.credential)
-        for s in ice_servers
-    ]
-)
+    global _datachannel
+    _datachannel = channel
 
 
 async def handle_offer(offer: WebrtcOffer):
@@ -99,7 +118,14 @@ async def handle_offer(offer: WebrtcOffer):
     # Retries follow an exponential fallback: 1,2,4,8 * RETRY_RTO
     aioice.stun.RETRY_MAX = 1
     aioice.stun.RETRY_RTO = 0.2
-    pc = RTCPeerConnection(_rtc_config)
+    pc = RTCPeerConnection(
+        RTCConfiguration(
+            [
+                RTCIceServer(urls=s.urls, username=s.username, credential=s.credential)
+                for s in ice_servers
+            ]
+        )
+    )
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
     pc.add_listener("datachannel", lambda channel: on_datachannel(channel))
     direction: Literal["sendrecv", "sendonly", "recvonly", None] = None
@@ -181,19 +207,15 @@ async def handle_audio_device_options(audio_device: AudioDeviceOptions):
                     await pa.default_set(d)
 
 
+@loop_forever(0.01)
 async def process_mutations(pipe: connection.Connection):
-    while True:
-        try:
-            while pipe.poll():
-                mutation: MachineMutation = pipe.recv()
-                match mutation:
-                    case AudioDeviceOptions():
-                        await handle_audio_device_options(mutation)
-                    case WebrtcOffer():
-                        await handle_offer(mutation)
-        except Exception as e:
-            logging.exception(e)
-        await asyncio.sleep(0.01)
+    while pipe.poll():
+        mutation: MachineMutation = pipe.recv()
+        match mutation:
+            case AudioDeviceOptions():
+                await handle_audio_device_options(mutation)
+            case WebrtcOffer():
+                await handle_offer(mutation)
 
 
 def main(
@@ -211,6 +233,7 @@ def main(
     _ = (
         loop.create_task(refresh_devices()),
         loop.create_task(process_mutations(pipe)),
+        loop.create_task(keep_alive()),
     )
     try:
         loop.run_forever()
