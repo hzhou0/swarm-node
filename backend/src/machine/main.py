@@ -1,12 +1,14 @@
 import asyncio
 import logging
 import time
+from functools import partial
 from multiprocessing import connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
 from typing import Literal, Callable
 
 import pulsectl_asyncio
+import pyudev
 import uvloop
 import v4l2py
 from aiortc import (
@@ -18,6 +20,7 @@ from aiortc import (
     RTCIceServer,
 )
 from aiortc.contrib.media import MediaPlayer
+from pyudev import Monitor
 
 from ipc import write_state
 from models import (
@@ -26,7 +29,7 @@ from models import (
     AudioDeviceOptions,
     WebrtcOffer,
     MachineState,
-    MachineMutation,
+    MachineHTTPMutation,
 )
 from util import configure_root_logger, ice_servers
 
@@ -58,26 +61,37 @@ def loop_forever(interval: float) -> Callable:
     return decorator
 
 
+_refresh_devices_first_call = True
+
+
 @loop_forever(2.0)
-async def refresh_devices():
-    v = {}
-    for d in v4l2py.iter_video_capture_devices():
-        d.open()
-        device = VideoDevice.from_v4l2(d)
-        v[device.name] = device
-        d.close()
-    _state.devices.video = v
+async def refresh_devices(video_mon: Monitor, audio_mon: Monitor):
+    global _refresh_devices_first_call
 
-    async with pulsectl_asyncio.PulseAsync("enumerate_devices") as pa:
-        default_sink = (await pa.server_info()).default_sink_name
-        default_source = (await pa.server_info()).default_source_name
-        sinks, sources = await asyncio.gather(pa.sink_list(), pa.source_list())
-        a = [AudioDevice.from_pa(d, default_sink, "sink") for d in sinks]
-        a += [AudioDevice.from_pa(d, default_source, "source") for d in sources]
-        a = {audio_device.name: audio_device for audio_device in a}
-    _state.devices.audio = a
+    if _refresh_devices_first_call or list(iter(partial(video_mon.poll, 0), None)):
+        logging.info("Hardware changes, refreshing video devices")
+        v = {}
+        for d in v4l2py.iter_video_capture_devices():
+            d.open()
+            device = VideoDevice.from_v4l2(d)
+            v[device.name] = device
+            d.close()
+        _state.devices.video = v
+        _commit_state()
 
-    _commit_state()
+    if _refresh_devices_first_call or list(iter(partial(audio_mon.poll, 0), None)):
+        logging.info("Hardware changes, refreshing audio devices")
+        async with pulsectl_asyncio.PulseAsync("enumerate_devices") as pa:
+            default_sink = (await pa.server_info()).default_sink_name
+            default_source = (await pa.server_info()).default_source_name
+            sinks, sources = await asyncio.gather(pa.sink_list(), pa.source_list())
+            a = [AudioDevice.from_pa(d, default_sink, "sink") for d in sinks]
+            a += [AudioDevice.from_pa(d, default_source, "source") for d in sources]
+            a = {audio_device.name: audio_device for audio_device in a}
+        _state.devices.audio = a
+        _commit_state()
+
+    _refresh_devices_first_call = False
 
 
 @loop_forever(2.0)
@@ -99,7 +113,7 @@ def on_datachannel(channel: RTCDataChannel):
         logging.info(f"Received message {message}")
         try:
             logging.info(
-                f"Latency: {int(time.time()-float(message.split(';')[-1]))*1000}ms"
+                f"Latency: {int(time.time() - float(message.split(';')[-1])) * 1000}ms"
             )
         except:
             pass
@@ -210,7 +224,7 @@ async def handle_audio_device_options(audio_device: AudioDeviceOptions):
 @loop_forever(0.01)
 async def process_mutations(pipe: connection.Connection):
     while pipe.poll():
-        mutation: MachineMutation = pipe.recv()
+        mutation: MachineHTTPMutation = pipe.recv()
         match mutation:
             case AudioDeviceOptions():
                 await handle_audio_device_options(mutation)
@@ -228,10 +242,16 @@ def main(
     _state_mem, _state_lock = state_mem, state_lock
     configure_root_logger()
     v4l2py.device.log.setLevel(logging.WARNING)
+
     loop = asyncio.get_event_loop()
     # Specify tasks in collection to avoid garbage collection
+    context = pyudev.Context()
+    video_mon = Monitor.from_netlink(context)
+    video_mon.filter_by("video4linux")
+    audio_mon = Monitor.from_netlink(context)
+    audio_mon.filter_by("sound")
     _ = (
-        loop.create_task(refresh_devices()),
+        loop.create_task(refresh_devices(video_mon, audio_mon)),
         loop.create_task(process_mutations(pipe)),
         loop.create_task(keep_alive()),
     )

@@ -1,4 +1,4 @@
-#!/usr/bin/env -S sh -c '"$(dirname "$(readlink -f "$0")")/../backend/src/venv/bin/python" "$0" "$@"'
+#!/usr/bin/env -S sh -c '"$(dirname "$(readlink -f "$0")")/../backend/.venv/bin/python" "$0" "$@"'
 # noinspection PyPep8
 import json
 import re
@@ -33,7 +33,6 @@ with open(sdk_file, "r+") as f:
     f.seek(0, 0)
     f.write("/* eslint-disable */\n" + content)
 
-
 import models
 
 _models = [getattr(models, m) for m in dir(models)]
@@ -44,7 +43,6 @@ _models = [
 ]
 _, _models = msgspec.json.schema_components(_models, ref_template="{name}.json")
 
-
 type_dir = Path(__file__).parent / str(uuid.uuid4())
 type_dir.mkdir(exist_ok=True)
 for name, _model in _models.items():
@@ -53,7 +51,7 @@ for name, _model in _models.items():
 
 model_ts = Path(__file__).parent / "src" / "generated" / "models.ts"
 subprocess.run(
-    f"{npm_bin_dir/'json2ts'} -i '{type_dir}/*.json' --additionalProperties=false > {model_ts}",
+    f"{npm_bin_dir / 'json2ts'} -i '{type_dir}/*.json' --additionalProperties=false > {model_ts}",
     cwd=type_dir,
     shell=True,
 )

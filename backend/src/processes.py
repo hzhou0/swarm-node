@@ -1,17 +1,19 @@
 import logging
+import os
 import sys
 import time
 from threading import Thread
 
 import msgspec
+import psutil
 
 import machine
 from ipc import Daemon
-from models import MachineState, MachineMutation, MachineEvent
+from models import MachineState, MachineHTTPMutation, MachineHTTPEvent
 
 
 class Processes(msgspec.Struct, frozen=True):
-    machine: Daemon[MachineState, MachineMutation, MachineEvent]
+    machine: Daemon[MachineState, MachineHTTPMutation, MachineHTTPEvent]
 
     @classmethod
     def init(cls):

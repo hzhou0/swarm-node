@@ -9,18 +9,20 @@
     "gen_sdk": "./gen_openapi.py"
   },
   "dependencies": {
-    "@mdi/font": "7.0.96",
-    "@vueuse/core": "^10.6.1",
-    "msgpackr": "^1.9.9",
+    "@mdi/font": "7.4.47",
+    "@vueuse/core": "^10.9.0",
+    "luxon": "^3.4.4",
+    "msgpackr": "^1.10.2",
     "oazapfts": "^4.11.2",
     "pinia": "^2.1.7",
     "roboto-fontface": "*",
-    "vue": "^3.2.0",
-    "vuetify": "^3.0.0",
-    "webfontloader": "^1.0.0"
+    "vue": "^3.4.27",
+    "vuetify": "^3.6.6",
+    "webfontloader": "^1.6.28"
   },
   "devDependencies": {
     "@babel/types": "^7.21.4",
+    "@types/luxon": "^3.4.2",
     "@types/node": "^18.15.0",
     "@types/webfontloader": "^1.6.35",
     "@typescript-eslint/eslint-plugin": "^6.9.0",

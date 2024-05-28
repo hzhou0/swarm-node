@@ -1,9 +1,10 @@
+import logging
 import re
 import subprocess
 from typing import Literal, Any
 
+import av
 import v4l2py
-from aiortc import RTCRtpCodecCapability
 from pulsectl import PulseSourceInfo
 from msgspec import Struct, field
 
@@ -84,7 +85,7 @@ class VideoDevice(Struct, frozen=True):
         video_sizes: dict[str, VideoSize] = {}
         format_descriptions = {f.pixel_format: f.description for f in d.info.formats}
         proc = subprocess.run(
-            f"ffmpeg -f v4l2 -list_formats all -i {d.filename}".split(" "),
+            f"ffmpeg -f v4l2 -list_formats compressed -i {d.filename}".split(" "),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -92,6 +93,7 @@ class VideoDevice(Struct, frozen=True):
         # This command should exit with code 1 (ffmpeg immediate exit)
         assert proc.returncode == 1
         ffmpeg_formats = proc.stdout
+        invalid_formats = set()
         for f in d.info.frame_sizes:
             frame_id = f"{f.height}{f.width}{f.pixel_format.name}"
             if frame_id in video_sizes:
@@ -99,13 +101,23 @@ class VideoDevice(Struct, frozen=True):
             else:
                 fd = format_descriptions[f.pixel_format]
                 regex = rf"^\[video4linux2,v4l2.*?\]\s*\w*\s*:\s*(\w*)\s*:\s*{fd}"
-                ffmpeg_format = re.search(regex, ffmpeg_formats, re.MULTILINE)[1]
-                video_sizes[frame_id] = VideoSize(
-                    height=f.height,
-                    width=f.width,
-                    fps=[float(f.step_fps)],
-                    format=ffmpeg_format,
-                )
+                ffmpeg_format_match = re.search(regex, ffmpeg_formats, re.MULTILINE)
+                if ffmpeg_format_match is None:
+                    continue
+                ffmpeg_format = ffmpeg_format_match[1]
+                # noinspection PyUnresolvedReferences
+                if ffmpeg_format in av.formats_available:
+                    video_sizes[frame_id] = VideoSize(
+                        height=f.height,
+                        width=f.width,
+                        fps=[float(f.step_fps)],
+                        format=ffmpeg_format,
+                    )
+                elif ffmpeg_format not in invalid_formats:
+                    logging.warning(
+                        f'Format "{ffmpeg_format}" unavailable in ffmpeg, discarded'
+                    )
+                    invalid_formats.add(ffmpeg_format)
         return cls(
             name=str(d.filename),
             index=d.index,
@@ -164,5 +176,5 @@ class MachineState(Struct):
     webrtc_offer: WebrtcOffer | None = None
 
 
-MachineMutation = AudioDeviceOptions | WebrtcOffer
-MachineEvent = WebrtcOffer
+MachineHTTPMutation = AudioDeviceOptions | WebrtcOffer
+MachineHTTPEvent = WebrtcOffer

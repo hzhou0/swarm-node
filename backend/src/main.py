@@ -1,4 +1,4 @@
-#!/usr/bin/env -S sh -c '"$(dirname "$(readlink -f "$0")")/venv/bin/python" "$0" "$@"'
+#!/usr/bin/env -S sh -c '"$(dirname "$(readlink -f "$0")")/.venv/bin/python" "$0" "$@"'
 import faulthandler
 import multiprocessing
 import os

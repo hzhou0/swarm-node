@@ -79,6 +79,26 @@ export type WebrtcOffer = {
     "type": "answer" | "offer" | "pranswer" | "rollback";
     tracks: Tracks;
 };
+export type SysPerf = {
+    cpu_freq_mhz: number;
+    cpu_percent: number;
+    cpu_load_avg_per_core_percent: number;
+    disk_total_bytes: number;
+    disk_free_bytes: number;
+    mem_total_bytes: number;
+    mem_available_bytes: number;
+    swap_bytes: number;
+};
+export type ProcessPerf = {
+    cpu_num: number;
+    cpu_percent: number;
+    mem_uss_percent: number;
+    mem_uss_bytes: number;
+    mem_pss_bytes: number;
+    swap_bytes: number;
+    create_time_epoch: number;
+    niceness: number;
+};
 /**
  * ListAudioDevices
  */
@@ -169,4 +189,28 @@ export function webrtcOffer(webrtcOffer: WebrtcOffer, opts?: Oazapfts.RequestOpt
         method: "PUT",
         body: webrtcOffer
     })));
+}
+/**
+ * GetSystemPerformance
+ */
+export function getSystemPerformance(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 200;
+        data: SysPerf;
+    }>("/api/perf/system", {
+        ...opts
+    }));
+}
+/**
+ * ListProcessPerformance
+ */
+export function listProcessPerformance(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 200;
+        data: {
+            [key: string]: ProcessPerf;
+        };
+    }>("/api/perf/processes", {
+        ...opts
+    }));
 }

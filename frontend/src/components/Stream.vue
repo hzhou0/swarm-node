@@ -1,7 +1,7 @@
 <template>
-  <v-card>
-    <v-row justify="center">
-      <v-col cols="auto">
+  <v-card flat rounded style="min-height: 100%; display: flex">
+    <v-row justify="center" align="end" style="min-height: 100%">
+      <v-col cols="12" align-self="start">
         <audio ref="audio" :autoplay="true"></audio>
         <video
           ref="video"
@@ -10,52 +10,54 @@
           style="max-width: 100%; max-height: 100%"
         ></video>
       </v-col>
+      <v-col cols="12" align-self="end">
+        <v-card-actions>
+          <v-row align="center">
+            <v-col cols="auto">
+              <v-btn
+                v-if="stream.tracks.machineAudio == null && stream.tracks.machineVideo == null"
+                prepend-icon="mdi-play"
+                variant="outlined"
+                color="primary"
+                @click="stream.negotiate(true, true)"
+              >
+                Connect
+              </v-btn>
+              <v-btn
+                v-else
+                variant="outlined"
+                color="primary"
+                prepend-icon="mdi-stop"
+                @click="stopMediaStreams"
+              >
+                Disconnect
+              </v-btn>
+            </v-col>
+            <v-col cols="6">
+              <v-slider
+                v-model="playerState.volume"
+                min="0"
+                max="1"
+                step="0.01"
+                :prepend-icon="playerState.mute ? 'mdi-volume-mute' : 'mdi-volume-source'"
+                style="max-width: 175px; min-width: 50px"
+                hide-details
+                @click:prepend="playerState.mute = !playerState.mute"
+              ></v-slider>
+            </v-col>
+            <v-spacer></v-spacer>
+            <v-col cols="auto">
+              <v-btn-toggle v-model="videoUIMode" mandatory variant="outlined" divided>
+                <v-btn icon="mdi-video"></v-btn>
+                <v-btn icon="mdi-console"></v-btn>
+                <v-btn icon="mdi-information"></v-btn>
+              </v-btn-toggle>
+            </v-col>
+          </v-row>
+        </v-card-actions>
+        <InfoPane v-if="videoUIMode == 2" :model-value="stream.pcStats"></InfoPane>
+      </v-col>
     </v-row>
-    <v-card-actions>
-      <v-row align="center">
-        <v-col cols="auto">
-          <v-btn
-            v-if="stream.tracks.machineAudio == null && stream.tracks.machineVideo == null"
-            prepend-icon="mdi-play"
-            variant="outlined"
-            color="primary"
-            @click="stream.negotiate(true, true)"
-          >
-            Connect
-          </v-btn>
-          <v-btn
-            v-else
-            variant="outlined"
-            color="primary"
-            prepend-icon="mdi-stop"
-            @click="stopMediaStreams"
-          >
-            Disconnect
-          </v-btn>
-        </v-col>
-        <v-col cols="6">
-          <v-slider
-            v-model="playerState.volume"
-            min="0"
-            max="1"
-            step="0.01"
-            :prepend-icon="playerState.mute ? 'mdi-volume-mute' : 'mdi-volume-source'"
-            style="max-width: 175px; min-width: 50px"
-            hide-details
-            @click:prepend="playerState.mute = !playerState.mute"
-          ></v-slider>
-        </v-col>
-        <v-spacer></v-spacer>
-        <v-col cols="auto">
-          <v-btn-toggle v-model="videoUIMode" mandatory variant="outlined" divided>
-            <v-btn icon="mdi-video"></v-btn>
-            <v-btn icon="mdi-console"></v-btn>
-            <v-btn icon="mdi-information"></v-btn>
-          </v-btn-toggle>
-        </v-col>
-      </v-row>
-    </v-card-actions>
-    <InfoPane v-if="videoUIMode == 2" :model-value="stream.pcStats"></InfoPane>
   </v-card>
 </template>
 <script setup lang="ts">
@@ -86,6 +88,7 @@ watch(stream.tracks, (val) => {
     audio.value.srcObject = val.machineAudio;
   }
 });
+
 function stopMediaStreams() {
   stream.negotiate(false, false);
   if (video.value) {
@@ -95,5 +98,6 @@ function stopMediaStreams() {
     audio.value.srcObject = null;
   }
 }
+
 const videoUIMode = useStorageAsync("videoUIMode", 0);
 </script>

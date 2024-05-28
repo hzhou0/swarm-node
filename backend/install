@@ -17,11 +17,11 @@ if ! command -v python3 &> /dev/null; then
     echo "Python3 is not installed. Please install Python3."
     exit 1
 fi
-if [[ -e "venv" ]]; then
-  sudo rm -rf venv
+if [[ -e ".venv" ]]; then
+  sudo rm -rf .venv
 fi
-python3 -m venv venv
-venv/bin/pip install -r "$pyreq_file"
+python3 -m venv .venv
+.venv/bin/pip install -r "$pyreq_file"
 
 xargs sudo apt-get install < "$deb_file"
 

@@ -76,6 +76,10 @@ class Daemon(Generic[State, Mutation, Event]):
         self._proc.start()
         logging.info(f"Started process {self._proc.name}, pid={self._proc.pid}")
 
+    @property
+    def pid(self):
+        return self._proc.pid
+
     def state(self) -> State | None:
         while True:
             header = Header.from_mem(self._state_mem)
