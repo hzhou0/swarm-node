@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 from time import sleep
 from typing import ClassVar, Type
 
@@ -8,14 +9,12 @@ import serial
 
 from util import configure_root_logger
 
-_serial: serial.Serial | None = None
-
 
 class DecodeError(Exception):
     pass
 
 
-def _get_buffer_view(in_bytes):
+def get_buffer_view(in_bytes):
     mv = memoryview(in_bytes)
     if mv.ndim > 1 or mv.itemsize > 1:
         raise BufferError("object must be a single-dimension buffer of bytes.")
@@ -26,7 +25,7 @@ def _get_buffer_view(in_bytes):
     return mv
 
 
-def _cobs_encode(in_bytes: bytes):
+def cobs_encode(in_bytes: bytes):
     """Encode a string using Consistent Overhead Byte Stuffing (COBS).
 
     Input is any byte string. Output is also a byte string, without framing 0x00 bytes.
@@ -35,7 +34,7 @@ def _cobs_encode(in_bytes: bytes):
     string will be expanded slightly, by a predictable amount.
 
     An empty string is encoded to '\\x01'"""
-    in_bytes_mv = _get_buffer_view(in_bytes)
+    in_bytes_mv = get_buffer_view(in_bytes)
     final_zero = True
     out_bytes = bytearray()
     idx = 0
@@ -50,7 +49,7 @@ def _cobs_encode(in_bytes: bytes):
             if idx - search_start_idx == 0xFD:
                 final_zero = False
                 out_bytes.append(0xFF)
-                out_bytes += in_bytes_mv[search_start_idx : idx + 1]
+                out_bytes += in_bytes_mv[search_start_idx: idx + 1]
                 search_start_idx = idx + 1
         idx += 1
     if idx != search_start_idx or final_zero:
@@ -59,7 +58,7 @@ def _cobs_encode(in_bytes: bytes):
     return bytes(out_bytes)
 
 
-def _cobs_decode(in_bytes: bytes):
+def cobs_decode(in_bytes: bytes):
     """Decode a string using Consistent Overhead Byte Stuffing (COBS).
 
     Input should be a byte string that has been COBS encoded, without framing 0x00 bytes. Output
@@ -67,7 +66,7 @@ def _cobs_decode(in_bytes: bytes):
 
     A cobs.DecodeError exception will be raised if the encoded data
     is invalid."""
-    in_bytes_mv = _get_buffer_view(in_bytes)
+    in_bytes_mv = get_buffer_view(in_bytes)
     out_bytes = bytearray()
     idx = 0
 
@@ -97,44 +96,6 @@ class RP2040Exception(Exception):
     pass
 
 
-_rp2040_logger = logging.getLogger("rp2040_msg")
-_rp2040_logger.setLevel(logging.INFO)
-
-
-class State(msgspec.Struct):
-    battery_charged: tuple[bool, bool, bool, bool] | None = None
-    in_conn: bool | None = None  # whether a power supply is charing the system
-
-    def update(self):
-        if _serial is None:
-            connect()
-        try:
-            while True:
-                if _serial.in_waiting == 0:
-                    break
-                b = bytearray(50)
-                b_len = 0
-                for i in range(50):
-                    char = _serial.read(1)[0]
-                    if char == 0:
-                        b_len = i
-                        break
-                    b[i] = char
-                b = _cobs_decode(b[:b_len])
-                if b[0] == 0:
-                    self.battery_charged = tuple(bool(b) for b in b[1:5])
-                    self.in_conn = bool(b[5])
-                    break
-                elif b[0] == 1:
-                    _rp2040_logger.info(list(b[1:]))
-                elif b[0] == 2:
-                    _rp2040_logger.info(b[1:])
-        except serial.SerialException as e:
-            logging.exception(e)
-            disconnect()
-            return
-
-
 class ServoDegrees(msgspec.Struct, frozen=True):
     mutation_id: ClassVar[int] = 0
     right_front: tuple[int, int, int]
@@ -147,8 +108,8 @@ class ServoDegrees(msgspec.Struct, frozen=True):
             [
                 self.mutation_id,
                 *self.right_front,
-                *self.left_front,
                 *self.right_back,
+                *self.left_front,
                 *self.left_back,
             ]
         )
@@ -166,45 +127,98 @@ class RequestState(msgspec.Struct, frozen=True):
         )
 
 
-def mutate(mut: ServoDegrees | RequestState | Type[RequestState]):
-    if _serial is None:
-        connect()
-    try:
-        _serial.write(_cobs_encode(mut.to_bytes()) + b"\0")
-    except serial.SerialException as e:
-        logging.exception(e)
-        disconnect()
+class RP2040Events(Enum):
+    STATE = 0
+    PRINT_BYTES = 1
+    PRINT_STRING = 2
+    LOG = 3
 
 
-def connect():
-    context = pyudev.Context()
-    rp2040s = list(
-        context.list_devices(subsystem="tty", ID_VENDOR_ID="2e8a", ID_MODEL_ID="000a")
-    )
-    assert len(rp2040s) == 1
-    assert rp2040s[0].device_node is not None
-    global _serial
-    # Virtual serial port (USB CDC) is not affected by settings
-    s = serial.Serial(port=rp2040s[0].device_node, timeout=0, write_timeout=1)
-    assert s.is_open
-    s.flush()
-    _serial = s
+class RP2040(msgspec.Struct):
+    battery_charged: tuple[bool, bool, bool, bool] | None = None
+    in_conn: bool | None = None  # whether a power supply is charging the system
+    _serial: serial.Serial | None = None
 
+    def process_events(self):
+        if self._serial is None:
+            self._serial = self.connect()
+        try:
+            while True:
+                if self._serial.in_waiting == 0:
+                    break
+                b = bytearray(200)
+                b_len = 0
+                for i in range(200):
+                    char = self._serial.read(1)[0]
+                    if char == 0:
+                        b_len = i
+                        break
+                    b[i] = char
+                b = cobs_decode(b[:b_len])
+                event_id, event_body = RP2040Events(b[0]), b[1:]
+                match event_id:
+                    case RP2040Events.STATE:
+                        self.battery_charged = tuple(bool(b) for b in event_body[:4])
+                        self.in_conn = bool(b[4])
+                        break
+                    case RP2040Events.PRINT_BYTES:
+                        print(list(event_body))
+                    case RP2040Events.PRINT_STRING:
+                        print(event_body.decode("ascii"))
+                    case RP2040Events.LOG:
+                        i = 0
+                        for i, char in enumerate(event_body):
+                            if char == 0:
+                                break
+                        file_name = event_body[:i].decode('ascii')
+                        level = int(event_body[i + 1])
+                        line = int.from_bytes(event_body[i + 2:i + 6], 'big', signed=False)
+                        msg = event_body[i + 6:].decode('ascii')
+                        logging.log(level, f"{file_name}:{line} {msg}")
+        except serial.SerialException as e:
+            logging.exception(e)
+            self.disconnect()
+            return
 
-def disconnect():
-    global _serial
-    if _serial is None:
-        pass
-    try:
-        _serial.close()
-    finally:
-        _serial = None
+    def mutate(self, mut: ServoDegrees | RequestState | Type[RequestState]):
+        if self._serial is None:
+            self._serial = self.connect()
+        try:
+            self._serial.write(cobs_encode(mut.to_bytes()) + b"\0")
+        except serial.SerialException as e:
+            logging.exception(e)
+            self.disconnect()
+
+    @staticmethod
+    def connect() -> serial.Serial | None:
+        try:
+            context = pyudev.Context()
+            rp2040s = list(
+                context.list_devices(subsystem="tty", ID_VENDOR_ID="2e8a", ID_MODEL_ID="000a")
+            )
+            assert len(rp2040s) == 1
+            assert rp2040s[0].device_node is not None
+            # Virtual serial port (USB CDC) is not affected by settings
+            s = serial.Serial(port=rp2040s[0].device_node, timeout=0, write_timeout=1)
+            assert s.is_open
+            s.flush()
+            return s
+        except Exception as e:
+            logging.exception(e)
+        return None
+
+    def disconnect(self):
+        if self._serial is None:
+            pass
+        try:
+            self._serial.close()
+        finally:
+            self._serial = None
 
 
 if __name__ == "__main__":
     configure_root_logger()
-    connect()
-    mutate(ServoDegrees([0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]))
-    state = State()
-    sleep(0.001)
-    state.update()
+    state = RP2040()
+    while True:
+        state.process_events()
+        sleep(0.1)

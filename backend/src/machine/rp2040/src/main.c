@@ -7,16 +7,41 @@ tracking_order_process().
 - Pointers: nothing fancy here: GtkWidget *foo, TrackingOrder *bar.
 - Global variables: just don't use global variables. They are evil.
  */
-#define PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS 10000
-
+#include "gpi.h"
+#include "ina226.h"
 #include "io.h"
 #include "pico/stdlib.h"
+#include "servo.h"
+
+INA226 current_sensor;
+State state;
+
+void gpio_callback(uint gpio, uint32_t event_masks) {
+  ina226_alert_irq_handler(current_sensor, gpio, &state.current_sensor);
+}
 
 int main() {
-  set_sys_clock_khz(250000, true);
   stdio_init_all();
+  gpio_set_irq_callback(&gpio_callback);
+  irq_set_enabled(IO_IRQ_BANK0, true);
+
+  I2CBus bus0 = i2c_bus(i2c0, 1, 0, I2C_SPEED_FAST);
+  I2CBus bus1 = i2c_bus(i2c1, 3, 2, I2C_SPEED_STD);
+
   ServoDegreesMutation sd_mut;
+  LegServos leg_servos = leg_servo_init();
+  current_sensor = ina226(bus0, 0b1000000, 12, 20 * 1000 * 1000, 2 * 1000);
+  ina226_configure(current_sensor, INA226_CONFIG_AVG_1, INA226_CONFIG_CT_140us,
+                   INA226_CONFIG_CT_1100us,
+                   INA226_CONFIG_MODE_BUS_SHUNT_CONTINUOUS);
+  ina226_enable_alert(current_sensor,
+                      INA226_ALERT_READY | INA226_ALERT_POWER_OVERLIMIT, 0, 0,
+                      120 * 1000);
+  gpi_init();
   while (true) {
-    processCommands(&sd_mut);
+    // state.gpi = gpi_get();
+    process_commands(&sd_mut, &state);
+    log_error("hello world %d", 12);
+    sleep_ms(1000);
   }
 }
