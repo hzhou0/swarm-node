@@ -8,7 +8,7 @@ tracking_order_process().
 - Global variables: just don't use global variables. They are evil.
  */
 #include "gpi.h"
-#include "ina226.h"
+#include "i2c.h"
 #include "io.h"
 #include "pico/stdlib.h"
 #include "servo.h"
@@ -31,17 +31,14 @@ int main() {
   ServoDegreesMutation sd_mut;
   LegServos leg_servos = leg_servo_init();
   current_sensor = ina226(bus0, 0b1000000, 12, 20 * 1000 * 1000, 2 * 1000);
-  ina226_configure(current_sensor, INA226_CONFIG_AVG_1, INA226_CONFIG_CT_140us,
+  ina226_configure(current_sensor, INA226_CONFIG_AVG_1, INA226_CONFIG_CT_1100us,
                    INA226_CONFIG_CT_1100us,
                    INA226_CONFIG_MODE_BUS_SHUNT_CONTINUOUS);
-  ina226_enable_alert(current_sensor,
-                      INA226_ALERT_READY | INA226_ALERT_POWER_OVERLIMIT, 0, 0,
-                      120 * 1000);
+  ina226_enable_alert(current_sensor, INA226_ALERT_READY | INA226_ALERT_LATCH,
+                      0, 0, 0);
   gpi_init();
   while (true) {
-    // state.gpi = gpi_get();
+    state.gpi = gpi_get();
     process_commands(&sd_mut, &state);
-    log_error("hello world %d", 12);
-    sleep_ms(1000);
   }
 }

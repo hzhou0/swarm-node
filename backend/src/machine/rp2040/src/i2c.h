@@ -2,6 +2,7 @@
 
 #include "hardware/i2c.h"
 #include "pico/stdlib.h"
+#include "io.h"
 
 #define I2C_SPEED_STD (100 * 1000)
 #define I2C_SPEED_FAST (400 * 1000)
@@ -138,7 +139,7 @@ static inline void ina226_configure(INA226 ina226, INA226_CONFIG_AVG avg,
                                     INA226_CONFIG_CT bus_voltage,
                                     INA226_CONFIG_CT shunt_voltage,
                                     INA226_CONFIG_MODE mode) {
-  uint16_t data = (0100 << 12) | (avg << 9) | (bus_voltage << 6) |
+  uint16_t data = (0b100 << 12) | (avg << 9) | (bus_voltage << 6) |
                   (shunt_voltage << 3) | mode;
   ina226_write(ina226, INA226_REG_CALIBRATION, data);
 }
@@ -165,6 +166,7 @@ static inline void ina226_enable_alert(INA226 ina226, uint16_t alert,
   uint32_t event_mask = alert & INA226_ALERT_ACTIVE_HIGH ? GPIO_IRQ_EDGE_RISE
                                                          : GPIO_IRQ_EDGE_FALL;
   gpio_set_irq_enabled(ina226.alert_pin, event_mask, true);
+  ina226_read(ina226, INA226_REG_MASK_OR_ENABLE); // Clear existing interrupts
 }
 
 typedef enum INA226_ALERT_FLAG {
@@ -207,25 +209,23 @@ static inline uint32_t ina226_current_ua(INA226 ina226) {
   return ina226_read(ina226, INA226_REG_CURRENT) * ina226.current_lsb_ua;
 }
 
-typedef struct INA226State {
-  int32_t shunt_voltage_nv;
-  uint32_t bus_voltage_uv;
-  uint32_t power_uw;
-  uint32_t current_ua;
-} INA226State;
-
-static inline void ina226_alert_irq_handler(INA226 ina226, uint pin,
+static void ina226_alert_irq_handler(INA226 ina226, uint pin,
                                             INA226State *ina226State) {
   if (ina226.alert_pin != pin)
     return;
   const uint16_t alert = ina226_read(ina226, INA226_REG_MASK_OR_ENABLE);
   if (alert & INA226_ALERT_FLAG_ALERT) {
-    // todo: do error handling
+      log_warn("INA226 alert triggered %x", alert);
   } else if (alert & INA226_ALERT_FLAG_CONVERSION_READY &&
              !(alert & INA226_ALERT_FLAG_MATH_OVERFLOW)) {
     ina226State->shunt_voltage_nv = ina226_shunt_voltage_nv(ina226);
     ina226State->bus_voltage_uv = ina226_bus_voltage_uv(ina226);
     ina226State->power_uw = ina226_power_uw(ina226);
     ina226State->current_ua = ina226_current_ua(ina226);
+
+    absolute_time_t now=get_absolute_time();
+    int64_t time_passed_us= absolute_time_diff_us(ina226State->last_read, now);
+    ina226State->last_read=now;
+    ina226State->power_uws_since_reset+=(uint64_t)(ina226State->power_uw)/1000*time_passed_us/1000;
   }
 }

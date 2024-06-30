@@ -132,11 +132,20 @@ class RP2040Events(Enum):
     PRINT_BYTES = 1
     PRINT_STRING = 2
     LOG = 3
+    INA226_STATE = 4
+    GPI_STATE = 5
 
 
 class RP2040(msgspec.Struct):
     battery_charged: tuple[bool, bool, bool, bool] | None = None
     in_conn: bool | None = None  # whether a power supply is charging the system
+
+    shunt_voltage: float = .0  # voltages in volts
+    bus_voltage: float = .0
+    power: float = .0  # power in watts
+    energy_since_reset: float = .0  # energy consumed in watt * hours
+    current: float = .0  # current in amps
+
     _serial: serial.Serial | None = None
 
     def process_events(self):
@@ -160,7 +169,6 @@ class RP2040(msgspec.Struct):
                     case RP2040Events.STATE:
                         self.battery_charged = tuple(bool(b) for b in event_body[:4])
                         self.in_conn = bool(b[4])
-                        break
                     case RP2040Events.PRINT_BYTES:
                         print(list(event_body))
                     case RP2040Events.PRINT_STRING:
@@ -175,10 +183,21 @@ class RP2040(msgspec.Struct):
                         line = int.from_bytes(event_body[i + 2:i + 6], 'big', signed=False)
                         msg = event_body[i + 6:].decode('ascii')
                         logging.log(level, f"{file_name}:{line} {msg}")
+                    case RP2040Events.INA226_STATE:
+                        self.shunt_voltage = int.from_bytes(event_body[0:4], 'big', signed=True) / 1e9
+                        self.bus_voltage = int.from_bytes(event_body[4:8], 'big', signed=False) / 1e6
+                        self.power = int.from_bytes(event_body[8:12], 'big', signed=False) / 1e6
+                        self.current = int.from_bytes(event_body[20:24], 'big', signed=False) / 1e6
+                        self.energy_since_reset = int.from_bytes(event_body[12:20], 'big',
+                                                                 signed=False) / 1e6 / 60 / 60
+                    case RP2040Events.GPI_STATE:
+                        self.battery_charged = tuple(bool(b) for b in event_body[:4])
+                        self.in_conn = bool(b[4])
         except serial.SerialException as e:
             logging.exception(e)
             self.disconnect()
             return
+
 
     def mutate(self, mut: ServoDegrees | RequestState | Type[RequestState]):
         if self._serial is None:
@@ -220,5 +239,10 @@ if __name__ == "__main__":
     configure_root_logger()
     state = RP2040()
     while True:
-        state.process_events()
+        try:
+            state.process_events()
+        except:
+            pass
+        state.mutate(RequestState)
+        print(state.energy_since_reset)
         sleep(0.1)

@@ -1,6 +1,7 @@
 #pragma once
 #include "cobs.h"
 #include "gpi.h"
+#include "i2c.h"
 #include "pico/stdlib.h"
 #include <memory.h>
 #include <stdarg.h>
@@ -8,12 +9,42 @@
 
 #define MUT_BUF_LEN 100
 
-typedef struct ServoDegreesMutation {
-  char right_front[3];
-  char right_back[3];
-  char left_front[3];
-  char left_back[3];
-} ServoDegreesMutation;
+char *append_uint8(char *string, uint8_t input) {
+  string[0] = input;
+  return &string[1];
+}
+
+char *append_uint32(char *string, uint32_t input) {
+  string[0] = (input >> 24) & 0xFF;
+  string[1] = (input >> 16) & 0xFF;
+  string[2] = (input >> 8) & 0xFF;
+  string[3] = input & 0xFF;
+  return &string[4];
+}
+
+char *append_uint64(char *string, uint64_t input) {
+  for (int i = 0; i < 8; ++i) {
+    string[i] = (input >> (64 - 8 * (i + 1))) & 0xFF;
+  }
+  return &string[8];
+}
+
+char *append_int32(char *string, int32_t input) {
+  string[0] = (input >> 24) & 0xFF;
+  string[1] = (input >> 16) & 0xFF;
+  string[2] = (input >> 8) & 0xFF;
+  string[3] = input & 0xFF;
+  return &string[4];
+}
+
+typedef struct INA226State {
+  absolute_time_t last_read;
+  uint64_t power_uws_since_reset;
+  int32_t shunt_voltage_nv;
+  uint32_t bus_voltage_uv;
+  uint32_t power_uw;
+  uint32_t current_ua;
+} INA226State;
 
 typedef struct State {
   GPI gpi;
@@ -24,7 +55,9 @@ enum event {
   EVENT_STATE = 0,
   EVENT_PRINT_BYTES = 1,
   EVENT_PRINT_STRING = 2,
-  EVENT_LOG = 3
+  EVENT_LOG = 3,
+  EVENT_INA226_STATE = 4,
+  EVENT_GPI_STATE = 5,
 };
 
 cobs_decode_status emit(enum event id, const uint8_t src_buf[],
@@ -64,6 +97,14 @@ void emit_string(const char str[]) {
   emit(EVENT_PRINT_STRING, (uint8_t *)str, strlen(str));
 }
 
+void emit_gpi_state(const GPI *gpi) {
+  gpi_get();
+  const uint8_t stateBuf[5] = {
+      gpi->charged1, gpi->charged2, gpi->charged3, gpi->charged4, gpi->in_conn,
+  };
+  emit(EVENT_GPI_STATE, stateBuf, 5);
+}
+
 // Python compatible log levels
 enum LOG_LEVEL {
   LOG_LEVEL_CRITICAL = 50,
@@ -73,36 +114,27 @@ enum LOG_LEVEL {
   LOG_LEVEL_DEBUG = 10,
 };
 
-void append_uint8(char *string, uint8_t input) {
-  string[0] = input;
-}
-
-void append_uint32(char *string, uint32_t input) {
-  string[0] = (input >> 24) & 0xFF;
-  string[1] = (input >> 16) & 0xFF;
-  string[2] = (input >> 8) & 0xFF;
-  string[3] = input & 0xFF;
-}
-
-#define STRIPPATH(s)\
-    (sizeof(s) > 2 && (s)[sizeof(s)-2] == '/' ? (s) + sizeof(s) - 1 : \
-    sizeof(s) > 3 && (s)[sizeof(s)-3] == '/' ? (s) + sizeof(s) - 2 : \
-    sizeof(s) > 4 && (s)[sizeof(s)-4] == '/' ? (s) + sizeof(s) - 3 : \
-    sizeof(s) > 5 && (s)[sizeof(s)-5] == '/' ? (s) + sizeof(s) - 4 : \
-    sizeof(s) > 6 && (s)[sizeof(s)-6] == '/' ? (s) + sizeof(s) - 5 : \
-    sizeof(s) > 7 && (s)[sizeof(s)-7] == '/' ? (s) + sizeof(s) - 6 : \
-    sizeof(s) > 8 && (s)[sizeof(s)-8] == '/' ? (s) + sizeof(s) - 7 : \
-    sizeof(s) > 9 && (s)[sizeof(s)-9] == '/' ? (s) + sizeof(s) - 8 : \
-    sizeof(s) > 10 && (s)[sizeof(s)-10] == '/' ? (s) + sizeof(s) - 9 : \
-    sizeof(s) > 11 && (s)[sizeof(s)-11] == '/' ? (s) + sizeof(s) - 10 : (s))
+#define STRIPPATH(s)                                                           \
+  (sizeof(s) > 2 && (s)[sizeof(s) - 2] == '/'     ? (s) + sizeof(s) - 1        \
+   : sizeof(s) > 3 && (s)[sizeof(s) - 3] == '/'   ? (s) + sizeof(s) - 2        \
+   : sizeof(s) > 4 && (s)[sizeof(s) - 4] == '/'   ? (s) + sizeof(s) - 3        \
+   : sizeof(s) > 5 && (s)[sizeof(s) - 5] == '/'   ? (s) + sizeof(s) - 4        \
+   : sizeof(s) > 6 && (s)[sizeof(s) - 6] == '/'   ? (s) + sizeof(s) - 5        \
+   : sizeof(s) > 7 && (s)[sizeof(s) - 7] == '/'   ? (s) + sizeof(s) - 6        \
+   : sizeof(s) > 8 && (s)[sizeof(s) - 8] == '/'   ? (s) + sizeof(s) - 7        \
+   : sizeof(s) > 9 && (s)[sizeof(s) - 9] == '/'   ? (s) + sizeof(s) - 8        \
+   : sizeof(s) > 10 && (s)[sizeof(s) - 10] == '/' ? (s) + sizeof(s) - 9        \
+   : sizeof(s) > 11 && (s)[sizeof(s) - 11] == '/' ? (s) + sizeof(s) - 10       \
+                                                  : (s))
 
 #define __FILENAME__ STRIPPATH(__FILE__)
 
-
 #define log_debug(...)                                                         \
   emit_log(LOG_LEVEL_DEBUG, __FILENAME__, __LINE__, __VA_ARGS__)
-#define log_info(...) emit_log(LOG_LEVEL_INFO, __FILENAME__, __LINE__, __VA_ARGS__)
-#define log_warn(...) emit_log(LOG_LEVEL_WARN, __FILENAME__, __LINE__, __VA_ARGS__)
+#define log_info(...)                                                          \
+  emit_log(LOG_LEVEL_INFO, __FILENAME__, __LINE__, __VA_ARGS__)
+#define log_warn(...)                                                          \
+  emit_log(LOG_LEVEL_WARN, __FILENAME__, __LINE__, __VA_ARGS__)
 #define log_error(...)                                                         \
   emit_log(LOG_LEVEL_ERROR, __FILENAME__, __LINE__, __VA_ARGS__)
 #define log_critical(...)                                                      \
@@ -113,27 +145,44 @@ void emit_log(uint8_t lvl, const char *file, uint32_t line, const char *fmt,
   uint i = 0;
   strcpy(&log_buf[i], file);
   i += strlen(file);
-  log_buf[++i]='\0';
+  log_buf[++i] = '\0';
   append_uint8(&log_buf[i], lvl);
   i += 1;
   append_uint32(&log_buf[i], line);
   i += 4;
   va_list args;
   va_start(args, fmt);
-  char msg_buf[100-i];
+  char msg_buf[100 - i];
   vsprintf(msg_buf, fmt, args);
   for (int j = 0; j < strlen(msg_buf); ++j) {
-    log_buf[i]=msg_buf[j];
+    log_buf[i] = msg_buf[j];
     i++;
   }
   va_end(args);
   emit(EVENT_LOG, (uint8_t *)log_buf, i);
 }
 
+void emit_ina226_state(const INA226State *ina226State) {
+  uint8_t buffer[24];
+  char *cursor = append_int32((char *)buffer, ina226State->shunt_voltage_nv);
+  cursor = append_uint32(cursor, ina226State->bus_voltage_uv);
+  cursor = append_uint32(cursor, ina226State->power_uw);
+  cursor = append_uint64(cursor, ina226State->power_uws_since_reset);
+  append_uint32(cursor, ina226State->current_ua);
+  emit(EVENT_INA226_STATE, buffer, 24);
+}
+
 enum mutation {
   MUTATION_SERVO_DEGREES = 0,
   MUTATION_REQUEST_STATE = 1,
 };
+
+typedef struct ServoDegreesMutation {
+  char right_front[3];
+  char right_back[3];
+  char left_front[3];
+  char left_back[3];
+} ServoDegreesMutation;
 
 void process_commands(ServoDegreesMutation *sd_mut, const State *state) {
   uint8_t mutation_buf[MUT_BUF_LEN];
@@ -178,7 +227,8 @@ void process_commands(ServoDegreesMutation *sd_mut, const State *state) {
     }
     break;
   case MUTATION_REQUEST_STATE:
-    emit_state(state);
+    emit_ina226_state(&state->current_sensor);
+    emit_gpi_state(&state->gpi);
     break;
   }
   mutation_buf[0] = 0xFF;
