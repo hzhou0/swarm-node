@@ -198,7 +198,6 @@ class RP2040(msgspec.Struct):
             self.disconnect()
             return
 
-
     def mutate(self, mut: ServoDegrees | RequestState | Type[RequestState]):
         if self._serial is None:
             self._serial = self.connect()

@@ -1,3 +1,4 @@
+import av
 import asyncio
 import logging
 import time
@@ -242,6 +243,7 @@ def main(
     _state_mem, _state_lock = state_mem, state_lock
     configure_root_logger()
     v4l2py.device.log.setLevel(logging.WARNING)
+    av.logging.set_level(av.logging.PANIC)
 
     loop = asyncio.get_event_loop()
     # Specify tasks in collection to avoid garbage collection

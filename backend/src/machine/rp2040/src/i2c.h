@@ -44,7 +44,7 @@ static inline INA226 ina226(I2CBus i2c_bus, uint8_t i2c_address,
   return ina;
 }
 
-typedef enum INA226Reg {
+typedef enum INA226_REG {
   INA226_REG_CONFIGURATION = 0x00,
   INA226_REG_SHUNT_VOLTAGE = 0x01,
   INA226_REG_BUS_VOLTAGE = 0x02,
@@ -55,9 +55,9 @@ typedef enum INA226Reg {
   INA226_REG_ALERT_LIMIT = 0x07,
   INA226_REG_MANUFACTURER_ID = 0xFE,
   INA226_REG_DIE_ID = 0xFF,
-} INA226Reg;
+} INA226_REG;
 
-static inline int ina226_write(INA226 ina226, INA226Reg reg, uint16_t data) {
+static inline int ina226_write(INA226 ina226, INA226_REG reg, uint16_t data) {
   const uint timeout = 100000;
   const uint8_t buffer[3] = {(uint8_t)reg, (uint8_t)(data >> 8),
                              (uint8_t)(data & 0xff)};
@@ -65,7 +65,7 @@ static inline int ina226_write(INA226 ina226, INA226Reg reg, uint16_t data) {
                               3, false, timeout);
 }
 
-static inline uint16_t ina226_read(INA226 ina226, INA226Reg reg) {
+static inline uint16_t ina226_read(INA226 ina226, INA226_REG reg) {
   const uint timeout = 100000;
   uint8_t buffer[2] = {(uint8_t)reg, 0};
   int ret = i2c_write_timeout_us(ina226.i2c_bus.inst, ina226.i2c_address,

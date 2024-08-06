@@ -1,11 +1,9 @@
 import logging
-import os
 import sys
 import time
 from threading import Thread
 
 import msgspec
-import psutil
 
 import machine
 from ipc import Daemon
