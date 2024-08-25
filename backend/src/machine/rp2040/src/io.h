@@ -1,20 +1,26 @@
 #pragma once
 #include "cobs.h"
 #include "gpi.h"
-#include "i2c.h"
 #include "pico/stdlib.h"
 #include <memory.h>
 #include <stdarg.h>
 #include <stdio.h>
 
+#ifndef __STDC_IEC_559__
+#ifndef PICO_RP2040
+#error "Requires IEEE 754 floating point (RP2040 is IEEE754 compliant in reprsentation)"
+#endif
+#endif
+
+
 #define MUT_BUF_LEN 100
 
-char *append_uint8(char *string, uint8_t input) {
+inline char *append_uint8(char *string, uint8_t input) {
   string[0] = input;
   return &string[1];
 }
 
-char *append_uint32(char *string, uint32_t input) {
+inline char *append_uint32(char *string, uint32_t input) {
   string[0] = (input >> 24) & 0xFF;
   string[1] = (input >> 16) & 0xFF;
   string[2] = (input >> 8) & 0xFF;
@@ -22,19 +28,29 @@ char *append_uint32(char *string, uint32_t input) {
   return &string[4];
 }
 
-char *append_uint64(char *string, uint64_t input) {
+inline char *append_uint64(char *string, uint64_t input) {
   for (int i = 0; i < 8; ++i) {
     string[i] = (input >> (64 - 8 * (i + 1))) & 0xFF;
   }
   return &string[8];
 }
 
-char *append_int32(char *string, int32_t input) {
+inline char *append_int32(char *string, int32_t input) {
   string[0] = (input >> 24) & 0xFF;
   string[1] = (input >> 16) & 0xFF;
   string[2] = (input >> 8) & 0xFF;
   string[3] = input & 0xFF;
   return &string[4];
+}
+
+inline char *append_float(char *string, float input) {
+  memcpy(string, &input, sizeof(float));
+  return &string[sizeof(float)];
+}
+
+inline char *append_double(char *string, double input) {
+  memcpy(string, &input, sizeof(double));
+  return &string[sizeof(double)];
 }
 
 typedef struct INA226State {
@@ -60,16 +76,15 @@ enum event {
   EVENT_GPI_STATE = 5,
 };
 
-cobs_decode_status emit(enum event id, const uint8_t src_buf[],
-                        size_t src_len) {
-  size_t msg_len = src_len + 1;
+inline cobs_decode_status emit(enum event id, const uint8_t src_buf[], size_t src_len) {
+  const size_t msg_len = src_len + 1;
   uint8_t msg_buf[msg_len];
   msg_buf[0] = id;
   memcpy(&msg_buf[1], src_buf, src_len);
 
-  size_t dst_len = COBS_ENCODE_DST_BUF_LEN_MAX(msg_len);
+  const size_t dst_len = COBS_ENCODE_DST_BUF_LEN_MAX(msg_len);
   uint8_t dst_buf[dst_len + 1];
-  cobs_encode_result result = cobs_encode(dst_buf, dst_len, msg_buf, msg_len);
+  const cobs_encode_result result = cobs_encode(dst_buf, dst_len, msg_buf, msg_len);
 
   if (result.status != COBS_DECODE_OK) {
     return result.status;
@@ -81,7 +96,7 @@ cobs_decode_status emit(enum event id, const uint8_t src_buf[],
   return result.status;
 }
 
-void emit_state(const State *state) {
+inline void emit_state(const State *state) {
   const uint8_t stateBuf[sizeof(State)] = {
       state->gpi.charged1, state->gpi.charged2, state->gpi.charged3,
       state->gpi.charged4, state->gpi.in_conn,
@@ -89,15 +104,11 @@ void emit_state(const State *state) {
   emit(EVENT_STATE, stateBuf, sizeof(State));
 }
 
-void emit_bytes(uint8_t bytes[], size_t len) {
-  emit(EVENT_PRINT_BYTES, bytes, len);
-}
+inline void emit_bytes(uint8_t bytes[], size_t len) { emit(EVENT_PRINT_BYTES, bytes, len); }
 
-void emit_string(const char str[]) {
-  emit(EVENT_PRINT_STRING, (uint8_t *)str, strlen(str));
-}
+inline void emit_string(const char str[]) { emit(EVENT_PRINT_STRING, (uint8_t *)str, strlen(str)); }
 
-void emit_gpi_state(const GPI *gpi) {
+inline static void emit_gpi_state(const GPI *gpi) {
   gpi_get();
   const uint8_t stateBuf[5] = {
       gpi->charged1, gpi->charged2, gpi->charged3, gpi->charged4, gpi->in_conn,
@@ -137,10 +148,8 @@ enum LOG_LEVEL {
   emit_log(LOG_LEVEL_WARN, __FILENAME__, __LINE__, __VA_ARGS__)
 #define log_error(...)                                                         \
   emit_log(LOG_LEVEL_ERROR, __FILENAME__, __LINE__, __VA_ARGS__)
-#define log_critical(...)                                                      \
-  emit_log(LOG_LEVEL_CRITICAL, __FILENAME__, __LINE__, __VA_ARGS__)
-void emit_log(uint8_t lvl, const char *file, uint32_t line, const char *fmt,
-              ...) {
+#define log_critical(...) emit_log(LOG_LEVEL_CRITICAL, __FILENAME__, __LINE__, __VA_ARGS__)
+static void emit_log(uint8_t lvl, const char *file, const uint32_t line, const char *fmt, ...) {
   char log_buf[100];
   uint i = 0;
   strcpy(&log_buf[i], file);
@@ -162,7 +171,7 @@ void emit_log(uint8_t lvl, const char *file, uint32_t line, const char *fmt,
   emit(EVENT_LOG, (uint8_t *)log_buf, i);
 }
 
-void emit_ina226_state(const INA226State *ina226State) {
+inline void emit_ina226_state(const INA226State *ina226State) {
   uint8_t buffer[24];
   char *cursor = append_int32((char *)buffer, ina226State->shunt_voltage_nv);
   cursor = append_uint32(cursor, ina226State->bus_voltage_uv);
@@ -184,30 +193,27 @@ typedef struct ServoDegreesMutation {
   char left_back[3];
 } ServoDegreesMutation;
 
-void process_commands(ServoDegreesMutation *sd_mut, const State *state) {
+inline static void process_commands(ServoDegreesMutation *sd_mut, const State *state) {
   uint8_t mutation_buf[MUT_BUF_LEN];
-  uint8_t decode_buf[MUT_BUF_LEN];
   int c = getchar_timeout_us(0);
   if (c == PICO_ERROR_TIMEOUT || c == 0) {
     return;
-  } else {
-    decode_buf[0] = c;
-    uint decode_len = 1;
-    for (int i = 1; i < MUT_BUF_LEN; ++i) {
-      c = getchar_timeout_us(0);
-      if (c == 0) {
-        decode_len = i;
-        break;
-      } else {
-        decode_buf[i] = c;
-      }
+  }
+  uint8_t decode_buf[MUT_BUF_LEN];
+  decode_buf[0] = c;
+  uint decode_len = 1;
+  for (int i = 1; i < MUT_BUF_LEN; ++i) {
+    c = getchar_timeout_us(0);
+    if (c == 0) {
+      decode_len = i;
+      break;
     }
-    cobs_decode_result res =
-        cobs_decode(mutation_buf, MUT_BUF_LEN, decode_buf, decode_len);
-    if (res.status != COBS_DECODE_OK) {
-      mutation_buf[0] = 0xFF;
-      return;
-    }
+    decode_buf[i] = c;
+  }
+  const cobs_decode_result res = cobs_decode(mutation_buf, MUT_BUF_LEN, decode_buf, decode_len);
+  if (res.status != COBS_DECODE_OK) {
+    mutation_buf[0] = 0xFF;
+    return;
   }
 
   switch (mutation_buf[0]) {

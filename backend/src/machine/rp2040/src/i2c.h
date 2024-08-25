@@ -183,7 +183,7 @@ static inline void ina226_calibrate(INA226 *ina226, uint max_current_uA,
                                     uint resistance_uohm) {
   ina226->current_lsb_ua = ceil_uint_div(max_current_uA, 32768);
   ina226->power_lsb_uw = ina226->current_lsb_ua * 25;
-  uint16_t cal = 5120000000 / (ina226->current_lsb_ua * resistance_uohm);
+  const uint16_t cal = 5120000000 / (ina226->current_lsb_ua * resistance_uohm);
   ina226_write(*ina226, INA226_REG_CALIBRATION, cal);
 }
 
@@ -192,8 +192,8 @@ static inline int32_t ina226_shunt_voltage_nv(INA226 ina226) {
       ina226, INA226_REG_SHUNT_VOLTAGE); // 2's complement representation
   // Essentially all compilers uses 2's complement, reinterpret
   // shunt_voltage_raw as signed.
-  uint16_t shunt_voltage_signed = *(int16_t *)&shunt_voltage_raw;
-  return (int32_t)((int16_t)(shunt_voltage_signed) * INA226_SHUNT_VOLTAGE_LSB_NV);
+  const uint16_t shunt_voltage_signed = *(int16_t *)&shunt_voltage_raw;
+  return (int16_t)shunt_voltage_signed * INA226_SHUNT_VOLTAGE_LSB_NV;
 }
 
 static inline uint32_t ina226_bus_voltage_uv(INA226 ina226) {
@@ -223,8 +223,8 @@ static void ina226_alert_irq_handler(INA226 ina226, uint pin,
     ina226State->power_uw = ina226_power_uw(ina226);
     ina226State->current_ua = ina226_current_ua(ina226);
 
-    absolute_time_t now=get_absolute_time();
-    int64_t time_passed_us= absolute_time_diff_us(ina226State->last_read, now);
+    const absolute_time_t now = get_absolute_time();
+    const int64_t time_passed_us= absolute_time_diff_us(ina226State->last_read, now);
     ina226State->last_read=now;
     ina226State->power_uws_since_reset+=(uint64_t)(ina226State->power_uw)/1000*time_passed_us/1000;
   }
