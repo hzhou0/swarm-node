@@ -1,13 +1,12 @@
 import logging
 from enum import Enum
 from time import sleep
-from typing import ClassVar, Type
+from typing import ClassVar, Type, NamedTuple
+import struct
 
 import msgspec
 import pyudev
 import serial
-
-from util import configure_root_logger
 
 
 class DecodeError(Exception):
@@ -127,6 +126,58 @@ class RequestState(msgspec.Struct, frozen=True):
         )
 
 
+class MPU6500Calibrate(msgspec.Struct, frozen=True):
+    mutation_id: ClassVar[int] = 2
+
+    @classmethod
+    def to_bytes(cls) -> bytes:
+        return bytes(
+            [
+                cls.mutation_id,
+            ]
+        )
+
+
+class EmitBufferedErrorLog(msgspec.Struct, frozen=True):
+    mutation_id: ClassVar[int] = 3
+
+    @classmethod
+    def to_bytes(cls) -> bytes:
+        return bytes(
+            [
+                cls.mutation_id,
+            ]
+        )
+
+
+class Mpu6500ResetOdom(msgspec.Struct, frozen=True):
+    mutation_id: ClassVar[int] = 4
+
+    @classmethod
+    def to_bytes(cls) -> bytes:
+        return bytes(
+            [
+                cls.mutation_id,
+            ]
+        )
+
+
+class SetProgramOptions(msgspec.Struct, frozen=True):
+    mutation_id: ClassVar[int] = 5
+    log_level: logging.DEBUG | logging.INFO | logging.WARNING | logging.ERROR | logging.CRITICAL = logging.INFO
+    emit_state_interval_ms: int = -1  # int16, negative means never push state to host
+    emit_loop_perf: bool = False
+
+    def to_bytes(self) -> bytes:
+        return (bytes(
+            [
+                self.mutation_id,
+                self.log_level,
+            ]
+        ) + self.emit_state_interval_ms.to_bytes(2, byteorder="big", signed=True)
+                + bytes([int(self.emit_loop_perf)]))
+
+
 class RP2040Events(Enum):
     STATE = 0
     PRINT_BYTES = 1
@@ -134,6 +185,8 @@ class RP2040Events(Enum):
     LOG = 3
     INA226_STATE = 4
     GPI_STATE = 5
+    MPU6500_STATE = 6
+    MAIN_LOOP_PERF = 7
 
 
 class RP2040(msgspec.Struct):
@@ -146,6 +199,21 @@ class RP2040(msgspec.Struct):
     energy_since_reset: float = .0  # energy consumed in watt * hours
     current: float = .0  # current in amps
 
+    class Vector(NamedTuple):
+        x: float = .0
+        y: float = .0
+        z: float = .0
+
+    mpu6500_temp: float = .0  # imu temperature in Celsius
+    ang_vel: Vector = Vector()  # deg/s
+    direction: Vector = Vector()  # deg
+    accel: Vector = Vector()  # m/s^2
+    vel: Vector = Vector()  # m/s
+    displacement: Vector = Vector()  # m
+
+    loop_idle: float = .0  # percentage of time loops are idle
+    loop_duration: float = .0  # duration of a single loop in seconds
+
     _serial: serial.Serial | None = None
 
     def process_events(self):
@@ -155,15 +223,19 @@ class RP2040(msgspec.Struct):
             while True:
                 if self._serial.in_waiting == 0:
                     break
-                b = bytearray(200)
+                while True:
+                    char = self._serial.read(1)[0]
+                    if char == 0:
+                        break
+                b_raw = bytearray(200)
                 b_len = 0
                 for i in range(200):
                     char = self._serial.read(1)[0]
                     if char == 0:
                         b_len = i
                         break
-                    b[i] = char
-                b = cobs_decode(b[:b_len])
+                    b_raw[i] = char
+                b = cobs_decode(b_raw[:b_len])
                 event_id, event_body = RP2040Events(b[0]), b[1:]
                 match event_id:
                     case RP2040Events.STATE:
@@ -193,12 +265,30 @@ class RP2040(msgspec.Struct):
                     case RP2040Events.GPI_STATE:
                         self.battery_charged = tuple(bool(b) for b in event_body[:4])
                         self.in_conn = bool(b[4])
+                    case RP2040Events.MPU6500_STATE:
+                        values = struct.unpack_from('<f' + 'f' * 3 + 'd' * 3 + 'f' * 3 + 'd' * 3 + 'd' * 3, event_body)
+                        self.mpu6500_temp = values[0]
+                        self.ang_vel = self.Vector(*values[1:4])
+                        self.direction = self.Vector(*values[4:7])
+                        self.accel = self.Vector(*values[7:10])
+                        self.vel = self.Vector(*values[10:13])
+                        self.displacement = self.Vector(*values[13:16])
+                    case RP2040Events.MAIN_LOOP_PERF:
+                        self.loop_idle = int.from_bytes(event_body[0:2], 'big', signed=False) / 10000
+                        self.loop_duration = int.from_bytes(event_body[2:6], 'big', signed=False) / 10000 / (
+                                1 - self.loop_idle) / 1e6
+                    case _:
+                        logging.error(f"unexpected eventid")
+
+
         except serial.SerialException as e:
             logging.exception(e)
             self.disconnect()
             return
 
-    def mutate(self, mut: ServoDegrees | RequestState | Type[RequestState]):
+    def mutate(self,
+               mut: ServoDegrees | Type[RequestState] | Type[MPU6500Calibrate] | Type[EmitBufferedErrorLog] | Type[
+                   Mpu6500ResetOdom] | SetProgramOptions):
         if self._serial is None:
             self._serial = self.connect()
         try:
@@ -217,7 +307,7 @@ class RP2040(msgspec.Struct):
             assert len(rp2040s) == 1
             assert rp2040s[0].device_node is not None
             # Virtual serial port (USB CDC) is not affected by settings
-            s = serial.Serial(port=rp2040s[0].device_node, timeout=0, write_timeout=1)
+            s = serial.Serial(port=rp2040s[0].device_node, timeout=5, write_timeout=1)
             assert s.is_open
             s.flush()
             return s
@@ -235,13 +325,17 @@ class RP2040(msgspec.Struct):
 
 
 if __name__ == "__main__":
-    configure_root_logger()
+    logging.getLogger().setLevel(logging.DEBUG)
     state = RP2040()
+    state.mutate(EmitBufferedErrorLog)
+    # state.mutate(Mpu6500ResetOdom)
+    # state.mutate(MPU6500Calibrate)
+    state.mutate(SetProgramOptions(log_level=logging.INFO, emit_state_interval_ms=100, emit_loop_perf=False))
     while True:
         try:
             state.process_events()
-        except:
+            print(state.bus_voltage)
+        except Exception as e:
+            logging.exception(e)
             pass
-        state.mutate(RequestState)
-        print(state.energy_since_reset)
         sleep(0.1)

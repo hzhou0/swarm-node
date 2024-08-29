@@ -81,7 +81,7 @@
 #endif
 
 #ifndef PICO_STACK_SIZE
-#define PICO_STACK_SIZE 0x8000
+#define PICO_STACK_SIZE 0x64000
 #endif
 
 #endif

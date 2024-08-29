@@ -7,38 +7,161 @@ tracking_order_process().
 - Pointers: nothing fancy here: GtkWidget *foo, TrackingOrder *bar.
 - Global variables: just don't use global variables. They are evil.
  */
+#define PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS (-10)
+
 #include "gpi.h"
 #include "i2c.h"
 #include "io.h"
 #include "pico/stdlib.h"
 #include "servo.h"
+#include "spi.h"
+
+#include <hardware/watchdog.h>
+
+typedef struct State {
+  GPIState gpi_state;
+  INA226State current_sensor_state;
+  MPU6500State imu_state;
+} State;
 
 INA226 current_sensor;
 State state;
+MPU6500 imu;
+int16_t emit_state_interval_ms = -1;
+bool emit_loop_perf = false;
+
+volatile bool imu_irq_flag = false;
+volatile bool current_sensor_irq_flag = false;
 
 void gpio_callback(uint gpio, uint32_t event_masks) {
-  ina226_alert_irq_handler(current_sensor, gpio, &state.current_sensor);
+  gpio_set_irq_enabled(gpio, event_masks, false);
+  //  gpi_alert_irq_handler(gpio, &state.gpi_state);
+  if (gpio == imu.int_pin) {
+    imu_irq_flag = true;
+  } else if (gpio == current_sensor.alert_pin) {
+    current_sensor_irq_flag = true;
+  }
+}
+
+void process_commands(State *state, const MPU6500 mpu6500) {
+  uint8_t mutation_buf[MUT_BUF_LEN];
+  int c = getchar_timeout_us(0);
+  if (c == PICO_ERROR_TIMEOUT || c == 0) {
+    return;
+  }
+  uint8_t decode_buf[MUT_BUF_LEN];
+  decode_buf[0] = c;
+  uint decode_len = 1;
+  for (int i = 1; i < MUT_BUF_LEN; ++i) {
+    c = getchar_timeout_us(0);
+    if (c == 0) {
+      decode_len = i;
+      break;
+    }
+    decode_buf[i] = c;
+  }
+  const cobs_decode_result res = cobs_decode(mutation_buf, MUT_BUF_LEN, decode_buf, decode_len);
+  if (res.status != COBS_DECODE_OK) {
+    mutation_buf[0] = 0xFF;
+    return;
+  }
+  ServoDegreesMutation sd_mut = {};
+
+  switch (mutation_buf[0]) {
+  case MUTATION_SERVO_DEGREES:
+    for (int i = 0; i < 3; ++i) {
+      sd_mut.right_front[i] = mutation_buf[i + 1];
+      sd_mut.right_back[i] = mutation_buf[i + 6 + 1];
+      sd_mut.left_front[i] = mutation_buf[i + 3 + 1];
+      sd_mut.left_back[i] = mutation_buf[i + 9 + 1];
+    }
+    break;
+  case MUTATION_REQUEST_STATE:
+    emit_ina226_state(&state->current_sensor_state);
+    emit_gpi_state(&state->gpi_state);
+    emit_mpu6500_state(&state->imu_state);
+    break;
+  case MUTATION_MPU6500_CALIBRATE:
+    mpu6500_calibrate_while_stationary(&mpu6500, &state->imu_state);
+    break;
+  case MUTATION_EMIT_BUFFERED_ERROR_LOG:
+    emit_buffered_error();
+    break;
+  case MUTATION_MPU6500_RESET_ODOM:
+    mpu6500_data_restart_odom(&state->imu_state);
+    break;
+  case MUTATION_SET_PROGRAM_OPTIONS:
+    log_level = mutation_buf[1];
+    emit_state_interval_ms = bytesToInt(mutation_buf[2], mutation_buf[3]);
+    emit_loop_perf = (bool)mutation_buf[4];
+    break;
+  default:
+    log_error("Unknown mutation type %d", mutation_buf[0]);
+    break;
+  }
+  mutation_buf[0] = 0xFF;
 }
 
 int main() {
+  // System level initialization
   stdio_init_all();
-  gpio_set_irq_callback(&gpio_callback);
+  gpio_set_irq_callback(gpio_callback);
   irq_set_enabled(IO_IRQ_BANK0, true);
 
-  I2CBus bus0 = i2c_bus(i2c0, 1, 0, I2C_SPEED_FAST);
+  // I2C Devices
+  const I2CBus bus0 = i2c_bus(i2c0, 1, 0, I2C_SPEED_FAST);
   I2CBus bus1 = i2c_bus(i2c1, 3, 2, I2C_SPEED_STD);
-
-  ServoDegreesMutation sd_mut;
-  LegServos leg_servos = leg_servo_init();
   current_sensor = ina226(bus0, 0b1000000, 12, 20 * 1000 * 1000, 2 * 1000);
-  ina226_configure(current_sensor, INA226_CONFIG_AVG_1, INA226_CONFIG_CT_1100us,
-                   INA226_CONFIG_CT_1100us,
-                   INA226_CONFIG_MODE_BUS_SHUNT_CONTINUOUS);
-  ina226_enable_alert(current_sensor, INA226_ALERT_READY | INA226_ALERT_LATCH,
-                      0, 0, 0);
+  ina226_configure(&current_sensor, INA226_CONFIG_AVG_1, INA226_CONFIG_CT_1100us,
+                   INA226_CONFIG_CT_1100us, INA226_CONFIG_MODE_BUS_SHUNT_CONTINUOUS);
+  ina226_configure_alert(&current_sensor, INA226_ALERT_READY, 0, 0, 0);
+  ina226_enable_alert(&current_sensor);
+  /*
+  // GPIO devices
+  LegServos leg_servos = leg_servo_init();
   gpi_init();
+  // gpi_enable_alert();
+  */
+  // SPI Devices
+  const SPIBus spi_bus1 = spi_bus(spi1, 26, 27, 28, 29);
+  imu = mpu6500(spi_bus1, 22, 21);
+  mpu6500_configure(&imu, MPU6500_CONFIG_GYRO_DPLF_184HZ, MPU6500_CONFIG_GYRO_250DPS,
+                    MPU6500_CONFIG_ACCEL_DPLF_184HZ, MPU6500_CONFIG_ACCEL_2g);
+  mpu6500_calibrate_while_stationary(&imu, &state.imu_state);
+  mpu6500_configure_alert(&imu, MPU6500_FLAGS_INT_RAW_RDY_EN, MPU6500_FLAGS_INT_CONFIG_NULL);
+  mpu6500_data_restart_odom(&state.imu_state);
+  mpu6500_enable_alert(&imu);
+
+  absolute_time_t next_update_time = get_absolute_time();
+  uint16_t loop_counter = 0;
+  MainLoopPerf perf = {0, 0};
   while (true) {
-    state.gpi = gpi_get();
-    process_commands(&sd_mut, &state);
+    process_commands(&state, imu);
+
+    if (imu_irq_flag) {
+      // log_debug("imu irq");
+      imu_irq_flag = false;
+      mpu6500_read1(&imu, MPU6500_REG_INT_STATUS);
+      mpu6500_update_state(&imu, &state.imu_state);
+      mpu6500_enable_alert(&imu);
+    } else if (current_sensor_irq_flag) {
+      current_sensor_irq_flag = false;
+      ina226_update_state(&current_sensor, &state.current_sensor_state);
+      ina226_enable_alert(&current_sensor);
+    } else if (emit_state_interval_ms >= 0 && time_reached(next_update_time)) {
+      emit_ina226_state(&state.current_sensor_state);
+      emit_mpu6500_state(&state.imu_state);
+      next_update_time = delayed_by_ms(get_absolute_time(), emit_state_interval_ms);
+    } else if (emit_loop_perf) {
+      perf.idle_loops_per_10000++;
+    }
+
+    if (emit_loop_perf && ++loop_counter >= 10000) {
+      perf.us_per_10000 = absolute_time_diff_us(perf.us_per_10000, get_absolute_time());
+      emit_idle_loops_count_per_10000(perf);
+      loop_counter = 0;
+      perf.idle_loops_per_10000 = 0;
+      perf.us_per_10000 = get_absolute_time();
+    }
   }
 }
