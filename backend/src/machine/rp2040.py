@@ -215,76 +215,102 @@ class RP2040(msgspec.Struct):
     loop_duration: float = .0  # duration of a single loop in seconds
 
     _serial: serial.Serial | None = None
+    _end_of_frame: bool = False
+    _start_of_frame: bool = False
+    _serial_buffer: bytearray = msgspec.field(default_factory=lambda: bytearray(200))
+    _serial_buffer_i: int = 0
 
     def process_events(self):
         if self._serial is None:
             self._serial = self.connect()
         try:
-            while True:
-                if self._serial.in_waiting == 0:
-                    break
-                while True:
-                    char = self._serial.read(1)[0]
-                    if char == 0:
-                        break
-                b_raw = bytearray(200)
-                b_len = 0
-                for i in range(200):
-                    char = self._serial.read(1)[0]
-                    if char == 0:
-                        b_len = i
-                        break
-                    b_raw[i] = char
-                b = cobs_decode(b_raw[:b_len])
-                event_id, event_body = RP2040Events(b[0]), b[1:]
-                match event_id:
-                    case RP2040Events.STATE:
-                        self.battery_charged = tuple(bool(b) for b in event_body[:4])
-                        self.in_conn = bool(b[4])
-                    case RP2040Events.PRINT_BYTES:
-                        print(list(event_body))
-                    case RP2040Events.PRINT_STRING:
-                        print(event_body.decode("ascii"))
-                    case RP2040Events.LOG:
-                        i = 0
-                        for i, char in enumerate(event_body):
-                            if char == 0:
-                                break
-                        file_name = event_body[:i].decode('ascii')
-                        level = int(event_body[i + 1])
-                        line = int.from_bytes(event_body[i + 2:i + 6], 'big', signed=False)
-                        msg = event_body[i + 6:].decode('ascii')
-                        logging.log(level, f"{file_name}:{line} {msg}")
-                    case RP2040Events.INA226_STATE:
-                        self.shunt_voltage = int.from_bytes(event_body[0:4], 'big', signed=True) / 1e9
-                        self.bus_voltage = int.from_bytes(event_body[4:8], 'big', signed=False) / 1e6
-                        self.power = int.from_bytes(event_body[8:12], 'big', signed=False) / 1e6
-                        self.current = int.from_bytes(event_body[20:24], 'big', signed=False) / 1e6
-                        self.energy_since_reset = int.from_bytes(event_body[12:20], 'big',
-                                                                 signed=False) / 1e6 / 60 / 60
-                    case RP2040Events.GPI_STATE:
-                        self.battery_charged = tuple(bool(b) for b in event_body[:4])
-                        self.in_conn = bool(b[4])
-                    case RP2040Events.MPU6500_STATE:
-                        values = struct.unpack_from('<f' + 'f' * 3 + 'd' * 3 + 'f' * 3 + 'd' * 3 + 'd' * 3, event_body)
-                        self.mpu6500_temp = values[0]
-                        self.ang_vel = self.Vector(*values[1:4])
-                        self.direction = self.Vector(*values[4:7])
-                        self.accel = self.Vector(*values[7:10])
-                        self.vel = self.Vector(*values[10:13])
-                        self.displacement = self.Vector(*values[13:16])
-                    case RP2040Events.MAIN_LOOP_PERF:
-                        self.loop_idle = int.from_bytes(event_body[0:2], 'big', signed=False) / 10000
-                        self.loop_duration = int.from_bytes(event_body[2:6], 'big', signed=False) / 10000 / (
-                                1 - self.loop_idle) / 1e6
-                    case _:
-                        logging.error(f"unexpected eventid")
-
-
+            while self._serial.in_waiting:
+                self._process_event()
         except serial.SerialException as e:
             logging.exception(e)
             self.disconnect()
             return
+
+    def _process_event(self):
+        while not self._start_of_frame and self._serial_buffer_i == 0:
+            while not self._end_of_frame:
+                read_res = self._serial.read(1)
+                if not len(read_res):
+                    return
+                elif read_res[0] == 0:
+                    self._end_of_frame = True
+            read_res = self._serial.read(1)
+            # start of frame should follow end of frame
+            # if not SoF, then the previous char wasn't the EoF. Keep looking for EoF.
+            if not len(read_res):
+                return
+            elif read_res[0] == 0:
+                self._end_of_frame = False
+                self._start_of_frame = True
+            else:
+                self._end_of_frame = False
+                return
+
+        while True:
+            read_res = self._serial.read(1)
+            if not len(read_res):
+                return
+            else:
+                self._start_of_frame = False
+            if read_res[0] == 0:
+                self._end_of_frame = True
+                break
+            if self._serial_buffer_i >= len(self._serial_buffer):
+                logging.error("Event larger then allocated buffer")
+                self._serial_buffer_i = 0
+                return
+            self._serial_buffer[self._serial_buffer_i] = read_res[0]
+            self._serial_buffer_i += 1
+        b = cobs_decode(self._serial_buffer[:self._serial_buffer_i])
+        self._serial_buffer_i = 0
+        event_id, event_body = RP2040Events(b[0]), b[1:]
+        match event_id:
+            case RP2040Events.STATE:
+                self.battery_charged = tuple(bool(b) for b in event_body[:4])
+                self.in_conn = bool(b[4])
+            case RP2040Events.PRINT_BYTES:
+                print(list(event_body))
+            case RP2040Events.PRINT_STRING:
+                print(event_body.decode("ascii"))
+            case RP2040Events.LOG:
+                i = 0
+                for i, char in enumerate(event_body):
+                    if char == 0:
+                        break
+                file_name = event_body[:i].decode('ascii')
+                level = int(event_body[i + 1])
+                line = int.from_bytes(event_body[i + 2:i + 6], 'big', signed=False)
+                msg = event_body[i + 6:].decode('ascii')
+                logging.log(level, f"{file_name}:{line} {msg}")
+            case RP2040Events.INA226_STATE:
+                self.shunt_voltage = int.from_bytes(event_body[0:4], 'big', signed=True) / 1e9
+                self.bus_voltage = int.from_bytes(event_body[4:8], 'big', signed=False) / 1e6
+                self.power = int.from_bytes(event_body[8:12], 'big', signed=False) / 1e6
+                self.current = int.from_bytes(event_body[20:24], 'big', signed=False) / 1e6
+                self.energy_since_reset = int.from_bytes(event_body[12:20], 'big',
+                                                         signed=False) / 1e6 / 60 / 60
+            case RP2040Events.GPI_STATE:
+                self.battery_charged = tuple(bool(b) for b in event_body[:4])
+                self.in_conn = bool(b[4])
+            case RP2040Events.MPU6500_STATE:
+                values = struct.unpack_from('<f' + 'f' * 3 + 'd' * 3 + 'f' * 3 + 'd' * 3 + 'd' * 3, event_body)
+                self.mpu6500_temp = values[0]
+                self.ang_vel = self.Vector(*values[1:4])
+                self.direction = self.Vector(*values[4:7])
+                self.accel = self.Vector(*values[7:10])
+                self.vel = self.Vector(*values[10:13])
+                self.displacement = self.Vector(*values[13:16])
+            case RP2040Events.MAIN_LOOP_PERF:
+                self.loop_idle = int.from_bytes(event_body[0:2], 'big', signed=False) / 10000
+                self.loop_duration = int.from_bytes(event_body[2:6], 'big', signed=False) / 10000 / (
+                        1 - self.loop_idle) / 1e6
+            case _:
+                logging.error(f"unexpected eventid")
 
     def mutate(self,
                mut: ServoDegrees | Type[RequestState] | Type[MPU6500Calibrate] | Type[EmitBufferedErrorLog] | Type[
@@ -330,11 +356,11 @@ if __name__ == "__main__":
     state.mutate(EmitBufferedErrorLog)
     # state.mutate(Mpu6500ResetOdom)
     # state.mutate(MPU6500Calibrate)
-    state.mutate(SetProgramOptions(log_level=logging.INFO, emit_state_interval_ms=100, emit_loop_perf=False))
+    state.mutate(SetProgramOptions(log_level=logging.INFO, emit_state_interval_ms=100, emit_loop_perf=True))
     while True:
         try:
             state.process_events()
-            print(state.bus_voltage)
+            print(state.loop_duration)
         except Exception as e:
             logging.exception(e)
             pass

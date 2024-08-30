@@ -44,31 +44,72 @@ void gpio_callback(uint gpio, uint32_t event_masks) {
 }
 
 void process_commands(State *state, const MPU6500 mpu6500) {
-  uint8_t mutation_buf[MUT_BUF_LEN];
-  int c = getchar_timeout_us(0);
-  if (c == PICO_ERROR_TIMEOUT || c == 0) {
-    return;
-  }
-  uint8_t decode_buf[MUT_BUF_LEN];
-  decode_buf[0] = c;
-  uint decode_len = 1;
-  for (int i = 1; i < MUT_BUF_LEN; ++i) {
+  static bool end_of_frame = true, start_of_frame = false;
+  static uint8_t decode_buf[MUT_BUF_LEN];
+  static uint decode_len = 0;
+  int c;
+  // mutation frames begin and end with \0
+  while (start_of_frame == false && decode_len == 0) {
+  // Read until end of frame
+  find_end_of_frame:
+    while (end_of_frame == false) {
+      c = getchar_timeout_us(0);
+      switch (c) {
+      case PICO_ERROR_TIMEOUT:
+        return;
+      case 0:
+        end_of_frame = true;
+      default:;
+      }
+    }
+    // start of frame should follow end of frame
+    // if not SoF, then the previous char wasn't the EoF. Keep looking for EoF.
     c = getchar_timeout_us(0);
+    switch (c) {
+    case PICO_ERROR_TIMEOUT:
+      return;
+    case 0:
+      end_of_frame = false;
+      start_of_frame = true;
+      break;
+    default:
+      end_of_frame = false;
+      goto find_end_of_frame;
+    }
+  }
+  while (true) {
+    c = getchar_timeout_us(0);
+    if (c == PICO_ERROR_TIMEOUT) {
+      return;
+    }
+    start_of_frame = false;
     if (c == 0) {
-      decode_len = i;
+      end_of_frame = true;
       break;
     }
-    decode_buf[i] = c;
+    if (decode_len >= MUT_BUF_LEN) {
+      log_error("msg overflowed buffer");
+      decode_len = 0;
+      return;
+    }
+    decode_buf[decode_len] = c;
+    decode_len++;
   }
+  uint8_t mutation_buf[MUT_BUF_LEN];
   const cobs_decode_result res = cobs_decode(mutation_buf, MUT_BUF_LEN, decode_buf, decode_len);
+  decode_len = 0;
   if (res.status != COBS_DECODE_OK) {
-    mutation_buf[0] = 0xFF;
+    log_error("cobs decode error");
     return;
   }
-  ServoDegreesMutation sd_mut = {};
 
+  ServoDegreesMutation sd_mut = {};
   switch (mutation_buf[0]) {
   case MUTATION_SERVO_DEGREES:
+    if (res.out_len - 1 != 12) {
+      log_error("mutation %d with invalid length %d", mutation_buf[0], res.out_len);
+      return;
+    }
     for (int i = 0; i < 3; ++i) {
       sd_mut.right_front[i] = mutation_buf[i + 1];
       sd_mut.right_back[i] = mutation_buf[i + 6 + 1];
@@ -77,20 +118,40 @@ void process_commands(State *state, const MPU6500 mpu6500) {
     }
     break;
   case MUTATION_REQUEST_STATE:
+    if (res.out_len - 1 != 0) {
+      log_error("mutation %d with invalid length %d", mutation_buf[0], res.out_len);
+      return;
+    }
     emit_ina226_state(&state->current_sensor_state);
     emit_gpi_state(&state->gpi_state);
     emit_mpu6500_state(&state->imu_state);
     break;
   case MUTATION_MPU6500_CALIBRATE:
+    if (res.out_len - 1 != 0) {
+      log_error("mutation %d with invalid length %d", mutation_buf[0], res.out_len);
+      return;
+    }
     mpu6500_calibrate_while_stationary(&mpu6500, &state->imu_state);
     break;
   case MUTATION_EMIT_BUFFERED_ERROR_LOG:
+    if (res.out_len - 1 != 0) {
+      log_error("mutation %d with invalid length %d", mutation_buf[0], res.out_len);
+      return;
+    }
     emit_buffered_error();
     break;
   case MUTATION_MPU6500_RESET_ODOM:
+    if (res.out_len - 1 != 0) {
+      log_error("mutation %d with invalid length %d", mutation_buf[0], res.out_len);
+      return;
+    }
     mpu6500_data_restart_odom(&state->imu_state);
     break;
   case MUTATION_SET_PROGRAM_OPTIONS:
+    if (res.out_len - 1 != 4) {
+      log_error("mutation %d with invalid length %d", mutation_buf[0], res.out_len);
+      return;
+    }
     log_level = mutation_buf[1];
     emit_state_interval_ms = bytesToInt(mutation_buf[2], mutation_buf[3]);
     emit_loop_perf = (bool)mutation_buf[4];
@@ -99,7 +160,6 @@ void process_commands(State *state, const MPU6500 mpu6500) {
     log_error("Unknown mutation type %d", mutation_buf[0]);
     break;
   }
-  mutation_buf[0] = 0xFF;
 }
 
 int main() {
