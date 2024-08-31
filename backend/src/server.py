@@ -56,13 +56,13 @@ def webrtc_info() -> WebrtcInfo:
 async def webrtc_offer(data: WebrtcOffer) -> WebrtcOffer:
     prev_offer = PROCESSES.machine.state().webrtc_offer
     PROCESSES.machine.mutate(data)
-    end = time.time() + 20
+    end = time.time() + 5
     while time.time() < end:
         cur_offer = PROCESSES.machine.state().webrtc_offer
         if cur_offer != prev_offer:
             return cur_offer
         await asyncio.sleep(0.1)
-    raise HTTPException(status_code=500, detail="webrtc reply never received")
+    raise HTTPException(status_code=503, detail="webrtc reply never received")
 
 
 class SysPerf(msgspec.Struct, frozen=True):

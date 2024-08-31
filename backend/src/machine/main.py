@@ -127,12 +127,12 @@ def on_datachannel(channel: RTCDataChannel):
 async def handle_offer(offer: WebrtcOffer):
     import aioice.stun
 
-    # aioice attempts stun lookup on privet network ports: these queries will never resolve
+    # aioice attempts stun lookup on private network ports: these queries will never resolve
     # These attempts will timeout after 5 seconds, making connection take 5+ seconds
-    # Modifying retry globals here to make it fail faster and retry more aggresively
+    # Modifying retry globals here to make it fail faster and retry more aggressively
     # Retries follow an exponential fallback: 1,2,4,8 * RETRY_RTO
-    aioice.stun.RETRY_MAX = 1
-    aioice.stun.RETRY_RTO = 0.2
+    aioice.stun.RETRY_MAX = 0
+    aioice.stun.RETRY_RTO = 0.01
     pc = RTCPeerConnection(
         RTCConfiguration(
             [
