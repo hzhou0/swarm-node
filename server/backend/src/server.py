@@ -127,7 +127,7 @@ def set_process_pids():
     return process_pids
 
 
-_process_pids = set_process_pids()
+_process_pids = None
 
 
 @get("/perf/processes", sync_to_thread=False, cache=5)

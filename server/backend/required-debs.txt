@@ -10,3 +10,4 @@ libopus-dev
 libvpx-dev
 pkg-config
 libsrtp2-dev
+ffmpeg

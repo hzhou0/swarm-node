@@ -11,4 +11,3 @@ pyudev==0.24.3
 psutil==5.9.8
 pyserial==3.5
 av==12.3.0
---no-binary av
