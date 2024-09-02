@@ -1,0 +1,36 @@
+# Dockerfiles don't work with this deploy, udev and pulseaudio do not behave correctly even with
+# binding /dev. Overall, a different orchestration approach is required. This is here to document how to build
+# the application on alpine.
+FROM node:22-alpine AS build-frontend
+COPY frontend .
+RUN npm install
+RUN npm run build
+
+
+FROM alpine:3 AS run
+
+RUN apk add python3 py3-pip ffmpeg-dev gcc python3-dev musl-dev linux-headers \
+    libsrtp-dev opus-dev libvpx-dev libffi-dev libressl-dev \
+    py3-udev py3-udev-pyc ffmpeg --update-cache --no-cache
+
+COPY backend/required-debs.txt backend/requirements.txt ./backend/
+RUN pip3 install --no-cache-dir -r backend/requirements.txt
+COPY backend/src ./backend/src
+
+COPY --from=build-frontend ./dist ./frontend/dist
+
+RUN apk add eudev udev-init-scripts bluez bluez-deprecated alsa-plugins-pulse openrc pulseaudio pulseaudio-alsa pulseaudio-bluez pulseaudio-utils
+RUN rc-update add udev sysinit \
+    && rc-update add udev-trigger sysinit \
+    && rc-update add udev-settle sysinit \
+    && rc-update add udev-postmount default \
+    && rc-update add bluetooth default
+
+RUN mkdir -p /var/run/pulse && addgroup root pulse-access && addgroup pulse audio && adduser pulse lp
+
+#RUN useradd --create-home --home-dir $HOME app \
+#	&& usermod -aG pulse app \
+#	&& chown -R app:app $HOME && chown -R app:app /run/pipewire /run/dbus /run/user/1000
+
+
+CMD pulseaudio -D --log-target=syslog --disallow-exit --exit-idle-time=-1 --system && python3 ./backend/src/main.py
