@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+from os import PathLike
 from pathlib import Path
 from typing import Literal
 
@@ -27,7 +28,7 @@ from util import ice_servers
 
 @get("/devices/audio", sync_to_thread=False)
 def list_audio_devices(
-    type: Literal["sink", "source"] | None = None, include_properties: bool = False
+        type: Literal["sink", "source"] | None = None, include_properties: bool = False
 ) -> list[AudioDevice]:
     res = PROCESSES.machine.state().devices.audio.values()
     if type is not None:
@@ -148,46 +149,46 @@ def list_process_performance() -> dict[str, ProcessPerf]:
     return ret
 
 
-route_handlers = [
-    list_audio_devices,
-    put_audio_device,
-    list_video_devices,
-    webrtc_offer,
-    webrtc_info,
-    get_system_performance,
-    list_process_performance,
-]
-for route in route_handlers:
-    route.operation_id = route.handler_name
+def server() -> Litestar:
+    route_handlers = [
+        list_audio_devices,
+        put_audio_device,
+        list_video_devices,
+        webrtc_offer,
+        webrtc_info,
+        get_system_performance,
+        list_process_performance,
+    ]
+    for route in route_handlers:
+        route.operation_id = route.handler_name
 
-api = Router(path="/api", route_handlers=route_handlers)
-server = Litestar(
-    route_handlers=[api],
-    static_files_config=[
-        StaticFilesConfig(directories=["public"], path="/public"),
-        StaticFilesConfig(
-            directories=[Path(__file__).parent.parent.parent / "frontend/dist"],
-            path="/",
-            html_mode=True,
+    api = Router(path="/api", route_handlers=route_handlers)
+    return Litestar(
+        route_handlers=[api],
+        static_files_config=[
+            StaticFilesConfig(
+                directories=[Path(__file__).parent / "frontend_dist"],
+                path="/",
+                html_mode=True,
+            ),
+        ],
+        cors_config=CORSConfig(
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
         ),
-    ],
-    cors_config=CORSConfig(
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    ),
-    logging_config=LoggingConfig(
-        root={"level": logging.getLevelName(logging.INFO), "handlers": ["console"]},
-        formatters={
-            "standard": {
-                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            }
-        },
-    ),
-    openapi_config=OpenAPIConfig(
-        title="Shop Cart",
-        version="0.1.0",
-    ),
-    debug=os.getenv("env") == "dev",
-)
+        logging_config=LoggingConfig(
+            root={"level": logging.getLevelName(logging.INFO), "handlers": ["console"]},
+            formatters={
+                "standard": {
+                    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                }
+            },
+        ),
+        openapi_config=OpenAPIConfig(
+            title="Shop Cart",
+            version="0.1.0",
+        ),
+        debug=True,
+    )

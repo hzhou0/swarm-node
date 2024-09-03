@@ -1,3 +1,5 @@
+import multiprocessing
+
 import av
 import asyncio
 import logging
@@ -238,6 +240,8 @@ def main(
     state_lock: Lock,
     pipe: connection.Connection,
 ):
+    multiprocessing.freeze_support()
+    multiprocessing.spawn.freeze_support()
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     global _state_mem, _state_lock
     _state_mem, _state_lock = state_mem, state_lock

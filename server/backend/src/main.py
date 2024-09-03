@@ -3,6 +3,7 @@ import faulthandler
 import multiprocessing
 import os
 import sys
+from pathlib import Path
 
 import uvicorn
 
@@ -12,6 +13,8 @@ from util import configure_root_logger, provision_app_dirs
 
 def main():
     assert sys.platform == "linux"
+    multiprocessing.freeze_support()
+    multiprocessing.spawn.freeze_support()
     multiprocessing.set_start_method("spawn")
     faulthandler.enable()
     provision_app_dirs()
@@ -26,7 +29,7 @@ def main():
     # imported here because it depends on PROCESSES
     from server import server
     config = uvicorn.Config(
-        server, host="127.0.0.1", port=8080, workers=1, access_log=False
+        server(), host="127.0.0.1", port=8080, workers=1, access_log=False
     )
     Server(config=config).run()
 

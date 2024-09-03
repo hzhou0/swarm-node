@@ -26,9 +26,21 @@ dependencies = [
     "pyserial==3.5",
     "pyav @ https://files.pythonhosted.org/packages/fe/79/6d3647c4877044b5f0a3b6691e0349e2a7207162482546ec4ca6996a6adb/pyav-12.3.0.tar.gz"
 ]
+[project.optional-dependencies]
+build = ["cx-Freeze==7.2.0"]
 
-[tool.setuptools]
-include-package-data = true
+[tool.setuptools.package-data]
+frontend_dist = ["**"]
+
+[tool.cxfreeze]
+executables = [
+    { script = "src/main.py", base = "console" }
+]
+
+[tool.cxfreeze.build_exe]
+zip_includes = ["src/frontend_dist"]
+no_compress = true # cannot serve static assets correctly if compressed
+packages = ["litestar", "uvicorn"]
 
 [project.scripts]
 swarmnode-init = "main:main"

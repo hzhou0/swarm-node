@@ -3,4 +3,5 @@
 **/.env
 **/.idea/**
 **/*.egg-info/**
-server/build/**
+server/**/build/**
+server/backend/**/frontend_dist/**
