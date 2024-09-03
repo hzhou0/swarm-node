@@ -1,4 +1,6 @@
 **/__pycache__
-backend/.venv/
+**/.venv/
 **/.env
 **/.idea/**
+**/*.egg-info/**
+server/build/**

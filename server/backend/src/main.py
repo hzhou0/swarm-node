@@ -9,7 +9,8 @@ import uvicorn
 from processes import Processes
 from util import configure_root_logger, provision_app_dirs
 
-if __name__ == "__main__":
+
+def main():
     assert sys.platform == "linux"
     multiprocessing.set_start_method("spawn")
     faulthandler.enable()
@@ -24,8 +25,11 @@ if __name__ == "__main__":
 
     # imported here because it depends on PROCESSES
     from server import server
-
     config = uvicorn.Config(
         server, host="127.0.0.1", port=8080, workers=1, access_log=False
     )
     Server(config=config).run()
+
+
+if __name__ == "__main__":
+    main()
