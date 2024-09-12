@@ -318,7 +318,7 @@ class RP2040(msgspec.Struct):
         if self._serial is None:
             self._serial = self.connect()
         try:
-            self._serial.write(cobs_encode(mut.to_bytes()) + b"\0")
+            self._serial.write(b"\0" + cobs_encode(mut.to_bytes()) + b"\0")
         except serial.SerialException as e:
             logging.exception(e)
             self.disconnect()
@@ -354,13 +354,13 @@ if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)
     state = RP2040()
     state.mutate(EmitBufferedErrorLog)
-    # state.mutate(Mpu6500ResetOdom)
+    state.mutate(Mpu6500ResetOdom)
     # state.mutate(MPU6500Calibrate)
     state.mutate(SetProgramOptions(log_level=logging.INFO, emit_state_interval_ms=100, emit_loop_perf=True))
     while True:
         try:
             state.process_events()
-            print(state.loop_duration)
+            print(state.displacement)
         except Exception as e:
             logging.exception(e)
             pass
