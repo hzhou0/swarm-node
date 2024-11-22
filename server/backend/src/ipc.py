@@ -12,7 +12,7 @@ from multiprocessing import Process, Pipe
 from multiprocessing.connection import Connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
-from typing import Callable, Any, TypeVar, Generic, NamedTuple, Generator
+from typing import Callable, TypeVar, Generic, NamedTuple, Generator, NoReturn
 
 """
 Shared memory blocks are initially created by the reader process.
@@ -41,11 +41,12 @@ State = TypeVar("State")
 Mutation = TypeVar("Mutation")
 Event = TypeVar("Event")
 
+DaemonEntrypoint=Callable[[SharedMemory, Lock, Connection], NoReturn]
 
 class Daemon(Generic[State, Mutation, Event]):
     def __init__(
         self,
-        target: Callable[[SharedMemory, Lock, Connection], Any],
+        target: DaemonEntrypoint,
         name: str,
         logger: logging.Logger = logging.getLogger(),
     ):
@@ -100,7 +101,10 @@ class Daemon(Generic[State, Mutation, Event]):
     def events(self) -> Generator[Event, None, None]:
         self._conn: Connection
         while self._conn.poll():
-            yield self._conn.recv()
+            try:
+                yield self._conn.recv()
+            except Exception as e:
+                logging.error(e)
 
     def flush_events(self):
         collections.deque(self.events, maxlen=0)

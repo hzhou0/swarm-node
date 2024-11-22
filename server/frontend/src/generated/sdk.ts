@@ -1,7 +1,7 @@
 /* eslint-disable */
 /**
- * Shop Cart
- * 0.1.0
+ * SwarmNode
+ * 0.2.0
  * DO NOT MODIFY - This file has been generated using oazapfts.
  * See https://www.npmjs.com/package/oazapfts
  */
@@ -29,12 +29,6 @@ export type AudioDevice = {
         [key: string]: any;
     };
     form_factor?: "car" | "computer" | "hands-free" | "handset" | "headphone" | "headset" | "hifi" | "internal" | "microphone" | "portable" | "speaker" | "tv" | "webcam" | "unknown" | null;
-};
-export type AudioDeviceOptions = {
-    name: string;
-    "default": boolean;
-    volume: number;
-    mute: boolean;
 };
 export type VideoSize = {
     height: number;
@@ -99,6 +93,12 @@ export type ProcessPerf = {
     create_time_epoch: number;
     niceness: number;
 };
+export type AudioDeviceOptions = {
+    name: string;
+    "default": boolean;
+    volume: number;
+    mute: boolean;
+};
 /**
  * ListAudioDevices
  */
@@ -124,27 +124,6 @@ export function listAudioDevices({ $type, includeProperties }: {
     }))}`, {
         ...opts
     }));
-}
-/**
- * PutAudioDevice
- */
-export function putAudioDevice(audioDeviceOptions: AudioDeviceOptions, opts?: Oazapfts.RequestOpts) {
-    return oazapfts.ok(oazapfts.fetchJson<{
-        status: 200;
-    } | {
-        status: 400;
-        data: {
-            status_code: number;
-            detail: string;
-            extra?: {
-                [key: string]: any;
-            };
-        };
-    }>("/api/devices/audio", oazapfts.json({
-        ...opts,
-        method: "PUT",
-        body: audioDeviceOptions
-    })));
 }
 /**
  * ListVideoDevices
@@ -213,4 +192,33 @@ export function listProcessPerformance(opts?: Oazapfts.RequestOpts) {
     }>("/api/perf/processes", {
         ...opts
     }));
+}
+/**
+ * GetKernelId
+ */
+export function getKernelId(opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchText("/api/k", {
+        ...opts
+    }));
+}
+/**
+ * DecemberPutAudioDevice
+ */
+export function decemberPutAudioDevice(audioDeviceOptions: AudioDeviceOptions, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 200;
+    } | {
+        status: 400;
+        data: {
+            status_code: number;
+            detail: string;
+            extra?: {
+                [key: string]: any;
+            };
+        };
+    }>("/api/k/december/devices/audio", oazapfts.json({
+        ...opts,
+        method: "PUT",
+        body: audioDeviceOptions
+    })));
 }

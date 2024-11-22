@@ -79,7 +79,7 @@ export interface IceServer {
   credential?: string | null;
 }
 
-export interface MachineState {
+export interface KernelState {
   devices?: Devices;
   webrtc_offer?: null | WebrtcOffer;
 }

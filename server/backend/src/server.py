@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import time
-from os import PathLike
 from pathlib import Path
 from typing import Literal
 
@@ -10,6 +9,7 @@ import msgspec
 import psutil
 from litestar import Litestar, Router, get, put
 from litestar.config.cors import CORSConfig
+from litestar.config.response_cache import CACHE_FOREVER
 from litestar.exceptions import HTTPException
 from litestar.logging import LoggingConfig
 from litestar.openapi import OpenAPIConfig
@@ -19,18 +19,18 @@ from models import (
     AudioDevice,
     VideoDevice,
     WebrtcOffer,
-    AudioDeviceOptions,
     WebrtcInfo,
+    BackgroundKernel,
 )
-from processes import PROCESSES
 from util import ice_servers
 
-
+KERNEL: BackgroundKernel
 @get("/devices/audio", sync_to_thread=False)
 def list_audio_devices(
-        type: Literal["sink", "source"] | None = None, include_properties: bool = False
+    type: Literal["sink", "source"] | None = None,
+    include_properties: bool = False,
 ) -> list[AudioDevice]:
-    res = PROCESSES.machine.state().devices.audio.values()
+    res = KERNEL.d.state().devices.audio.values()
     if type is not None:
         res = [d for d in res if d.type == type]
     if not include_properties:
@@ -38,14 +38,9 @@ def list_audio_devices(
     return res
 
 
-@put("/devices/audio", sync_to_thread=False)
-def put_audio_device(data: AudioDeviceOptions) -> None:
-    PROCESSES.machine.mutate(data)
-
-
 @get("/devices/video", sync_to_thread=False)
 def list_video_devices() -> list[VideoDevice]:
-    return [*PROCESSES.machine.state().devices.video.values()]
+    return [*KERNEL.d.state().devices.video.values()]
 
 
 @get("/webrtc", sync_to_thread=False)
@@ -55,11 +50,11 @@ def webrtc_info() -> WebrtcInfo:
 
 @put("/webrtc")
 async def webrtc_offer(data: WebrtcOffer) -> WebrtcOffer:
-    prev_offer = PROCESSES.machine.state().webrtc_offer
-    PROCESSES.machine.mutate(data)
+    prev_offer = KERNEL.d.state().webrtc_offer
+    KERNEL.d.mutate(data)
     end = time.time() + 5
     while time.time() < end:
-        cur_offer = PROCESSES.machine.state().webrtc_offer
+        cur_offer = KERNEL.d.state().webrtc_offer
         if cur_offer != prev_offer:
             return cur_offer
         await asyncio.sleep(0.1)
@@ -121,14 +116,13 @@ class ProcessPerf(msgspec.Struct, frozen=True):
 
 def set_process_pids():
     process_pids: dict[str, psutil.Process] = {
-        proc_name.name: psutil.Process(getattr(PROCESSES, proc_name.name).pid)
-        for proc_name in msgspec.structs.fields(PROCESSES)
+        KERNEL.d.name: psutil.Process(KERNEL.d.pid),
+        "server": psutil.Process(os.getpid()),
     }
-    process_pids["server"] = psutil.Process(os.getpid())
     return process_pids
 
 
-_process_pids = None
+_process_pids = {}
 
 
 @get("/perf/processes", sync_to_thread=False, cache=5)
@@ -148,21 +142,34 @@ def list_process_performance() -> dict[str, ProcessPerf]:
         }
     return ret
 
+@get('/k', sync_to_thread=False, cache=CACHE_FOREVER)
+def get_kernel_id()->str:
+    return KERNEL.id
 
-def server() -> Litestar:
+def server(kernel: BackgroundKernel) -> Litestar:
+    global KERNEL
+    KERNEL=kernel
+    kernel_routes=kernel.http_routes()
+    for route in kernel_routes:
+        route.operation_id = route.handler_name
+    kernel_api=Router(path=f"/k/{kernel.id}",route_handlers=kernel_routes)
+
     route_handlers = [
         list_audio_devices,
-        put_audio_device,
         list_video_devices,
         webrtc_offer,
         webrtc_info,
         get_system_performance,
         list_process_performance,
+        get_kernel_id
     ]
     for route in route_handlers:
         route.operation_id = route.handler_name
 
-    api = Router(path="/api", route_handlers=route_handlers)
+    api = Router(
+        path="/api",
+        route_handlers=route_handlers+[kernel_api],
+    )
     return Litestar(
         route_handlers=[api],
         static_files_config=[
@@ -187,8 +194,8 @@ def server() -> Litestar:
             },
         ),
         openapi_config=OpenAPIConfig(
-            title="Shop Cart",
-            version="0.1.0",
+            title="SwarmNode",
+            version="0.2.0",
         ),
         debug=True,
     )

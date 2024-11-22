@@ -207,7 +207,6 @@ const perfFetcher = new Fetcher(
 );
 watch(perfFetcher.data, () => {
   if (!selectedProc.value && perfFetcher.data.procPerf) {
-    console.log(Object.keys(perfFetcher.data.procPerf)[0]);
     selectedProc.value = Object.keys(perfFetcher.data.procPerf)[0];
   }
 });

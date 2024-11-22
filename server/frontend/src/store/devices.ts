@@ -21,7 +21,7 @@ export const useDeviceStore = defineStore("Device", () => {
         const i = f.data.audioDevices.findIndex((v) => v.name == val.name);
         f.data.audioDevices[i] = val;
       }
-      await client.putAudioDevice({
+      await client.decemberPutAudioDevice({
         volume: val.volume,
         name: val.name,
         default: val.default,

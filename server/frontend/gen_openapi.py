@@ -11,16 +11,18 @@ import msgspec
 import inspect
 import shutil
 
+from kernel import kernel_init
+
 sys.path.insert(
     1, str(Path(__file__).parent.parent.joinpath("backend", "src").absolute())
 )
 from server import server
-
+k=kernel_init()
 npm_bin_dir = Path(__file__).parent.joinpath("node_modules/.bin")
 sdk_file = "src/generated/sdk.ts"
 with tempfile.NamedTemporaryFile("w") as f:
-    x = server.openapi_schema.to_schema()
-    f.write(json.dumps(server.openapi_schema.to_schema()))
+    x = server(k).openapi_schema.to_schema()
+    f.write(json.dumps(x))
     f.seek(0)
     f.flush()
     subprocess.run(

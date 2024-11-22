@@ -1,12 +1,24 @@
 import logging
 import re
 import subprocess
-from typing import Literal, Any
+from types import NoneType
+from typing import (
+    Literal,
+    Any,
+    Protocol,
+    NoReturn,
+    Callable,
+    runtime_checkable,
+    TypeVar,
+)
 
 import av
 import v4l2py
-from pulsectl import PulseSourceInfo
+from litestar.handlers import HTTPRouteHandler
 from msgspec import Struct, field
+from pulsectl import PulseSourceInfo
+
+from ipc import Daemon
 
 
 class AudioDeviceOptions(Struct, frozen=True):
@@ -167,7 +179,7 @@ class WebrtcOffer(Struct, frozen=True):
     tracks: Tracks
 
 
-class MachineState(Struct):
+class KernelState(Struct):
     class Devices(Struct):
         video: dict[str, VideoDevice] = field(default_factory=dict)
         audio: dict[str, AudioDevice] = field(default_factory=dict)
@@ -176,5 +188,21 @@ class MachineState(Struct):
     webrtc_offer: WebrtcOffer | None = None
 
 
-MachineHTTPMutation = AudioDeviceOptions | WebrtcOffer
-MachineHTTPEvent = WebrtcOffer
+Mutation = TypeVar("Mutation", default=None)
+Event = TypeVar("Event", default=None)
+
+
+@runtime_checkable
+class BackgroundKernel[Mutation, Event](Protocol):
+    id: str
+    d: Daemon[KernelState, WebrtcOffer | Mutation, WebrtcOffer | Event]
+    http_routes: Callable[[],list[HTTPRouteHandler]]
+
+
+@runtime_checkable
+class ForegroundKernel(Protocol):
+    id: str
+
+    @staticmethod
+    def entrypoint() -> Callable[[], NoReturn]:
+        pass

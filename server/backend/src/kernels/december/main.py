@@ -31,12 +31,11 @@ from models import (
     VideoDevice,
     AudioDeviceOptions,
     WebrtcOffer,
-    MachineState,
-    MachineHTTPMutation,
+    KernelState,
 )
 from util import configure_root_logger, ice_servers
 
-_state = MachineState()
+_state = KernelState()
 _pc: RTCPeerConnection = RTCPeerConnection()
 _datachannel: RTCDataChannel | None = None
 
@@ -64,15 +63,26 @@ def loop_forever(interval: float) -> Callable:
     return decorator
 
 
-_refresh_devices_first_call = True
+_next_devices_refresh = time.time()
 
 
-@loop_forever(2.0)
+@loop_forever(0.01)
 async def refresh_devices(video_mon: Monitor, audio_mon: Monitor):
-    global _refresh_devices_first_call
-
-    if _refresh_devices_first_call or list(iter(partial(video_mon.poll, 0), None)):
+    global _next_devices_refresh
+    audio = video = False
+    if _next_devices_refresh<time.time():
+        audio=video=True
+        _next_devices_refresh = time.time() + 5
+    elif list(iter(partial(video_mon.poll, 0), None)):
+        video=True
         logging.info("Hardware changes, refreshing video devices")
+    elif list(iter(partial(audio_mon.poll, 0), None)):
+        audio=True
+        logging.info("Hardware changes, refreshing audio devices")
+
+
+
+    if video:
         v = {}
         for d in v4l2py.iter_video_capture_devices():
             d.open()
@@ -82,8 +92,7 @@ async def refresh_devices(video_mon: Monitor, audio_mon: Monitor):
         _state.devices.video = v
         _commit_state()
 
-    if _refresh_devices_first_call or list(iter(partial(audio_mon.poll, 0), None)):
-        logging.info("Hardware changes, refreshing audio devices")
+    if audio:
         async with pulsectl_asyncio.PulseAsync("enumerate_devices") as pa:
             default_sink = (await pa.server_info()).default_sink_name
             default_source = (await pa.server_info()).default_source_name
@@ -93,9 +102,6 @@ async def refresh_devices(video_mon: Monitor, audio_mon: Monitor):
             a = {audio_device.name: audio_device for audio_device in a}
         _state.devices.audio = a
         _commit_state()
-
-    _refresh_devices_first_call = False
-
 
 @loop_forever(2.0)
 async def keep_alive():
@@ -227,10 +233,12 @@ async def handle_audio_device_options(audio_device: AudioDeviceOptions):
 @loop_forever(0.01)
 async def process_mutations(pipe: connection.Connection):
     while pipe.poll():
-        mutation: MachineHTTPMutation = pipe.recv()
+        mutation: WebrtcOffer|AudioDeviceOptions = pipe.recv()
         match mutation:
             case AudioDeviceOptions():
                 await handle_audio_device_options(mutation)
+                global _next_devices_refresh
+                _next_devices_refresh=0 # refresh now
             case WebrtcOffer():
                 await handle_offer(mutation)
 
@@ -250,7 +258,7 @@ def main(
     av.logging.set_level(av.logging.PANIC)
 
     loop = asyncio.get_event_loop()
-    # Specify tasks in collection to avoid garbage collection
+    # Specify tasks in a collection to avoid garbage collection
     context = pyudev.Context()
     video_mon = Monitor.from_netlink(context)
     video_mon.filter_by("video4linux")
