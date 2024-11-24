@@ -1,7 +1,7 @@
 import logging
 import re
 import subprocess
-from types import NoneType
+from typing_extensions import TypeVar
 from typing import (
     Literal,
     Any,
@@ -9,7 +9,6 @@ from typing import (
     NoReturn,
     Callable,
     runtime_checkable,
-    TypeVar,
 )
 
 import av
@@ -193,7 +192,7 @@ Event = TypeVar("Event", default=None)
 
 
 @runtime_checkable
-class BackgroundKernel[Mutation, Event](Protocol):
+class BackgroundKernel(Protocol[Mutation, Event]):
     id: str
     d: Daemon[KernelState, WebrtcOffer | Mutation, WebrtcOffer | Event]
     http_routes: Callable[[],list[HTTPRouteHandler]]
@@ -206,3 +205,5 @@ class ForegroundKernel(Protocol):
     @staticmethod
     def entrypoint() -> Callable[[], NoReturn]:
         pass
+
+WebrtcTrackDirection: Literal["sendrecv", "sendonly", "recvonly", None]

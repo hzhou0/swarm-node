@@ -26,6 +26,15 @@ class December(BackgroundKernel[AudioDeviceOptions,None]):
         entrypoint = getattr(december, "main")
         self.d = Daemon(entrypoint, "swarm_node_kernel")
 
+class SkymapSensorArray(ForegroundKernel):
+    id="skymap-sens-arr"
+
+class SkymapServer(BackgroundKernel):
+    id = "skymap-serv"
+
+
+
+
 
 _kernels: dict[str, Type[BackgroundKernel] | Type[ForegroundKernel]] = {
     k.id: k for k in [December]

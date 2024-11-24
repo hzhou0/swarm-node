@@ -240,7 +240,7 @@ class RP2040(msgspec.Struct):
                 elif read_res[0] == 0:
                     self._end_of_frame = True
             read_res = self._serial.read(1)
-            # start of frame should follow end of frame
+            # The start of frame should follow the end of frame
             # if not SoF, then the previous char wasn't the EoF. Keep looking for EoF.
             if not len(read_res):
                 return

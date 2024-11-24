@@ -1,1 +1,0 @@
-source .venv/bin/activate && viztracer --max_stack_depth 10 main.py

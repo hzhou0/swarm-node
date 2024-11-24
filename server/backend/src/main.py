@@ -28,7 +28,7 @@ def main():
 
     from server import server
     config = uvicorn.Config(
-        server(bg_kernel), host="127.0.0.1", port=8080, workers=1, access_log=False
+        server(bg_kernel), host="0.0.0.0", port=8080, workers=1, access_log=False
     )
     Server(config=config).run()
 

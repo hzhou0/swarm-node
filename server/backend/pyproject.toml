@@ -20,14 +20,25 @@ dependencies = [
     "uvicorn[standard]==0.32.1",
     "uvloop==0.21.0",
     "pulsectl==23.5.2",
-    "msgspec @ git+https://github.com/jcrist/msgspec.git@main",
+    "msgspec==0.18.6",
     "pyudev==0.24.3",
     "psutil==5.9.8",
     "pyserial==3.5",
-    "pyav==12.3.0"
+    "pyav==12.3.0",
+    "httpx==0.27.2"
 ]
+
+
 [project.optional-dependencies]
 build = ["cx-Freeze==7.2.0"]
+skymap = [
+    "numpy==2.1.3",
+    "opencv-python==4.10.0.84",
+    "pyrealsense2==2.55.1.6486",
+    "pygnssutils==1.1.8",
+    "pynmeagps==1.0.43",
+    "google-crc32c>=1"
+]
 
 [tool.setuptools.package-data]
 frontend_dist = ["**"]

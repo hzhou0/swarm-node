@@ -52,7 +52,7 @@ def webrtc_info() -> WebrtcInfo:
 async def webrtc_offer(data: WebrtcOffer) -> WebrtcOffer:
     prev_offer = KERNEL.d.state().webrtc_offer
     KERNEL.d.mutate(data)
-    end = time.time() + 5
+    end = time.time() + 20
     while time.time() < end:
         cur_offer = KERNEL.d.state().webrtc_offer
         if cur_offer != prev_offer:

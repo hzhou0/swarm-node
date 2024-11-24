@@ -1,15 +1,14 @@
-import multiprocessing
-
-import av
 import asyncio
 import logging
+import multiprocessing
 import time
 from functools import partial
 from multiprocessing import connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
-from typing import Literal, Callable
+from typing import Literal
 
+import av
 import pulsectl_asyncio
 import pyudev
 import uvloop
@@ -26,6 +25,7 @@ from aiortc.contrib.media import MediaPlayer
 from pyudev import Monitor
 
 from ipc import write_state
+from kernels.utils import loop_forever
 from models import (
     AudioDevice,
     VideoDevice,
@@ -46,22 +46,6 @@ _state_lock: Lock | None = None
 def _commit_state():
     global _state_mem, _state_lock, _state
     _state_mem = write_state(_state_mem, _state_lock, _state)
-
-
-def loop_forever(interval: float) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        async def inner(*args, **kwargs):
-            while True:
-                try:
-                    await func(*args, **kwargs)
-                except Exception as e:
-                    logging.exception(e)
-                await asyncio.sleep(interval)
-
-        return inner
-
-    return decorator
-
 
 _next_devices_refresh = time.time()
 
@@ -139,8 +123,8 @@ async def handle_offer(offer: WebrtcOffer):
     # These attempts will timeout after 5 seconds, making connection take 5+ seconds
     # Modifying retry globals here to make it fail faster and retry more aggressively
     # Retries follow an exponential fallback: 1,2,4,8 * RETRY_RTO
-    aioice.stun.RETRY_MAX = 0
-    aioice.stun.RETRY_RTO = 0.01
+    aioice.stun.RETRY_MAX = 2
+    aioice.stun.RETRY_RTO = 0.1
     pc = RTCPeerConnection(
         RTCConfiguration(
             [
