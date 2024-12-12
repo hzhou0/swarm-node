@@ -1,6 +1,7 @@
 import collections
 import datetime
 import logging
+import numbers
 import os
 import struct
 from collections import deque
@@ -125,7 +126,7 @@ class WTRTK982(msgspec.Struct):
     poses: deque[GPSPose] = field(
         default_factory=lambda: collections.deque([], maxlen=20)
     )
-    speed_ms: int | None = None
+    speed_ms: float | None = None
 
     def pull_messages(self):
         if self._serial is None or self._nmr is None:
@@ -167,7 +168,8 @@ class WTRTK982(msgspec.Struct):
             pose.longitude = parsed_data.lon
             pose.altitude = parsed_data.alt
         elif parsed_data.msgID == "VTG":
-            self.speed_ms = parsed_data.sogk * 5 / 18  # km/h to m/s
+            if isinstance(parsed_data.sogk, numbers.Number):
+                self.speed_ms = parsed_data.sogk * 5 / 18  # km/h to m/s
 
     @classmethod
     def connect(cls) -> tuple[serial.Serial, NMEAReader] | None:
@@ -230,11 +232,12 @@ class RGBDStream:
         self.gps = WTRTK982()
         self.gps.connect()
 
+        HIGH_DENSITY_PRESET = 1
         HIGH_ACCURACY_PRESET = 3
         sensors: list[rs.sensor] = rs.context().query_all_sensors()
         for s in sensors:
             if s.is_depth_sensor():
-                s.set_option(rs.option.visual_preset, HIGH_ACCURACY_PRESET)
+                s.set_option(rs.option.visual_preset, HIGH_DENSITY_PRESET)
 
         self.pipeline = rs.pipeline()
         self.config = rs.config()
@@ -292,7 +295,6 @@ class RGBDStream:
             if p.epoch_seconds <= frame_time:
                 break
         # todo: synchronization mechanism improvement
-        print(pose.epoch_seconds - frame_time)
         print(pose)
         blocks = pose.to_macroblocks()
 
@@ -309,7 +311,7 @@ class RGBDStream:
         frame = self.get_frame()
         if frame is None:
             return
-        cv2.namedWindow("RealSense", cv2.WINDOW_AUTOSIZE)
+        cv2.namedWindow("RealSense", cv2.WINDOW_NORMAL)
         cv2.imshow("RealSense", frame)
         cv2.waitKey(1)
 

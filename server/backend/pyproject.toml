@@ -32,12 +32,15 @@ dependencies = [
 [project.optional-dependencies]
 build = ["cx-Freeze==7.2.0"]
 skymap = [
-    "numpy==2.1.3",
+    "numpy~=1.0",
     "opencv-python==4.10.0.84",
     "pyrealsense2==2.55.1.6486",
     "pygnssutils==1.1.8",
     "pynmeagps==1.0.43",
     "google-crc32c>=1"
+]
+skymapserv = [
+    "open3d==0.18.0"
 ]
 
 [tool.setuptools.package-data]
