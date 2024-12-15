@@ -27,7 +27,7 @@ class AudioDeviceOptions(Struct, frozen=True):
     mute: bool
 
 
-class AudioDevice(AudioDeviceOptions):
+class AudioDevice(AudioDeviceOptions, frozen=True):
     description: str
     driver: str
     index: int
