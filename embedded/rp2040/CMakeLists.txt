@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
+set(PICO_SDK_FETCH_FROM_GIT on)
+
 include(pico_sdk_import.cmake)
 project(rp2040 C CXX ASM)
 set(PICO_BOARD_HEADER_DIRS "${CMAKE_SOURCE_DIR}/board_defs")
