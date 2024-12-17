@@ -237,6 +237,7 @@ def main(
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     global _state_mem, _state_lock
     _state_mem, _state_lock = state_mem, state_lock
+    _commit_state()
     configure_root_logger()
     v4l2py.device.log.setLevel(logging.WARNING)
     av.logging.set_level(av.logging.PANIC)

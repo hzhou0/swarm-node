@@ -2,8 +2,8 @@ import collections
 import datetime
 import logging
 import numbers
-import os
 import struct
+import zlib
 from collections import deque
 from datetime import timezone
 from typing import Literal, ClassVar
@@ -17,7 +17,6 @@ import serial
 from msgspec import field
 from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
-import zlib
 
 
 class GPSPose(msgspec.Struct):
@@ -71,7 +70,7 @@ class GPSPose(msgspec.Struct):
         return macroblocks
 
     def from_macroblocks(
-        self, macroblocks: np.ndarray[np.uint8, (704, 64, 3)]
+            self, macroblocks: np.ndarray[np.uint8, (704, 64, 3)]
     ) -> bytes:
         # Define the color mapping (same as before)
         color_map = np.array(
@@ -96,10 +95,10 @@ class GPSPose(msgspec.Struct):
         inverted_array = np.argmin(mask, axis=-1).astype(np.uint8)
 
         decoded_bytes = (
-            (inverted_array[..., 0] << 6)
-            | (inverted_array[..., 1] << 4)
-            | (inverted_array[..., 2] << 2)
-            | inverted_array[..., 3]
+                (inverted_array[..., 0] << 6)
+                | (inverted_array[..., 1] << 4)
+                | (inverted_array[..., 2] << 2)
+                | inverted_array[..., 3]
         )
 
         return decoded_bytes.tobytes()
@@ -224,13 +223,13 @@ class WTRTK982(msgspec.Struct):
 
 class RGBDStream:
     def __init__(
-        self,
-        width: int = 1280,
-        height: int = 720,
-        framerate: int = 15,
+            self,
+            framerate: int = 15,
     ):
         self.gps = WTRTK982()
         self.gps.connect()
+        self.width: int = 1280
+        self.height: int = 720
 
         HIGH_DENSITY_PRESET = 1
         HIGH_ACCURACY_PRESET = 3
@@ -242,10 +241,10 @@ class RGBDStream:
         self.pipeline = rs.pipeline()
         self.config = rs.config()
         self.config.enable_stream(
-            rs.stream.depth, width, height, rs.format.z16, framerate
+            rs.stream.depth, self.width, self.height, rs.format.z16, framerate
         )
         self.config.enable_stream(
-            rs.stream.color, width, height, rs.format.bgr8, framerate
+            rs.stream.color, self.width, self.height, rs.format.bgr8, framerate
         )
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)

@@ -2,34 +2,26 @@ import asyncio
 import logging
 import multiprocessing
 import time
-from functools import partial
 from multiprocessing import connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
-from typing import Literal
 
 import av
-import pulsectl_asyncio
-import pyudev
+import cv2
 import uvloop
-import v4l2py
 from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
-    RTCRtpSender,
     RTCDataChannel,
     RTCConfiguration,
-    RTCIceServer,
+    RTCIceServer, MediaStreamTrack, VideoStreamTrack,
 )
-from aiortc.contrib.media import MediaPlayer
-from pyudev import Monitor
+from av.video.frame import VideoFrame
+from matplotlib import pyplot as plt
 
 from ipc import write_state
 from kernels.utils import loop_forever
 from models import (
-    AudioDevice,
-    VideoDevice,
-    AudioDeviceOptions,
     WebrtcOffer,
     KernelState,
 )
@@ -38,6 +30,7 @@ from util import configure_root_logger, ice_servers
 _state = KernelState()
 _pc: RTCPeerConnection = RTCPeerConnection()
 _datachannel: RTCDataChannel | None = None
+_sensor_video: VideoStreamTrack | None = None
 
 _state_mem: SharedMemory | None = None
 _state_lock: Lock | None = None
@@ -47,45 +40,6 @@ def _commit_state():
     global _state_mem, _state_lock, _state
     _state_mem = write_state(_state_mem, _state_lock, _state)
 
-_next_devices_refresh = time.time()
-
-
-@loop_forever(0.01)
-async def refresh_devices(video_mon: Monitor, audio_mon: Monitor):
-    global _next_devices_refresh
-    audio = video = False
-    if _next_devices_refresh<time.time():
-        audio=video=True
-        _next_devices_refresh = time.time() + 5
-    elif list(iter(partial(video_mon.poll, 0), None)):
-        video=True
-        logging.info("Hardware changes, refreshing video devices")
-    elif list(iter(partial(audio_mon.poll, 0), None)):
-        audio=True
-        logging.info("Hardware changes, refreshing audio devices")
-
-
-
-    if video:
-        v = {}
-        for d in v4l2py.iter_video_capture_devices():
-            d.open()
-            device = VideoDevice.from_v4l2(d)
-            v[device.name] = device
-            d.close()
-        _state.devices.video = v
-        _commit_state()
-
-    if audio:
-        async with pulsectl_asyncio.PulseAsync("enumerate_devices") as pa:
-            default_sink = (await pa.server_info()).default_sink_name
-            default_source = (await pa.server_info()).default_source_name
-            sinks, sources = await asyncio.gather(pa.sink_list(), pa.source_list())
-            a = [AudioDevice.from_pa(d, default_sink, "sink") for d in sinks]
-            a += [AudioDevice.from_pa(d, default_source, "source") for d in sources]
-            a = {audio_device.name: audio_device for audio_device in a}
-        _state.devices.audio = a
-        _commit_state()
 
 @loop_forever(2.0)
 async def keep_alive():
@@ -97,8 +51,9 @@ async def on_connectionstatechange(pc: RTCPeerConnection):
     logging.info(f"Connection state is {pc.connectionState}")
     if pc.connectionState == "failed" or pc.connectionState == "closed":
         await pc.close()
-        global _datachannel
+        global _datachannel, _sensor_video
         _datachannel = None
+        _sensor_video = None
 
 
 def on_datachannel(channel: RTCDataChannel):
@@ -114,6 +69,15 @@ def on_datachannel(channel: RTCDataChannel):
     channel.on("message", on_message)
     global _datachannel
     _datachannel = channel
+
+
+def on_track(track: MediaStreamTrack):
+    if track.kind != 'video':
+        logging.info(f"Ignoring track, kind is {track.kind}")
+        return
+    logging.info(f"Using video track {track}")
+    global _sensor_video
+    _sensor_video = track
 
 
 async def handle_offer(offer: WebrtcOffer):
@@ -133,60 +97,10 @@ async def handle_offer(offer: WebrtcOffer):
             ]
         )
     )
+
+    pc.add_listener("track", lambda track: on_track(track))
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
     pc.add_listener("datachannel", lambda channel: on_datachannel(channel))
-    direction: Literal["sendrecv", "sendonly", "recvonly", None] = None
-    track_or_kind = "video"
-    if offer.tracks.machine_video:
-        if offer.tracks.client_video:
-            direction = "sendrecv"
-        else:
-            direction = "sendonly"
-        vid = offer.tracks.machine_video
-        track_or_kind = MediaPlayer(
-            file=vid.name,
-            format="v4l2",
-            options={
-                "video_size": f"{vid.width}x{vid.height}",
-                "framerate": str(vid.fps),
-                "input_format": vid.format,
-            },
-        ).video
-    elif offer.tracks.client_video:
-        direction = "recvonly"
-    if direction is not None:
-        trans = pc.addTransceiver(track_or_kind, direction)
-        trans.setCodecPreferences(
-            [
-                c
-                for c in RTCRtpSender.getCapabilities("video").codecs
-                if c.mimeType == "video/H264"
-            ]
-        )
-
-    direction = None
-    track_or_kind = "audio"
-    if offer.tracks.machine_audio:
-        if offer.tracks.client_video:
-            direction = "sendrecv"
-        else:
-            direction = "sendonly"
-        track_or_kind = MediaPlayer(
-            offer.tracks.machine_audio.name,
-            format="pulse",
-            options={"fragment_size": "512"},
-        ).audio
-    elif offer.tracks.client_video:
-        direction = "recvonly"
-    if direction is not None:
-        trans = pc.addTransceiver(track_or_kind, direction)
-        trans.setCodecPreferences(
-            [
-                c
-                for c in RTCRtpSender.getCapabilities("audio").codecs
-                if c.mimeType == "audio/opus"
-            ]
-        )
 
     logging.info(offer.sdp)
     await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))
@@ -204,52 +118,48 @@ async def handle_offer(offer: WebrtcOffer):
     _pc = pc
 
 
-async def handle_audio_device_options(audio_device: AudioDeviceOptions):
-    async with pulsectl_asyncio.PulseAsync("enumerate_devices") as pa:
-        for d in await pa.sink_list() + await pa.source_list():
-            if d.name == audio_device.name:
-                await pa.mute(d, audio_device.mute),
-                await pa.volume_set_all_chans(d, audio_device.volume)
-                if audio_device.default:
-                    await pa.default_set(d)
+@loop_forever(0.01)
+async def process_frame():
+    global _sensor_video
+    if _sensor_video is None:
+        return
+    try:
+        frame: VideoFrame=await _sensor_video.recv()
+        plt.imshow(frame.to_ndarray(format="rgb24"))
+        plt.show()
+    except Exception as e:
+        cv2.destroyAllWindows()
+        logging.error(e)
+        _sensor_video = None
 
 
 @loop_forever(0.01)
 async def process_mutations(pipe: connection.Connection):
     while pipe.poll():
-        mutation: WebrtcOffer|AudioDeviceOptions = pipe.recv()
+        mutation: WebrtcOffer = pipe.recv()
         match mutation:
-            case AudioDeviceOptions():
-                await handle_audio_device_options(mutation)
-                global _next_devices_refresh
-                _next_devices_refresh=0 # refresh now
             case WebrtcOffer():
                 await handle_offer(mutation)
 
 
 def main(
-    state_mem: SharedMemory,
-    state_lock: Lock,
-    pipe: connection.Connection,
+        state_mem: SharedMemory,
+        state_lock: Lock,
+        pipe: connection.Connection,
 ):
     multiprocessing.freeze_support()
     multiprocessing.spawn.freeze_support()
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     global _state_mem, _state_lock
     _state_mem, _state_lock = state_mem, state_lock
+    _commit_state()
     configure_root_logger()
-    v4l2py.device.log.setLevel(logging.WARNING)
     av.logging.set_level(av.logging.PANIC)
 
     loop = asyncio.get_event_loop()
     # Specify tasks in a collection to avoid garbage collection
-    context = pyudev.Context()
-    video_mon = Monitor.from_netlink(context)
-    video_mon.filter_by("video4linux")
-    audio_mon = Monitor.from_netlink(context)
-    audio_mon.filter_by("sound")
     _ = (
-        loop.create_task(refresh_devices(video_mon, audio_mon)),
+        loop.create_task(process_frame()),
         loop.create_task(process_mutations(pipe)),
         loop.create_task(keep_alive()),
     )

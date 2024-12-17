@@ -24,7 +24,6 @@ from client import SwarmNodeClient
 from kernels.utils import loop_forever
 from models import (
     WebrtcOffer,
-    WebrtcTrackDirection,
     Tracks,
 )
 from util import configure_root_logger, ice_servers
@@ -49,8 +48,6 @@ async def on_connectionstatechange(pc: RTCPeerConnection):
         await pc.close()
         global _datachannel
         _datachannel = None
-        global _pc
-        _pc = establish_pc(FlagVideoStreamTrack())
 
 
 def on_datachannel(channel: RTCDataChannel):
@@ -129,9 +126,12 @@ class FlagVideoStreamTrack(VideoStreamTrack):
         return data_bgr
 
 
-async def establish_pc(videoStream: MediaStreamTrack) -> RTCPeerConnection:
+@loop_forever(1.0)
+async def establish_pc(videoStream: MediaStreamTrack) -> None:
     import aioice.stun
-
+    global _pc
+    if _pc.connectionState in {"connecting", "connected"}:
+        return
     # aioice attempts stun lookup on private network ports: these queries will never resolve
     # These attempts will timeout after 5 seconds, making connection take 5+ seconds
     # Modifying retry globals here to make it fail faster and retry more aggressively
@@ -149,7 +149,7 @@ async def establish_pc(videoStream: MediaStreamTrack) -> RTCPeerConnection:
 
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
     pc.add_listener("datachannel", lambda channel: on_datachannel(channel))
-    direction: WebrtcTrackDirection = "sendonly"
+    direction = "sendonly"
     trans = pc.addTransceiver(videoStream, direction)
     trans.setCodecPreferences(
         [
@@ -170,7 +170,7 @@ async def establish_pc(videoStream: MediaStreamTrack) -> RTCPeerConnection:
     await pc.setRemoteDescription(
         RTCSessionDescription(sdp=new_offer.sdp, type=new_offer.type)
     )
-    return pc
+    _pc = pc
 
 
 def main():
@@ -178,11 +178,10 @@ def main():
     configure_root_logger()
     av.logging.set_level(av.logging.PANIC)
 
-    global _pc
-    _pc = establish_pc(FlagVideoStreamTrack())
-
     loop = asyncio.get_event_loop()
-    _ = (loop.create_task(keep_alive()),)
+    _ = (loop.create_task(keep_alive()),
+         loop.create_task(establish_pc(FlagVideoStreamTrack()))
+         )
     try:
         loop.run_forever()
     finally:

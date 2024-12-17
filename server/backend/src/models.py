@@ -36,28 +36,28 @@ class AudioDevice(AudioDeviceOptions, frozen=True):
     type: Literal["sink", "source"]
     properties: dict[str, Any] | None = None
     form_factor: Literal[
-        "car",
-        "computer",
-        "hands-free",
-        "handset",
-        "headphone",
-        "headset",
-        "hifi",
-        "internal",
-        "microphone",
-        "portable",
-        "speaker",
-        "tv",
-        "webcam",
-        "unknown",
-    ] | None = None
+                     "car",
+                     "computer",
+                     "hands-free",
+                     "handset",
+                     "headphone",
+                     "headset",
+                     "hifi",
+                     "internal",
+                     "microphone",
+                     "portable",
+                     "speaker",
+                     "tv",
+                     "webcam",
+                     "unknown",
+                 ] | None = None
 
     @classmethod
     def from_pa(
-        cls,
-        d: PulseSourceInfo,
-        default_name: str,
-        type: Literal["sink", "source"],
+            cls,
+            d: PulseSourceInfo,
+            default_name: str,
+            type: Literal["sink", "source"],
     ):
         # noinspection PyProtectedMember
         return cls(
@@ -195,7 +195,7 @@ Event = TypeVar("Event", default=None)
 class BackgroundKernel(Protocol[Mutation, Event]):
     id: str
     d: Daemon[KernelState, WebrtcOffer | Mutation, WebrtcOffer | Event]
-    http_routes: Callable[[],list[HTTPRouteHandler]]
+    http_routes: Callable[[], list[HTTPRouteHandler]] = lambda self: []
 
 
 @runtime_checkable
