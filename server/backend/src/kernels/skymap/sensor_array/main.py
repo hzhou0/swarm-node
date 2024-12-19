@@ -1,12 +1,12 @@
 import asyncio
+import atexit
+import fractions
 import logging
 import os
 import time
 
 import av
-import cv2
 import msgspec.json
-import numpy as np
 import uvloop
 from aiortc import (
     RTCPeerConnection,
@@ -15,12 +15,13 @@ from aiortc import (
     RTCDataChannel,
     RTCConfiguration,
     RTCIceServer,
-    MediaStreamTrack,
     VideoStreamTrack,
 )
+from aiortc.mediastreams import MediaStreamError
 from av import VideoFrame
 
 from client import SwarmNodeClient
+from kernels.skymap.sensor_array.sensors import RGBDStream
 from kernels.utils import loop_forever
 from models import (
     WebrtcOffer,
@@ -65,79 +66,80 @@ def on_datachannel(channel: RTCDataChannel):
     _datachannel = channel
 
 
-class FlagVideoStreamTrack(VideoStreamTrack):
+class RGBDVideoStreamTrack(VideoStreamTrack):
     """
-    A video track that returns an animated flag.
+    RGBD Depth Video Stream Track
     """
 
-    def __init__(self):
-        super().__init__()  # remember this!
-        self.counter = 0
-        height, width = 480, 640
-
-        # generate flag
-        data_bgr = np.hstack(
-            [
-                self._create_rectangle(
-                    width=213, height=480, color=(255, 0, 0)
-                ),  # blue
-                self._create_rectangle(
-                    width=214, height=480, color=(255, 255, 255)
-                ),  # white
-                self._create_rectangle(width=213, height=480, color=(0, 0, 255)),  # red
-            ]
-        )
-
-        # shrink and center it
-        M = np.float32([[0.5, 0, width / 4], [0, 0.5, height / 4]])
-        data_bgr = cv2.warpAffine(data_bgr, M, (width, height))
-
-        # compute animation
-        omega = 2 * np.pi / height
-        id_x = np.tile(np.array(range(width), dtype=np.float32), (height, 1))
-        id_y = np.tile(
-            np.array(range(height), dtype=np.float32), (width, 1)
-        ).transpose()
-
-        self.frames = []
-        for k in range(30):
-            phase = 2 * k * np.pi / 30
-            map_x = id_x + 10 * np.cos(omega * id_x + phase)
-            map_y = id_y + 10 * np.sin(omega * id_x + phase)
-            self.frames.append(
-                VideoFrame.from_ndarray(
-                    cv2.remap(data_bgr, map_x, map_y, cv2.INTER_LINEAR), format="bgr24"
-                )
-            )
+    def __init__(self, framerate: int = 5):
+        super().__init__()
+        self.stream: RGBDStream | None = RGBDStream(framerate=framerate)
+        self.wait_for_frames = True
 
     async def recv(self):
-        pts, time_base = await self.next_timestamp()
+        if self.readyState != "live" or self.stream is None:
+            raise MediaStreamError
+        video_clock_rate = 90000
+        time_base = fractions.Fraction(1, video_clock_rate)
+        if hasattr(self, "_timestamp"):
+            self._timestamp += int(1 / self.stream.framerate * video_clock_rate)
+        else:
+            self._start = time.time()
+            self._timestamp = 0
 
-        frame = self.frames[self.counter % 30]
-        frame.pts = pts
-        frame.time_base = time_base
-        self.counter += 1
-        return frame
+        frame = None
+        i = 0
+        # poll for frames at 10x the frame rate
+        polling_time = (1 / self.stream.framerate) / 10
+        limit = 5 / polling_time if self.wait_for_frames else 50  # wait 5 seconds for frames to arrive the first time
+        while frame is None:
+            if i > limit:
+                logging.error(f"Stopped receiving frames from depth camera")
+                self.stream.destroy()
+                self.stream = None
+                raise MediaStreamError
+            i += 1
+            frame = self.stream.get_frame()
+            await asyncio.sleep(polling_time)
+        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
+        video_frame.pts = self._timestamp
+        video_frame.time_base = time_base
+        return video_frame
 
-    @staticmethod
-    def _create_rectangle(width, height, color):
-        data_bgr = np.zeros((height, width, 3), np.uint8)
-        data_bgr[:, :] = color
-        return data_bgr
 
+_rgbd_stream: RGBDVideoStreamTrack | None = None
+
+@atexit.register
+def cleanup():
+    global _rgbd_stream
+    if _rgbd_stream is not None:
+        _rgbd_stream.stream.destroy()
 
 @loop_forever(1.0)
-async def establish_pc(videoStream: MediaStreamTrack) -> None:
-    import aioice.stun
-    global _pc
-    if _pc.connectionState in {"connecting", "connected"}:
+async def maintain_peer_connection() -> None:
+    global _pc, _rgbd_stream
+    rgbd_failed = _rgbd_stream is None or _rgbd_stream.stream is None
+    if _pc.connectionState in {"connecting", "connected"} and not rgbd_failed:
         return
+    if _rgbd_stream is not None:
+        try:
+            _rgbd_stream.stop()
+            _rgbd_stream.stream.destroy()
+        except:
+            pass
+    _rgbd_stream = RGBDVideoStreamTrack()
+
     # aioice attempts stun lookup on private network ports: these queries will never resolve
     # These attempts will timeout after 5 seconds, making connection take 5+ seconds
     # Modifying retry globals here to make it fail faster and retry more aggressively
     # Retries follow an exponential fallback: 1,2,4,8 * RETRY_RTO
+    import aioice.stun
     aioice.stun.RETRY_MAX = 2
     aioice.stun.RETRY_RTO = 0.1
+
+    import aiortc.codecs.h264 as h264
+    h264.MAX_FRAME_RATE=_rgbd_stream.stream.framerate
+
     pc = RTCPeerConnection(
         RTCConfiguration(
             [
@@ -150,7 +152,7 @@ async def establish_pc(videoStream: MediaStreamTrack) -> None:
     pc.add_listener("connectionstatechange", lambda: on_connectionstatechange(pc))
     pc.add_listener("datachannel", lambda channel: on_datachannel(channel))
     direction = "sendonly"
-    trans = pc.addTransceiver(videoStream, direction)
+    trans = pc.addTransceiver(_rgbd_stream, direction)
     trans.setCodecPreferences(
         [
             c
@@ -180,7 +182,7 @@ def main():
 
     loop = asyncio.get_event_loop()
     _ = (loop.create_task(keep_alive()),
-         loop.create_task(establish_pc(FlagVideoStreamTrack()))
+         loop.create_task(maintain_peer_connection())
          )
     try:
         loop.run_forever()

@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="skymap" type="CompoundRunConfigurationType">
+    <toRun name="skymap-sens-arr" type="PythonConfigurationType" />
+    <toRun name="skymap-serv" type="PythonConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

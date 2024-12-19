@@ -1,13 +1,14 @@
 import asyncio
 import logging
 import multiprocessing
+import signal
+import sys
 import time
 from multiprocessing import connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
 
 import av
-import cv2
 import uvloop
 from aiortc import (
     RTCPeerConnection,
@@ -17,9 +18,10 @@ from aiortc import (
     RTCIceServer, MediaStreamTrack, VideoStreamTrack,
 )
 from av.video.frame import VideoFrame
-from matplotlib import pyplot as plt
+from numpy import ndarray
 
-from ipc import write_state
+from ipc import write_state, Daemon
+from kernels.skymap.server import reconstruction
 from kernels.utils import loop_forever
 from models import (
     WebrtcOffer,
@@ -27,11 +29,11 @@ from models import (
 )
 from util import configure_root_logger, ice_servers
 
-_state = KernelState()
 _pc: RTCPeerConnection = RTCPeerConnection()
 _datachannel: RTCDataChannel | None = None
 _sensor_video: VideoStreamTrack | None = None
 
+_state = KernelState()
 _state_mem: SharedMemory | None = None
 _state_lock: Lock | None = None
 
@@ -119,17 +121,20 @@ async def handle_offer(offer: WebrtcOffer):
 
 
 @loop_forever(0.01)
-async def process_frame():
+async def process_frame(reconstruct_d: Daemon):
     global _sensor_video
     if _sensor_video is None:
         return
     try:
-        frame: VideoFrame=await _sensor_video.recv()
-        plt.imshow(frame.to_ndarray(format="rgb24"))
-        plt.show()
+        frame: VideoFrame = await _sensor_video.recv()
+        logging.info(f"Received frame {frame.time}s")
+        # try:
+        #     reconstruct_d.mutate(frame.to_ndarray(format="bgr24"))
+        # except Exception as e:
+        #     reconstruct_d.restart_if_failed()
+        #     logging.exception(e)
     except Exception as e:
-        cv2.destroyAllWindows()
-        logging.error(e)
+        logging.exception(e)
         _sensor_video = None
 
 
@@ -140,7 +145,6 @@ async def process_mutations(pipe: connection.Connection):
         match mutation:
             case WebrtcOffer():
                 await handle_offer(mutation)
-
 
 def main(
         state_mem: SharedMemory,
@@ -156,16 +160,17 @@ def main(
     configure_root_logger()
     av.logging.set_level(av.logging.PANIC)
 
+    reconstruct_d: Daemon[None, ndarray, None] = Daemon(name="reconstructor", target=reconstruction.main)
     loop = asyncio.get_event_loop()
     # Specify tasks in a collection to avoid garbage collection
     _ = (
-        loop.create_task(process_frame()),
+        loop.create_task(process_frame(reconstruct_d)),
         loop.create_task(process_mutations(pipe)),
         loop.create_task(keep_alive()),
     )
     try:
         loop.run_forever()
     finally:
-        for task in asyncio.all_tasks():
+        for task in _:
             task.cancel()
-        loop.close()
+        reconstruct_d.destroy()

@@ -2,7 +2,9 @@ import collections
 import datetime
 import logging
 import numbers
+import os
 import struct
+import time
 import zlib
 from collections import deque
 from datetime import timezone
@@ -128,6 +130,9 @@ class WTRTK982(msgspec.Struct):
     speed_ms: float | None = None
 
     def pull_messages(self):
+        if "DUMMY_GPS" in os.environ:
+            self.poses.appendleft(GPSPose(epoch_seconds=time.time(), latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0, roll=0, yaw=0))
+            return
         if self._serial is None or self._nmr is None:
             self._serial, self._nmr = self.connect()
         try:
@@ -172,6 +177,8 @@ class WTRTK982(msgspec.Struct):
 
     @classmethod
     def connect(cls) -> tuple[serial.Serial, NMEAReader] | None:
+        if "DUMMY_GPS" in os.environ:
+            return
         try:
             context = pyudev.Context()
             ch340_serial = list(
@@ -196,6 +203,8 @@ class WTRTK982(msgspec.Struct):
         return None
 
     def disconnect(self):
+        if "DUMMY_GPS" in os.environ:
+            return
         if self._serial is None:
             pass
         try:
@@ -204,6 +213,8 @@ class WTRTK982(msgspec.Struct):
             self._serial = None
 
     def configure(self):
+        if "DUMMY_GPS" in os.environ:
+            return
         if self._serial is None:
             self._serial, self._nmr = self.connect()
         assert self._serial.writable()
@@ -215,6 +226,8 @@ class WTRTK982(msgspec.Struct):
         self._serial.write(b"SAVECONFIG\r\n")
 
     def reset(self):
+        if "DUMMY_GPS" in os.environ:
+            return
         if self._serial is None:
             self._serial, self._nmr = self.connect()
         assert self._serial.writable()
@@ -222,23 +235,24 @@ class WTRTK982(msgspec.Struct):
 
 
 class RGBDStream:
-    def __init__(
-            self,
-            framerate: int = 15,
-    ):
+    def __init__(self, framerate: int = 15):
         self.gps = WTRTK982()
         self.gps.connect()
         self.width: int = 1280
         self.height: int = 720
+        self.framerate = framerate
 
         HIGH_DENSITY_PRESET = 1
         HIGH_ACCURACY_PRESET = 3
         sensors: list[rs.sensor] = rs.context().query_all_sensors()
         for s in sensors:
             if s.is_depth_sensor():
-                s.set_option(rs.option.visual_preset, HIGH_DENSITY_PRESET)
+                s.set_option(rs.option.visual_preset, HIGH_ACCURACY_PRESET)
+
 
         self.pipeline = rs.pipeline()
+        self.pipeline.start()
+        self.pipeline.stop()
         self.config = rs.config()
         self.config.enable_stream(
             rs.stream.depth, self.width, self.height, rs.format.z16, framerate
@@ -271,17 +285,21 @@ class RGBDStream:
         self.filter_colorizer.set_option(rs.option.min_distance, MIN_DIST)
         self.filter_colorizer.set_option(rs.option.max_distance, MAX_DIST)
 
-    def get_frame(self):
+    def destroy(self):
+        self.pipeline.stop()
+        self.gps.disconnect()
+
+    def get_frame(self) -> None | np.ndarray:
         frames = self.pipeline.poll_for_frames()
         depth, color = frames.get_depth_frame(), frames.get_color_frame()
         self.gps.pull_messages()
         if not (depth and color):
-            return
+            return None
         # Use the depth timestamp as the canonical frame time
         # Even synchronized frames are slightly off, the depth timestamp is more reliable for depth data
         frame_time = depth.timestamp / 1000
         if not len(self.gps.poses):
-            return
+            return None
         pose = self.gps.poses[0]
         min_td = 10
         for p in self.gps.poses:
@@ -294,7 +312,6 @@ class RGBDStream:
             if p.epoch_seconds <= frame_time:
                 break
         # todo: synchronization mechanism improvement
-        print(pose)
         blocks = pose.to_macroblocks()
 
         # https://dev.intelrealsense.com/docs/depth-image-compression-by-colorization-for-intel-realsense-depth-cameras
@@ -316,11 +333,7 @@ class RGBDStream:
 
 
 if __name__ == "__main__":
+    os.environ["DUMMY_GPS"]="1"
     stream = RGBDStream()
     while True:
         stream.visualize_frame()
-    # gps = WTRTK982()
-    # gps.configure()
-    # while True:
-    #     gps.pull_messages()
-    #     print(gps.pose)

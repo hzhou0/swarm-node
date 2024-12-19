@@ -14,29 +14,6 @@ from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
 from typing import Callable, TypeVar, Generic, NamedTuple, Generator, NoReturn
 
-"""
-Shared memory blocks are initially created by the reader process.
-If the block is too small, the writer process will create a larger block to use.
-The process that creates the block will manage it, and perform cleanup on exit. 
-"""
-managed_mem_blocks: set[SharedMemory] = set()
-
-
-def exit_handler():
-    logging.info(f"Exiting: cleaning up {len(managed_mem_blocks)} shared memory blocks")
-    for shm in managed_mem_blocks:
-        shm.close()
-        shm.unlink()
-
-
-def kill_handler(*_):
-    sys.exit(0)
-
-
-atexit.register(exit_handler)
-signal.signal(signal.SIGINT, kill_handler)
-signal.signal(signal.SIGTERM, kill_handler)
-
 State = TypeVar("State")
 Mutation = TypeVar("Mutation")
 Event = TypeVar("Event")
@@ -57,7 +34,6 @@ class Daemon(Generic[State, Mutation, Event]):
         self._state: State | None = None
         self._state_lock: Lock = multiprocessing.Lock()
         self._state_mem = SharedMemory(create=True, size=1024 * 1024)
-        managed_mem_blocks.add(self._state_mem)
         self._conn = self._proc = None
         self.start()
 
@@ -71,7 +47,7 @@ class Daemon(Generic[State, Mutation, Event]):
                 self._state_lock,
                 child_conn,
             ),
-            daemon=True,
+            daemon=False,
             name=self.name,
         )
         self._proc.start()
@@ -121,6 +97,15 @@ class Daemon(Generic[State, Mutation, Event]):
         self.start()
         self.logger.error(f"process:{self.name} successfully restarted")
 
+    def destroy(self):
+        print(f"destroying process {self.name}")
+        self._proc.terminate()
+        self._proc.join(timeout=1)
+        self._proc.close()
+        self._state_mem.close()
+        self._state_mem.unlink()
+        print(f"destroyed process {self.name}")
+
 
 class Header(NamedTuple):
     obj_len: int
@@ -148,7 +133,6 @@ def write_state(mem: SharedMemory, lock: Lock, obj: object) -> SharedMemory:
     content_end = Header.end + len(obj_bytes)
     if content_end > mem.size:
         new_mem = SharedMemory(create=True, size=content_end * 2)
-        managed_mem_blocks.add(new_mem)
         new_mem_bytes = pickle.dumps(new_mem)
         new_mem_header = Header(is_new=True, obj_len=len(new_mem_bytes), is_memory=True)
         with lock:

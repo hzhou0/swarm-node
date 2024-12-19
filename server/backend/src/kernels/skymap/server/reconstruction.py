@@ -1,8 +1,17 @@
+import logging
+import os
+import signal
 import sys
+import time
 import timeit
+from multiprocessing import connection
+from multiprocessing.shared_memory import SharedMemory
+from multiprocessing.synchronize import Lock
 
 import numpy as np
 import open3d as o3d
+
+from ipc import write_state
 
 
 class CameraPose:
@@ -12,12 +21,12 @@ class CameraPose:
 
     def __str__(self):
         return (
-            "Metadata : "
-            + " ".join(map(str, self.metadata))
-            + "\n"
-            + "Pose : "
-            + "\n"
-            + np.array_str(self.pose)
+                "Metadata : "
+                + " ".join(map(str, self.metadata))
+                + "\n"
+                + "Pose : "
+                + "\n"
+                + np.array_str(self.pose)
         )
 
 
@@ -45,6 +54,33 @@ def get_open3d_object_size(obj: o3d.geometry.PointCloud):
     if hasattr(obj, "normals"):
         size += sys.getsizeof(obj.normals) + obj.normals.nbytes()
     return size
+
+
+_state = None
+_state_mem: SharedMemory | None = None
+_state_lock: Lock | None = None
+
+
+def _commit_state():
+    global _state_mem, _state_lock, _state
+    _state_mem = write_state(_state_mem, _state_lock, _state)
+
+
+def main(state_mem: SharedMemory,
+         state_lock: Lock,
+         pipe: connection.Connection):
+    global _state_mem, _state_lock
+    _state_mem, _state_lock = state_mem, state_lock
+    while True:
+        try:
+            if not pipe.poll():
+                time.sleep(0.001)
+                continue
+
+            frame: np.ndarray = pipe.recv()
+            assert isinstance(frame, np.ndarray)
+        except Exception as e:
+            logging.exception(e)
 
 
 if __name__ == "__main__":
