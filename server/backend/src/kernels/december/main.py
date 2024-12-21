@@ -25,7 +25,6 @@ from aiortc.contrib.media import MediaPlayer
 from pyudev import Monitor
 
 from ipc import write_state
-from kernels.utils import loop_forever
 from models import (
     AudioDevice,
     VideoDevice,
@@ -33,7 +32,7 @@ from models import (
     WebrtcOffer,
     KernelState,
 )
-from util import configure_root_logger, ice_servers
+from util import configure_root_logger, ice_servers, loop_forever
 
 _state = KernelState()
 _pc: RTCPeerConnection = RTCPeerConnection()

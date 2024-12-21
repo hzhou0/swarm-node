@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import shutil
@@ -5,6 +6,7 @@ import sys
 from logging.handlers import RotatingFileHandler
 from multiprocessing import current_process
 from pathlib import Path
+from typing import Callable
 
 import msgspec
 
@@ -54,3 +56,18 @@ try:
 except Exception as e:
     print("Using default ice servers")
     ice_servers = [IceServer(urls="stun:stun.l.google.com:19302")]
+
+
+def loop_forever(interval: float) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        async def inner(*args, **kwargs):
+            while True:
+                try:
+                    await func(*args, **kwargs)
+                except Exception as e:
+                    logging.exception(e)
+                await asyncio.sleep(interval)
+
+        return inner
+
+    return decorator

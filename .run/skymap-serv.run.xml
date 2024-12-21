@@ -7,6 +7,7 @@
     <envs>
       <env name="PYTHONUNBUFFERED" value="1" />
       <env name="SWARM_NODE_KERNEL" value="skymap-serv" />
+      <env name="DEV" value="1" />
     </envs>
     <option name="SDK_HOME" value="" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/server/backend/src" />

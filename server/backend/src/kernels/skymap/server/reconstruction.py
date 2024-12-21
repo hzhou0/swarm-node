@@ -8,10 +8,14 @@ from multiprocessing import connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
 
+import cv2
 import numpy as np
 import open3d as o3d
+from matplotlib import pyplot as plt
 
 from ipc import write_state
+from kernels.skymap.common import GPSPose, rgbd_stream_height, macroblock_size
+from util import configure_root_logger
 
 
 class CameraPose:
@@ -71,6 +75,7 @@ def main(state_mem: SharedMemory,
          pipe: connection.Connection):
     global _state_mem, _state_lock
     _state_mem, _state_lock = state_mem, state_lock
+    configure_root_logger()
     while True:
         try:
             if not pipe.poll():
@@ -79,6 +84,13 @@ def main(state_mem: SharedMemory,
 
             frame: np.ndarray = pipe.recv()
             assert isinstance(frame, np.ndarray)
+            color_frame, depth_frame = frame[0:rgbd_stream_height, :], frame[rgbd_stream_height:, :]
+            macroblocks = depth_frame[0:GPSPose.height_blocks * macroblock_size,
+                          0:GPSPose.width_blocks * macroblock_size, :]
+            pose = GPSPose.from_macroblocks(macroblocks)
+            if pose is None:
+                continue
+            logging.info(pose)
         except Exception as e:
             logging.exception(e)
 

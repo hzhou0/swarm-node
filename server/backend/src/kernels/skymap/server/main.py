@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import multiprocessing
-import signal
-import sys
+import os
 import time
+from datetime import datetime
 from multiprocessing import connection
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
@@ -17,17 +17,17 @@ from aiortc import (
     RTCConfiguration,
     RTCIceServer, MediaStreamTrack, VideoStreamTrack,
 )
+from aiortc.contrib.media import MediaRecorderContext
 from av.video.frame import VideoFrame
 from numpy import ndarray
 
 from ipc import write_state, Daemon
 from kernels.skymap.server import reconstruction
-from kernels.utils import loop_forever
 from models import (
     WebrtcOffer,
     KernelState,
 )
-from util import configure_root_logger, ice_servers
+from util import configure_root_logger, ice_servers, root_dir, loop_forever
 
 _pc: RTCPeerConnection = RTCPeerConnection()
 _datachannel: RTCDataChannel | None = None
@@ -73,13 +73,67 @@ def on_datachannel(channel: RTCDataChannel):
     _datachannel = channel
 
 
+class DebugVideoSink:
+    """
+    A media sink that writes audio and/or video to a file.
+
+    Examples:
+
+    . code-block:: python
+
+        # Write to a video file.
+        player = MediaRecorder('/path/to/file.mp4')
+
+        # Write to a set of images.
+        player = MediaRecorder('/path/to/file-%3d.png')
+
+    :param file: The path to a file, or a file-like object.
+    :param format: The format to use, defaults to autodect.
+    :param options: Additional options to pass to FFmpeg.
+    """
+
+    def __init__(self, file, track, format=None, options=None):
+        self.__container = av.open(file=file, format=format, mode="w", options=options)
+        self.track = track
+        if self.__container.format.name == "image2":
+            stream = self.__container.add_stream("png", rate=15)
+            stream.pix_fmt = "rgb24"
+        else:
+            stream = self.__container.add_stream("libx264", rate=15)
+            stream.pix_fmt = "yuv420p"
+        self.context = MediaRecorderContext(stream)
+
+    def stop(self):
+        if self.__container:
+            self.__container.close()
+            self.__container = None
+
+    async def add_frame(self, frame: VideoFrame):
+        if not self.context.started:
+            # adjust the output size to match the first frame
+            if isinstance(frame, VideoFrame):
+                self.context.stream.width = frame.width
+                self.context.stream.height = frame.height
+            self.context.started = True
+
+        for packet in self.context.stream.encode(frame):
+            self.__container.mux(packet)
+
+
+_debug_sink: DebugVideoSink | None = None
+
+
 def on_track(track: MediaStreamTrack):
     if track.kind != 'video':
         logging.info(f"Ignoring track, kind is {track.kind}")
         return
     logging.info(f"Using video track {track}")
-    global _sensor_video
+    global _sensor_video, _debug_sink
     _sensor_video = track
+    if _debug_sink is not None:
+        _debug_sink.stop()
+    if "DEV" in os.environ:
+        _debug_sink = DebugVideoSink(root_dir.joinpath(datetime.now().strftime("%Y%m%d-%H%M%S") + ".mp4"), track)
 
 
 async def handle_offer(offer: WebrtcOffer):
@@ -127,12 +181,14 @@ async def process_frame(reconstruct_d: Daemon):
         return
     try:
         frame: VideoFrame = await _sensor_video.recv()
+        if _debug_sink is not None:
+            await _debug_sink.add_frame(frame)
         logging.info(f"Received frame {frame.time}s")
-        # try:
-        #     reconstruct_d.mutate(frame.to_ndarray(format="bgr24"))
-        # except Exception as e:
-        #     reconstruct_d.restart_if_failed()
-        #     logging.exception(e)
+        try:
+            reconstruct_d.mutate(frame.to_ndarray(format="bgr24"))
+        except Exception as e:
+            reconstruct_d.restart_if_failed()
+            logging.exception(e)
     except Exception as e:
         logging.exception(e)
         _sensor_video = None
@@ -145,6 +201,7 @@ async def process_mutations(pipe: connection.Connection):
         match mutation:
             case WebrtcOffer():
                 await handle_offer(mutation)
+
 
 def main(
         state_mem: SharedMemory,
@@ -171,6 +228,8 @@ def main(
     try:
         loop.run_forever()
     finally:
+        if _debug_sink is not None:
+            _debug_sink.stop()
         for task in _:
             task.cancel()
         reconstruct_d.destroy()

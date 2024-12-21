@@ -16,18 +16,18 @@ from aiortc import (
     RTCConfiguration,
     RTCIceServer,
     VideoStreamTrack,
+
 )
 from aiortc.mediastreams import MediaStreamError
 from av import VideoFrame
 
 from client import SwarmNodeClient
 from kernels.skymap.sensor_array.sensors import RGBDStream
-from kernels.utils import loop_forever
 from models import (
     WebrtcOffer,
     Tracks,
 )
-from util import configure_root_logger, ice_servers
+from util import configure_root_logger, ice_servers, loop_forever
 
 _pc: RTCPeerConnection = RTCPeerConnection()
 _datachannel: RTCDataChannel | None = None
@@ -71,9 +71,9 @@ class RGBDVideoStreamTrack(VideoStreamTrack):
     RGBD Depth Video Stream Track
     """
 
-    def __init__(self, framerate: int = 5):
+    def __init__(self):
         super().__init__()
-        self.stream: RGBDStream | None = RGBDStream(framerate=framerate)
+        self.stream: RGBDStream | None = RGBDStream()
         self.wait_for_frames = True
 
     async def recv(self):
@@ -91,7 +91,7 @@ class RGBDVideoStreamTrack(VideoStreamTrack):
         i = 0
         # poll for frames at 10x the frame rate
         polling_time = (1 / self.stream.framerate) / 10
-        limit = 5 / polling_time if self.wait_for_frames else 50  # wait 5 seconds for frames to arrive the first time
+        limit = 5 / polling_time if self.wait_for_frames else 50 / polling_time  # wait 5 seconds for frames to arrive the first time
         while frame is None:
             if i > limit:
                 logging.error(f"Stopped receiving frames from depth camera")
@@ -109,11 +109,13 @@ class RGBDVideoStreamTrack(VideoStreamTrack):
 
 _rgbd_stream: RGBDVideoStreamTrack | None = None
 
+
 @atexit.register
 def cleanup():
     global _rgbd_stream
     if _rgbd_stream is not None:
         _rgbd_stream.stream.destroy()
+
 
 @loop_forever(1.0)
 async def maintain_peer_connection() -> None:
@@ -138,7 +140,7 @@ async def maintain_peer_connection() -> None:
     aioice.stun.RETRY_RTO = 0.1
 
     import aiortc.codecs.h264 as h264
-    h264.MAX_FRAME_RATE=_rgbd_stream.stream.framerate
+    h264.MAX_FRAME_RATE = _rgbd_stream.stream.framerate
 
     pc = RTCPeerConnection(
         RTCConfiguration(

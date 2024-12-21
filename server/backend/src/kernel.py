@@ -45,6 +45,7 @@ class SkymapServer(BackgroundKernel):
         self.d = Daemon(entrypoint, "skymap_server")
 
 
+
 _kernels: dict[str, Type[BackgroundKernel] | Type[ForegroundKernel]] = {
     k.id: k for k in [December, SkymapSensorArray, SkymapServer]
 }
