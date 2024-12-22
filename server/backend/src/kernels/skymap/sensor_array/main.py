@@ -31,10 +31,6 @@ from util import configure_root_logger, ice_servers, loop_forever
 
 _pc: RTCPeerConnection = RTCPeerConnection()
 _datachannel: RTCDataChannel | None = None
-sn_client = SwarmNodeClient(
-    os.environ["SKYMAP_SERV_ROOT_URL"],
-    msgspec.json.decode(os.environ["SKYMAP_SERV_AUTH_HEADERS"], type=dict[str, str]),
-)
 
 
 @loop_forever(2.0)
@@ -118,7 +114,7 @@ def cleanup():
 
 
 @loop_forever(1.0)
-async def maintain_peer_connection() -> None:
+async def maintain_peer_connection(sn_client: SwarmNodeClient) -> None:
     global _pc, _rgbd_stream
     rgbd_failed = _rgbd_stream is None or _rgbd_stream.stream is None
     if _pc.connectionState in {"connecting", "connected"} and not rgbd_failed:
@@ -141,6 +137,7 @@ async def maintain_peer_connection() -> None:
 
     import aiortc.codecs.h264 as h264
     h264.MAX_FRAME_RATE = _rgbd_stream.stream.framerate
+    h264.MIN_BITRATE=h264.MAX_BITRATE=h264.MIN_BITRATE=5000000
 
     pc = RTCPeerConnection(
         RTCConfiguration(
@@ -181,10 +178,14 @@ def main():
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     configure_root_logger()
     av.logging.set_level(av.logging.PANIC)
+    sn_client = SwarmNodeClient(
+        os.environ["SKYMAP_SERV_ROOT_URL"],
+        msgspec.json.decode(os.environ["SKYMAP_SERV_AUTH_HEADERS"], type=dict[str, str]),
+    )
 
     loop = asyncio.get_event_loop()
     _ = (loop.create_task(keep_alive()),
-         loop.create_task(maintain_peer_connection())
+         loop.create_task(maintain_peer_connection(sn_client))
          )
     try:
         loop.run_forever()

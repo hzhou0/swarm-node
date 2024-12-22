@@ -90,7 +90,7 @@ class GPSPose(msgspec.Struct):
 
         # Initialize the output array with shape (44, 4, 3)
         pixels = color_map[stacked_arr]
-        pixels = pixels.reshape((self.height_blocks, self.width_blocks, 3))
+        pixels = pixels.reshape((self.height_blocks, self.width_blocks, -1))
         # encode into 16 x 16 macroblocks
         macroblocks = np.repeat(np.repeat(pixels, macroblock_size, axis=0), macroblock_size, axis=1)
         return macroblocks
@@ -134,6 +134,11 @@ class GPSPose(msgspec.Struct):
         except ChecksumMismatchError as e:
             logging.exception(e)
             return None
+
+    @classmethod
+    def from_depth_frame(cls, frame: np.ndarray) -> Self | None:
+        return cls.from_macroblocks(frame[:GPSPose.height_blocks * macroblock_size,
+                                    :GPSPose.width_blocks * macroblock_size, :])
 
 
 if __name__ == "__main__":

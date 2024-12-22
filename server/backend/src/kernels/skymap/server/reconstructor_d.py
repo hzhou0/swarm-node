@@ -1,6 +1,4 @@
 import logging
-import os
-import signal
 import sys
 import time
 import timeit
@@ -11,10 +9,10 @@ from multiprocessing.synchronize import Lock
 import cv2
 import numpy as np
 import open3d as o3d
-from matplotlib import pyplot as plt
 
 from ipc import write_state
-from kernels.skymap.common import GPSPose, rgbd_stream_height, macroblock_size
+from kernels.skymap.common import GPSPose, rgbd_stream_height
+from kernels.skymap.sensor_array.sensors import RGBDStream
 from util import configure_root_logger
 
 
@@ -76,21 +74,38 @@ def main(state_mem: SharedMemory,
     global _state_mem, _state_lock
     _state_mem, _state_lock = state_mem, state_lock
     configure_root_logger()
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    intrinsics = o3d.camera.PinholeCameraIntrinsic(width=1280, height=720, fx=641.162, fy=641.162, cx=639.135,
+                                                   cy=361.356)
+    pcd = None
+
     while True:
         try:
             if not pipe.poll():
-                time.sleep(0.001)
+                vis.poll_events()
+                vis.update_renderer()
                 continue
 
             frame: np.ndarray = pipe.recv()
             assert isinstance(frame, np.ndarray)
-            color_frame, depth_frame = frame[0:rgbd_stream_height, :], frame[rgbd_stream_height:, :]
-            macroblocks = depth_frame[0:GPSPose.height_blocks * macroblock_size,
-                          0:GPSPose.width_blocks * macroblock_size, :]
-            pose = GPSPose.from_macroblocks(macroblocks)
+            color_frame, depth_frame = frame[:rgbd_stream_height, :], frame[rgbd_stream_height:, :]
+            pose = GPSPose.from_depth_frame(depth_frame)
             if pose is None:
                 continue
-            logging.info(pose)
+            depth_intensity_frame = RGBDStream.decolorize_depth_frame(depth_frame)
+            im1 = o3d.geometry.Image(cv2.cvtColor(color_frame, cv2.COLOR_BGR2RGB))
+            im2 = o3d.geometry.Image(depth_intensity_frame)
+            rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
+                                                                                                  convert_rgb_to_intensity=False)
+            if pcd is None:
+                pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
+                vis.add_geometry(pcd)
+            else:
+                vis.remove_geometry(pcd, reset_bounding_box=False)
+                pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
+                vis.add_geometry(pcd, reset_bounding_box=False)
         except Exception as e:
             logging.exception(e)
 

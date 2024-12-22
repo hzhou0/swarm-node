@@ -37,7 +37,8 @@ skymap = [
     "pyrealsense2==2.55.1.6486",
     "pygnssutils==1.1.8",
     "pynmeagps==1.0.43",
-    "google-crc32c>=1"
+    "google-crc32c>=1",
+    "numba~=0.60.0"
 ]
 skymapserv = [
     "open3d==0.18.0"

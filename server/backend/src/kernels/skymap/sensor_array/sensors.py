@@ -18,8 +18,9 @@ import serial
 from msgspec import field
 from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
+from pyudev import Enumerator
 
-from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose
+from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose, macroblock_size
 
 
 class WTRTK982(msgspec.Struct):
@@ -48,7 +49,8 @@ class WTRTK982(msgspec.Struct):
     def pull_messages(self):
         if "DUMMY_GPS" in os.environ:
             self.poses.appendleft(
-                GPSPose(epoch_seconds=time.time(), latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0, roll=0, yaw=0))
+                GPSPose(epoch_seconds=time.time(), latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0, roll=0,
+                        yaw=0))
             return
         if self._serial is None or self._nmr is None:
             self._serial, self._nmr = self.connect()
@@ -151,7 +153,38 @@ class WTRTK982(msgspec.Struct):
         self._serial.write(b"FRESET\r\n")
 
 
+from numba import guvectorize, uint8, uint16, float64
+
+
+@guvectorize([(uint8[:, :, :], float64, float64, uint16[:, :])], "(i,j,k),(),()->(i,j)", cache=True, nopython=True)
+def rgb_to_depth(x, min_dist, max_dist, y):
+    for i in range(x.shape[0]):
+        for j in range(x.shape[1]):
+            r, g, b = x[i, j]
+            y[i, j] = 0
+            if b + g + r < 256:
+                y[i, j] = 0
+            elif r >= g and r >= b:
+                if g >= b:
+                    y[i, j] = g - b
+                else:
+                    y[i, j] = g - b + 1529
+            elif g >= r and g >= b:
+                y[i, j] = b - r + 510
+            elif b >= g and b >= r:
+                y[i, j] = r - g + 1020
+            if y[i, j] > 0:
+                y[i, j] = ((min_dist + (max_dist - min_dist) * y[i, j] / 1529) * 1000 + 0.5)
+
+
 class RGBDStream:
+    class Preset(Enumerator):
+        HIGH_DENSITY_PRESET = 1
+        HIGH_ACCURACY_PRESET = 3
+
+    preset: Preset = Preset.HIGH_ACCURACY_PRESET
+    threshold: tuple[float, float] = (0.15, 6.)
+
     def __init__(self):
         self.gps = WTRTK982()
         self.gps.connect()
@@ -159,13 +192,10 @@ class RGBDStream:
         self.height: int = rgbd_stream_height
         self.framerate = rgbd_stream_framerate
 
-        HIGH_DENSITY_PRESET = 1
-        HIGH_ACCURACY_PRESET = 3
         sensors: list[rs.sensor] = rs.context().query_all_sensors()
         for s in sensors:
             if s.is_depth_sensor():
-                s.set_option(rs.option.visual_preset, HIGH_ACCURACY_PRESET)
-
+                s.set_option(rs.option.visual_preset, self.preset)
 
         self.pipeline = rs.pipeline()
         self.pipeline.start()
@@ -190,17 +220,17 @@ class RGBDStream:
         )
 
         # Filters
-        MIN_DIST, MAX_DIST = 0.15, 6
-        COLOR_SCHEME_HUE = 9
-        HISTOGRAM_EQUALIZATION_DISABLE = 0
-        self.filter_threshold = rs.threshold_filter(MIN_DIST, MAX_DIST)
+        min_dist, max_dist = self.threshold
+        color_scheme_hue = 9
+        histogram_equalization_disable = 0
+        self.filter_threshold = rs.threshold_filter(min_dist, max_dist)
         self.filter_colorizer = rs.colorizer()
         self.filter_colorizer.set_option(
-            rs.option.histogram_equalization_enabled, HISTOGRAM_EQUALIZATION_DISABLE
+            rs.option.histogram_equalization_enabled, histogram_equalization_disable
         )
-        self.filter_colorizer.set_option(rs.option.color_scheme, COLOR_SCHEME_HUE)
-        self.filter_colorizer.set_option(rs.option.min_distance, MIN_DIST)
-        self.filter_colorizer.set_option(rs.option.max_distance, MAX_DIST)
+        self.filter_colorizer.set_option(rs.option.color_scheme, color_scheme_hue)
+        self.filter_colorizer.set_option(rs.option.min_distance, min_dist)
+        self.filter_colorizer.set_option(rs.option.max_distance, max_dist)
 
     def destroy(self):
         self.pipeline.stop()
@@ -240,17 +270,44 @@ class RGBDStream:
         depth_image[0:blocks.shape[0], 0:blocks.shape[1], :] = blocks
         return np.vstack((color_image, depth_image))
 
-    def visualize_frame(self):
-        frame = self.get_frame()
-        if frame is None:
-            return
-        cv2.namedWindow("RealSense", cv2.WINDOW_NORMAL)
-        cv2.imshow("RealSense", frame)
-        cv2.waitKey(1)
+    @classmethod
+    def decolorize_depth_frame(cls, frame: np.ndarray) -> np.ndarray:
+        """
+        Adapted from intel's documentation:
+        https://dev.intelrealsense.com/docs/depth-image-compression-by-colorization-for-intel-realsense-depth-cameras#32-depth-image-recovery-from-colorized-depth-images-in-c
+        """
+        min_dist, max_dist = cls.threshold
+        min_dist -= 0.01  # Offset to avoid depth inversion. See Figure 7
+        frame[:GPSPose.height_blocks * macroblock_size, :GPSPose.width_blocks * macroblock_size, :] = 0
+        return rgb_to_depth(frame, min_dist, max_dist)
 
 
 if __name__ == "__main__":
-    os.environ["DUMMY_GPS"]="1"
+    import open3d as o3d
+
+    os.environ["DUMMY_GPS"] = "1"
     stream = RGBDStream()
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    intrinsics = o3d.camera.PinholeCameraIntrinsic(width=1280, height=720, fx=641.162, fy=641.162, cx=639.135,
+                                                   cy=361.356)
+    pcd = None
     while True:
-        stream.visualize_frame()
+        frame = stream.get_frame()
+        if frame is None:
+            vis.poll_events()
+            vis.update_renderer()
+            continue
+        color_frame, depth_frame = frame[:rgbd_stream_height, :], frame[rgbd_stream_height:, :]
+        depth_intensity_frame = RGBDStream.decolorize_depth_frame(depth_frame)
+        im1 = o3d.geometry.Image(cv2.cvtColor(color_frame, cv2.COLOR_BGR2RGB))
+        im2 = o3d.geometry.Image(depth_intensity_frame)
+        rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
+                                                                                              convert_rgb_to_intensity=False)
+        if pcd is None:
+            pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
+            vis.add_geometry(pcd)
+        else:
+            vis.remove_geometry(pcd, reset_bounding_box=False)
+            pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
+            vis.add_geometry(pcd, reset_bounding_box=False)

@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import multiprocessing
-import os
 import time
 from datetime import datetime
 from multiprocessing import connection
@@ -22,7 +21,8 @@ from av.video.frame import VideoFrame
 from numpy import ndarray
 
 from ipc import write_state, Daemon
-from kernels.skymap.server import reconstruction
+from kernels.skymap.common import rgbd_stream_framerate
+from kernels.skymap.server import reconstructor_d
 from models import (
     WebrtcOffer,
     KernelState,
@@ -73,7 +73,7 @@ def on_datachannel(channel: RTCDataChannel):
     _datachannel = channel
 
 
-class DebugVideoSink:
+class VideoSink:
     """
     A media sink that writes audio and/or video to a file.
 
@@ -96,10 +96,10 @@ class DebugVideoSink:
         self.__container = av.open(file=file, format=format, mode="w", options=options)
         self.track = track
         if self.__container.format.name == "image2":
-            stream = self.__container.add_stream("png", rate=15)
+            stream = self.__container.add_stream("png", rate=rgbd_stream_framerate)
             stream.pix_fmt = "rgb24"
         else:
-            stream = self.__container.add_stream("libx264", rate=15)
+            stream = self.__container.add_stream("libx264", rate=rgbd_stream_framerate)
             stream.pix_fmt = "yuv420p"
         self.context = MediaRecorderContext(stream)
 
@@ -120,7 +120,7 @@ class DebugVideoSink:
             self.__container.mux(packet)
 
 
-_debug_sink: DebugVideoSink | None = None
+_playback_sink: VideoSink | None = None
 
 
 def on_track(track: MediaStreamTrack):
@@ -128,12 +128,13 @@ def on_track(track: MediaStreamTrack):
         logging.info(f"Ignoring track, kind is {track.kind}")
         return
     logging.info(f"Using video track {track}")
-    global _sensor_video, _debug_sink
+    global _sensor_video, _playback_sink
     _sensor_video = track
-    if _debug_sink is not None:
-        _debug_sink.stop()
-    if "DEV" in os.environ:
-        _debug_sink = DebugVideoSink(root_dir.joinpath(datetime.now().strftime("%Y%m%d-%H%M%S") + ".mp4"), track)
+    if _playback_sink is not None:
+        _playback_sink.stop()
+    video_path=root_dir.joinpath(datetime.now().strftime("%Y.%m.%d-%H.%M.%S") + ".mp4")
+    _playback_sink = VideoSink(video_path, track)
+    logging.info(f"Recording received video to {video_path}")
 
 
 async def handle_offer(offer: WebrtcOffer):
@@ -181,9 +182,8 @@ async def process_frame(reconstruct_d: Daemon):
         return
     try:
         frame: VideoFrame = await _sensor_video.recv()
-        if _debug_sink is not None:
-            await _debug_sink.add_frame(frame)
-        logging.info(f"Received frame {frame.time}s")
+        if _playback_sink is not None:
+            await _playback_sink.add_frame(frame)
         try:
             reconstruct_d.mutate(frame.to_ndarray(format="bgr24"))
         except Exception as e:
@@ -217,7 +217,7 @@ def main(
     configure_root_logger()
     av.logging.set_level(av.logging.PANIC)
 
-    reconstruct_d: Daemon[None, ndarray, None] = Daemon(name="reconstructor", target=reconstruction.main)
+    reconstruct_d: Daemon[None, ndarray, None] = Daemon(name="reconstructor", target=reconstructor_d.main)
     loop = asyncio.get_event_loop()
     # Specify tasks in a collection to avoid garbage collection
     _ = (
@@ -228,8 +228,8 @@ def main(
     try:
         loop.run_forever()
     finally:
-        if _debug_sink is not None:
-            _debug_sink.stop()
+        if _playback_sink is not None:
+            _playback_sink.stop()
         for task in _:
             task.cancel()
         reconstruct_d.destroy()
