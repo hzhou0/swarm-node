@@ -95,7 +95,7 @@ def main(state_mem: SharedMemory,
             if pose is None:
                 continue
             depth_intensity_frame = RGBDStream.decolorize_depth_frame(depth_frame)
-            im1 = o3d.geometry.Image(cv2.cvtColor(color_frame, cv2.COLOR_BGR2RGB))
+            im1 = o3d.geometry.Image(color_frame)
             im2 = o3d.geometry.Image(depth_intensity_frame)
             rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
                                                                                                   convert_rgb_to_intensity=False)

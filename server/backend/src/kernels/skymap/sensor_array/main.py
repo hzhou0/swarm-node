@@ -97,7 +97,7 @@ class RGBDVideoStreamTrack(VideoStreamTrack):
             i += 1
             frame = self.stream.get_frame()
             await asyncio.sleep(polling_time)
-        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
+        video_frame = VideoFrame.from_ndarray(frame, format=RGBDStream.pixel_format)
         video_frame.pts = self._timestamp
         video_frame.time_base = time_base
         return video_frame

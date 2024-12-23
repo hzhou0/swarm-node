@@ -22,6 +22,7 @@ from numpy import ndarray
 
 from ipc import write_state, Daemon
 from kernels.skymap.common import rgbd_stream_framerate
+from kernels.skymap.sensor_array.sensors import RGBDStream
 from kernels.skymap.server import reconstructor_d
 from models import (
     WebrtcOffer,
@@ -185,7 +186,7 @@ async def process_frame(reconstruct_d: Daemon):
         if _playback_sink is not None:
             await _playback_sink.add_frame(frame)
         try:
-            reconstruct_d.mutate(frame.to_ndarray(format="bgr24"))
+            reconstruct_d.mutate(frame.to_ndarray(format=RGBDStream.pixel_format))
         except Exception as e:
             reconstruct_d.restart_if_failed()
             logging.exception(e)

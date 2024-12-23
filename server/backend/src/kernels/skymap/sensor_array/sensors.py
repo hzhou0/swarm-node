@@ -7,6 +7,7 @@ import os
 import time
 from collections import deque
 from datetime import timezone
+from enum import Enum, IntEnum
 from typing import Literal, ClassVar
 
 import cv2
@@ -16,9 +17,9 @@ import pyrealsense2 as rs
 import pyudev
 import serial
 from msgspec import field
+from numba import guvectorize, uint8, uint16, float64
 from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
-from pyudev import Enumerator
 
 from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose, macroblock_size
 
@@ -153,37 +154,19 @@ class WTRTK982(msgspec.Struct):
         self._serial.write(b"FRESET\r\n")
 
 
-from numba import guvectorize, uint8, uint16, float64
-
-
-@guvectorize([(uint8[:, :, :], float64, float64, uint16[:, :])], "(i,j,k),(),()->(i,j)", cache=True, nopython=True)
-def rgb_to_depth(x, min_dist, max_dist, y):
-    for i in range(x.shape[0]):
-        for j in range(x.shape[1]):
-            r, g, b = x[i, j]
-            y[i, j] = 0
-            if b + g + r < 256:
-                y[i, j] = 0
-            elif r >= g and r >= b:
-                if g >= b:
-                    y[i, j] = g - b
-                else:
-                    y[i, j] = g - b + 1529
-            elif g >= r and g >= b:
-                y[i, j] = b - r + 510
-            elif b >= g and b >= r:
-                y[i, j] = r - g + 1020
-            if y[i, j] > 0:
-                y[i, j] = ((min_dist + (max_dist - min_dist) * y[i, j] / 1529) * 1000 + 0.5)
-
-
 class RGBDStream:
-    class Preset(Enumerator):
+    class Preset(IntEnum):
         HIGH_DENSITY_PRESET = 1
         HIGH_ACCURACY_PRESET = 3
 
+    class DepthEncoding(IntEnum):
+        HUE = 1
+        EURO_GRAPHICS_2011 = 2
+
     preset: Preset = Preset.HIGH_ACCURACY_PRESET
+    depth_encoding: DepthEncoding = DepthEncoding.EURO_GRAPHICS_2011
     threshold: tuple[float, float] = (0.15, 6.)
+    pixel_format="rgb24"
 
     def __init__(self):
         self.gps = WTRTK982()
@@ -205,7 +188,7 @@ class RGBDStream:
             rs.stream.depth, self.width, self.height, rs.format.z16, self.framerate
         )
         self.config.enable_stream(
-            rs.stream.color, self.width, self.height, rs.format.bgr8, self.framerate
+            rs.stream.color, self.width, self.height, rs.format.rgb8, self.framerate
         )
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)
@@ -263,23 +246,53 @@ class RGBDStream:
 
         # https://dev.intelrealsense.com/docs/depth-image-compression-by-colorization-for-intel-realsense-depth-cameras
         depth = self.filter_threshold.process(depth)
-        depth = self.filter_colorizer.process(depth)
+        if self.depth_encoding == self.DepthEncoding.HUE:
+            depth = self.filter_colorizer.process(depth)
+            depth_image = np.asanyarray(depth.get_data())
+        elif self.depth_encoding == self.DepthEncoding.EURO_GRAPHICS_2011:
+            depth_image = np.asanyarray(depth.get_data())
 
-        depth_image = np.asanyarray(depth.get_data())
+            @guvectorize([(uint16[:, :], uint8[:, :,:])], "(i,j,k)->(i,j)", cache=True,
+                         nopython=True)
+            def depth_to_yuv(x ,y):
+                pass
+
         color_image = np.asanyarray(color.get_data())
         depth_image[0:blocks.shape[0], 0:blocks.shape[1], :] = blocks
         return np.vstack((color_image, depth_image))
 
     @classmethod
     def decolorize_depth_frame(cls, frame: np.ndarray) -> np.ndarray:
-        """
-        Adapted from intel's documentation:
-        https://dev.intelrealsense.com/docs/depth-image-compression-by-colorization-for-intel-realsense-depth-cameras#32-depth-image-recovery-from-colorized-depth-images-in-c
-        """
-        min_dist, max_dist = cls.threshold
-        min_dist -= 0.01  # Offset to avoid depth inversion. See Figure 7
-        frame[:GPSPose.height_blocks * macroblock_size, :GPSPose.width_blocks * macroblock_size, :] = 0
-        return rgb_to_depth(frame, min_dist, max_dist)
+        @guvectorize([(uint8[:, :, :], float64, float64, uint16[:, :])], "(i,j,k),(),()->(i,j)", cache=True,
+                     nopython=True)
+        def rgb_to_depth(x, min_dist, max_dist, y):
+            """
+            Adapted from intel's documentation:
+            https://dev.intelrealsense.com/docs/depth-image-compression-by-colorization-for-intel-realsense-depth-cameras#32-depth-image-recovery-from-colorized-depth-images-in-c
+            """
+            for i in range(x.shape[0]):
+                for j in range(x.shape[1]):
+                    r, g, b = x[i, j]
+                    y[i, j] = 0
+                    if b + g + r < 256:
+                        y[i, j] = 0
+                    elif r >= g and r >= b:
+                        if g >= b:
+                            y[i, j] = g - b
+                        else:
+                            y[i, j] = g - b + 1529
+                    elif g >= r and g >= b:
+                        y[i, j] = b - r + 510
+                    elif b >= g and b >= r:
+                        y[i, j] = r - g + 1020
+                    if y[i, j] > 0:
+                        y[i, j] = ((min_dist + (max_dist - min_dist) * y[i, j] / 1529) * 1000 + 0.5)
+
+        if cls.depth_encoding == cls.DepthEncoding.HUE:
+            min_dist, max_dist = cls.threshold
+            min_dist -= 0.01  # Offset to avoid depth inversion. See Figure 7
+            frame[:GPSPose.height_blocks * macroblock_size, :GPSPose.width_blocks * macroblock_size, :] = 0
+            return rgb_to_depth(frame, min_dist, max_dist)
 
 
 if __name__ == "__main__":
@@ -300,7 +313,7 @@ if __name__ == "__main__":
             continue
         color_frame, depth_frame = frame[:rgbd_stream_height, :], frame[rgbd_stream_height:, :]
         depth_intensity_frame = RGBDStream.decolorize_depth_frame(depth_frame)
-        im1 = o3d.geometry.Image(cv2.cvtColor(color_frame, cv2.COLOR_BGR2RGB))
+        im1 = o3d.geometry.Image(color_frame)
         im2 = o3d.geometry.Image(depth_intensity_frame)
         rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
                                                                                               convert_rgb_to_intensity=False)
