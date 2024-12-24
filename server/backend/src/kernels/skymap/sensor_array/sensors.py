@@ -255,7 +255,30 @@ class RGBDStream:
             @guvectorize([(uint16[:, :], uint8[:, :,:])], "(i,j,k)->(i,j)", cache=True,
                          nopython=True)
             def depth_to_yuv(x ,y):
-                pass
+                # Adapted from the paper by the University College London at http://reality.cs.ucl.ac.uk/projects/depth-streaming/depth-streaming.pdf
+                # TODO: Change magic numbers as needed; the following assumes depth is 16 bits, and output pixels are stored in the order Y, U, then V.
+                # In YUV420, there are two bits used for each of the U and V samples. In selecting n_p, the integer period for H_a and H_b, the paper
+                # states n_p must be at most twice the number of output quantization levels, which in the case of YUV420 is channel dependent. Thus,
+                # twice (4) the minimum number of levels across the channels (2) is taken.
+                w = 2**16
+                n_p = 4
+                p = n_p / w
+                for i in range(x.shape[0]):
+                    for j in range(x.shape[1]):
+                        d = x[i, j]
+                        L = (d + (1 / 2)) / w
+                        
+                        H_a = (L / (p / 2)) % 2
+                        if (H_a > 1):
+                            H_a = 2 - H_a
+
+                        H_b = ((L - (p / 4)) / (p / 2)) % 2
+                        if (H_b > 1):
+                            H_b = 2 - H_b
+
+                        y[i, j, 0] = L
+                        y[i, j, 1] = H_a
+                        y[i, j, 2] = H_b
 
         color_image = np.asanyarray(color.get_data())
         depth_image[0:blocks.shape[0], 0:blocks.shape[1], :] = blocks
@@ -287,6 +310,38 @@ class RGBDStream:
                         y[i, j] = r - g + 1020
                     if y[i, j] > 0:
                         y[i, j] = ((min_dist + (max_dist - min_dist) * y[i, j] / 1529) * 1000 + 0.5)
+
+        @guvectorize([(uint8[:, :, :], uint16[:, :])], "(i,j,k)->(i,j)", cache=True,
+                     nopython=True)
+        def yuv_to_depth(x, y):
+            # Adapted from the paper by the University College London at http://reality.cs.ucl.ac.uk/projects/depth-streaming/depth-streaming.pdf
+            # TODO: Change magic numbers as needed; the following assumes depth is 16 bits, and output pixels are stored in the order Y, U, then V.
+            # In YUV420, there are two bits used for each of the U and V samples. In selecting n_p, the integer period for H_a and H_b, the paper
+            # states n_p must be at most twice the number of output quantization levels, which in the case of YUV420 is channel dependent. Thus,
+            # twice (4) the minimum number of levels across the channels (2) is taken.
+            w = 2**16
+            n_p = 4
+            p = n_p / w
+            for i in range(x.shape[0]):
+                for j in range(x.shape[1]):
+                    L, H_a, H_b = x[i, j]
+                    m_L = np.floor((4 * (L / p)) - 0.5) % 4
+                    # TODO: Check if the order of operations on this is correct.
+                    L_0 = L - ((L - (p / 8)) % p) + ((p / 4) * m_L) - (p / 8)
+                    delta = -1
+                    if m_L == 0:
+                        delta = (p / 2) * H_a
+                    elif m_L == 1:
+                        delta = (p / 2) * H_b
+                    elif m_L == 2:
+                        delta = (p / 2) * (1 - H_a)
+                    elif m_L == 3:
+                        delta = (p / 2) * (1 - H_b)
+                    else:
+                        # TODO: Something went wrong, print an error or something.
+                        pass
+
+                    y[i, j] = w * (L_0 + delta)
 
         if cls.depth_encoding == cls.DepthEncoding.HUE:
             min_dist, max_dist = cls.threshold
