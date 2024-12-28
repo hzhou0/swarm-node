@@ -10,7 +10,6 @@ from datetime import timezone
 from enum import IntEnum
 from typing import Literal, ClassVar
 
-import cv2
 import msgspec
 import numpy as np
 import pyrealsense2 as rs
@@ -22,7 +21,7 @@ from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
 
 from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose, macroblock_size
-from kernels.skymap.sensor_array.depth_encoding import rgb_to_depth, depth_to_yuv, yuv_to_depth
+from kernels.skymap.sensor_array.depth_encoding import rgb_to_depth, depth2yuv
 
 
 class WTRTK982(msgspec.Struct):
@@ -252,8 +251,7 @@ class RGBDStream:
             depth_image = np.asanyarray(depth.get_data())
         elif self.depth_encoding == self.DepthEncoding.EURO_GRAPHICS_2011:
             depth_image = np.asanyarray(depth.get_data())
-            yuv_encoded = depth_to_yuv(depth_image)
-            depth_image = cv2.cvtColor(yuv_encoded, cv2.COLOR_YUV2RGB)
+            yuv_encoded = depth2yuv(depth_image)
 
         color_image = np.asanyarray(color.get_data())
         depth_image[0:blocks.shape[0], 0:blocks.shape[1], :] = blocks
@@ -266,7 +264,7 @@ class RGBDStream:
             min_dist -= 0.01  # Offset to avoid depth inversion. See Figure 7
             frame = rgb_to_depth(frame, min_dist, max_dist)
         elif cls.depth_encoding == cls.DepthEncoding.EURO_GRAPHICS_2011:
-            frame = yuv_to_depth(cv2.cvtColor(frame, cv2.COLOR_RGB2YUV))
+            pass
         np.save("prezero.npy", frame)
         frame[0:GPSPose.height_blocks * macroblock_size, 0:GPSPose.width_blocks * macroblock_size] = 0
         np.save("postzero.npy", frame)
