@@ -172,7 +172,9 @@ class RGBDStream:
         self.gps = WTRTK982()
         self.gps.connect()
         self.width: int = rgbd_stream_width
+        assert self.width % 4 == 0
         self.height: int = rgbd_stream_height
+        assert self.height % 4 == 0
         self.framerate = rgbd_stream_framerate
 
         sensors: list[rs.sensor] = rs.context().query_all_sensors()
@@ -265,9 +267,7 @@ class RGBDStream:
             frame = rgb_to_depth(frame, min_dist, max_dist)
         elif cls.depth_encoding == cls.DepthEncoding.EURO_GRAPHICS_2011:
             pass
-        np.save("prezero.npy", frame)
         frame[0:GPSPose.height_blocks * macroblock_size, 0:GPSPose.width_blocks * macroblock_size] = 0
-        np.save("postzero.npy", frame)
         return frame
 
 
