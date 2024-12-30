@@ -16,6 +16,7 @@ import numpy as np
 import pyrealsense2 as rs
 import pyudev
 import serial
+import cv2
 from av import VideoFrame
 from av.video.reformatter import ColorRange, Colorspace
 from msgspec import field
@@ -311,7 +312,7 @@ if __name__ == "__main__":
         av_stream = container.add_stream("h264", rgbd_stream_framerate)
         av_stream.height = rgbd_stream_height
         av_stream.width = rgbd_stream_width * 2
-        av_stream.bit_rate = 5000000
+        av_stream.bit_rate = 7000000
         av_stream.pix_fmt = "yuv420p"
         av_stream.options = {
             "profile": "baseline",
@@ -337,7 +338,7 @@ if __name__ == "__main__":
 
     output_file = root_dir.joinpath(datetime.datetime.now().strftime("%Y.%m.%d-%H.%M.%S") + ".mp4")
     gen_mp4(output_file)
-    # output_file = Path("/home/henry/swarmnode/2024.12.29-14.06.44.mp4")
+    # output_file = Path("/home/henry/swarmnode/2024.12.29-19.13.23.mp4")
 
     correct_pose = GPSPose(epoch_seconds=1735460258.7933, latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0,
                            roll=0,
@@ -349,8 +350,10 @@ if __name__ == "__main__":
     playback = av.open(output_file)
     data = []
     for frame in playback.decode(video=0):
-        rgb, d, pose = RGBDStream.video_frame_to_rgbd(frame)
-        data.append((rgb, d, pose))
+        rgb, depth, pose = RGBDStream.video_frame_to_rgbd(frame)
+        depth = cv2.medianBlur(depth, 5)
+        depth = cv2.morphologyEx(depth, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+        data.append((rgb, depth, pose))
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
