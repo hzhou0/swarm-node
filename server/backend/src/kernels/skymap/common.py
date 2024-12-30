@@ -7,10 +7,11 @@ from typing import ClassVar, Literal, Self
 import msgspec
 import numpy as np
 
-rgbd_stream_width = 1280
-rgbd_stream_height = 720
-rgbd_stream_framerate = 15
-macroblock_size = 8
+# 848x480 is the most accurate resolution on the D455: https://github.com/IntelRealSense/librealsense/issues/11180
+rgbd_stream_width = 848
+rgbd_stream_height = 480
+rgbd_stream_framerate = 5
+macroblock_size = 5
 
 _max_height_blocks = rgbd_stream_height // macroblock_size
 
@@ -28,7 +29,8 @@ class GPSPose(msgspec.Struct):
     roll: float | None = None
     yaw: float | None = None
     byte_length: ClassVar[Literal[44]] = 44
-    macroblocks_required: ClassVar[Literal[176]] = byte_length * 4
+    bit_per_macroblock: ClassVar[int] = 4
+    macroblocks_required: ClassVar[int] = byte_length * bit_per_macroblock
     width_blocks: ClassVar[int] = math.ceil(macroblocks_required / _max_height_blocks)
     height_blocks: ClassVar[int] = macroblocks_required // width_blocks
 
@@ -136,9 +138,17 @@ class GPSPose(msgspec.Struct):
             return None
 
     @classmethod
-    def from_depth_frame(cls, frame: np.ndarray) -> Self | None:
-        return cls.from_macroblocks(frame[:GPSPose.height_blocks * macroblock_size,
-                                    :GPSPose.width_blocks * macroblock_size, :])
+    def read_from_color_frame(cls, frame: np.ndarray, clear_macroblocks: bool = False) -> Self | None:
+        ret = cls.from_macroblocks(frame[:GPSPose.height_blocks * macroblock_size,
+                                   :GPSPose.width_blocks * macroblock_size, :])
+        if clear_macroblocks:
+            frame[:GPSPose.height_blocks * macroblock_size,
+            :GPSPose.width_blocks * macroblock_size] = 0
+        return ret
+
+    def write_to_color_frame(self, frame: np.ndarray) -> None:
+        frame[:GPSPose.height_blocks * macroblock_size, :GPSPose.width_blocks * macroblock_size,
+        :] = self.to_macroblocks()
 
 
 if __name__ == "__main__":
@@ -146,4 +156,6 @@ if __name__ == "__main__":
 
     pose = GPSPose(time.time(), 0, 0, 0, 0, 0, 0)
     assert pose.defined()
-    assert pose == GPSPose.from_macroblocks(pose.to_macroblocks())
+    start = time.time()
+    result = pose.to_macroblocks()
+    assert pose == GPSPose.from_macroblocks(result)

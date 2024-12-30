@@ -168,7 +168,7 @@ def yuv420p2depth(x: np.ndarray, lookup: np.ndarray) -> np.ndarray:
 
 
 @njit([uint8[:, :](uint8[:, :, :], uint16[:, :], uint8[:, :])], cache=True, parallel=True, nogil=True, fastmath=True)
-def rgbd2yuv420p(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -> np.ndarray:
+def _rgbd2yuv420p_averaged(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -> np.ndarray:
     assert rgb.shape[:2] == d.shape
     height = rgb.shape[0]
     width = rgb.shape[1] * 2  # stack the frames horizontally: [rgb][d]
@@ -182,11 +182,11 @@ def rgbd2yuv420p(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -
             for k in range(2):
                 for l in range(2):
                     if j < width // 2:
-                        # full-range YCbCr color conversion from https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
+                        # full-range YCbCr (BT601) color conversion from https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
                         r, g, b = rgb[i + k, j + l]
-                        y = round(0.299 * r + 0.587 * g + 0.114 * b)
-                        u += 128. - 0.168736 * r - 0.331264 * g + 0.5 * b
-                        v += 128. + 0.5 * r - 0.418688 * g - 0.081312 * b
+                        y = max(min(round(0.299 * r + 0.587 * g + 0.114 * b), 255), 0)
+                        u += max(min(128. - 0.168736 * r - 0.331264 * g + 0.5 * b, 255), 0)
+                        v += max(min(128. + 0.5 * r - 0.418688 * g - 0.081312 * b, 255), 0)
                     else:
                         y, _u, _v = depth2yuv_lookup[d[i + k, j + l - width // 2]]
                         u += _u
@@ -201,9 +201,42 @@ def rgbd2yuv420p(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -
     return ret
 
 
+@njit([uint8[:, :](uint8[:, :, :], uint16[:, :], uint8[:, :])], cache=True, parallel=True, nogil=True)
+def _rgbd2yuv420p_sampled(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -> np.ndarray:
+    assert rgb.shape[:2] == d.shape
+    height = rgb.shape[0]
+    width = rgb.shape[1] * 2  # stack the frames horizontally: [rgb][d]
+    chroma_height = height // 4
+    ret = np.empty((height + chroma_height * 2, width), dtype=np.uint8)
+    for i in prange(height):
+        for j in prange(width):
+            if j < width // 2:
+                # full-range YCbCr (BT601) color conversion from https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
+                r, g, b = rgb[i, j]
+                y = max(min(round(0.299 * r + 0.587 * g + 0.114 * b), 255), 0)
+                u = max(min(round(128 - 0.168736 * r - 0.331264 * g + 0.5 * b), 255), 0)
+                v = max(min(round(128 + 0.5 * r - 0.418688 * g - 0.081312 * b), 255), 0)
+            else:
+                y, u, v = depth2yuv_lookup[d[i, j - width // 2]]
+            ret[i, j] = y
+            if i % 2 == j % 2 == 0:
+                offset = 0
+                if i % 4 >= 2:
+                    offset = width // 2
+                chroma_x = offset + j // 2
+                chroma_y = height + i // 4
+                ret[chroma_y, chroma_x] = u
+                ret[chroma_y + chroma_height, chroma_x] = v
+    return ret
+
+
+def rgbd2yuv420p(rgb: np.ndarray, d: np.ndarray) -> np.ndarray:
+    return _rgbd2yuv420p_averaged(rgb, d, depth2yuv_lookup)
+
+
 @njit([numba.types.Tuple((uint8[:, :, :], uint16[:, :]))(uint8[:, :], uint16[:, :, :])], cache=True, parallel=True,
       nogil=True, fastmath=True)
-def yuv420p2rgbd(x: np.ndarray, yuv2depth_lookup: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def _yuv420p2rgbd(x: np.ndarray, yuv2depth_lookup: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     width = x.shape[1]
     height = x.shape[0] * 2 // 3
     chroma_height = height // 4
@@ -220,7 +253,7 @@ def yuv420p2rgbd(x: np.ndarray, yuv2depth_lookup: np.ndarray) -> tuple[np.ndarra
             u = x[chroma_y, chroma_x]
             v = x[chroma_y + chroma_height, chroma_x]
             if j < width // 2:
-                # full-range YCbCr color conversion from https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
+                # full-range YCbCr (BT601) color conversion from https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
                 u -= 128
                 v -= 128
                 r = max(min(round(y + 1.402 * v), 255), 0)
@@ -230,6 +263,10 @@ def yuv420p2rgbd(x: np.ndarray, yuv2depth_lookup: np.ndarray) -> tuple[np.ndarra
             else:
                 depth[i, j - width // 2] = yuv2depth_lookup[y, u, v]
     return rgb, depth
+
+
+def yuv420p2rgbd(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    return _yuv420p2rgbd(x, yuv2depth_lookup)
 
 
 @guvectorize([(uint8[:, :, :], float64, float64, uint16[:, :])], "(i,j,k),(),()->(i,j)", cache=True, nopython=True)
@@ -259,11 +296,10 @@ def rgb_to_depth(x, min_dist, max_dist, y):
 
 if __name__ == "__main__":
     import time
-    from PIL import Image
 
     test_d = (np.random.rand(720, 1280) * (2 ** 16 - 1)).astype(np.uint16)
 
-    iters = 100
+    iters = 1
     start = time.time()
     for _ in range(iters):
         yuv_encoded = depth2yuv(test_d, depth2yuv_lookup)
@@ -293,17 +329,19 @@ if __name__ == "__main__":
     delta = np.absolute(depth_decoded_2step.astype(np.int32) - test_d.astype(np.int32)).astype(np.uint16)
     print(np.average(delta))
 
-    test_rgb = np.random.randint(0, 256, size=(test_d.shape[0], test_d.shape[1], 3), dtype=np.uint8)
+    # test_rgb = np.random.randint(0, 256, size=(test_d.shape[0], test_d.shape[1], 3), dtype=np.uint8)
+    test_rgb = np.zeros((test_d.shape[0], test_d.shape[1], 3), dtype=np.uint8)
+    test_rgb[:, :, 0] = 255
     # with Image.open("/home/henry/Downloads/ghostrunner_poster_4k_hd_games-1280x720.jpg") as im:
     #     test_rgb = np.array(im)
     start = time.time()
     for _ in range(iters):
-        yuv_encoded_rgbd = rgbd2yuv420p(test_rgb, test_d, depth2yuv_lookup)
+        yuv_encoded_rgbd = rgbd2yuv420p(test_rgb, test_d)
     print(f"1 step rgbd2yuv420p: {time.time() - start}")
 
     start = time.time()
     for _ in range(iters):
-        recovered_rgb, recovered_d = yuv420p2rgbd(yuv_encoded_rgbd, yuv2depth_lookup)
+        recovered_rgb, recovered_d = yuv420p2rgbd(yuv_encoded_rgbd)
     print(f"1 step yuv420p2rgbd: {time.time() - start}")
 
     rgb_delta = np.absolute(test_rgb.astype(np.int32) - recovered_rgb.astype(np.int32))

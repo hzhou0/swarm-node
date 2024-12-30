@@ -8,6 +8,7 @@ import time
 from collections import deque
 from datetime import timezone
 from enum import IntEnum
+from pathlib import Path
 from typing import Literal, ClassVar
 
 import msgspec
@@ -15,13 +16,15 @@ import numpy as np
 import pyrealsense2 as rs
 import pyudev
 import serial
-from matplotlib import pyplot as plt
+from av import VideoFrame
+from av.video.reformatter import ColorRange, Colorspace
 from msgspec import field
 from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
 
-from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose, macroblock_size
-from kernels.skymap.sensor_array.depth_encoding import rgb_to_depth, depth2yuv
+from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose
+from kernels.skymap.sensor_array.depth_encoding import rgb_to_depth, rgbd2yuv420p, yuv420p2rgbd
+from util import root_dir
 
 
 class WTRTK982(msgspec.Struct):
@@ -50,7 +53,8 @@ class WTRTK982(msgspec.Struct):
     def pull_messages(self):
         if "DUMMY_GPS" in os.environ:
             self.poses.appendleft(
-                GPSPose(epoch_seconds=time.time(), latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0, roll=0,
+                GPSPose(epoch_seconds=1735460258.7933, latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0,
+                        roll=0,
                         yaw=0))
             return
         if self._serial is None or self._nmr is None:
@@ -165,8 +169,15 @@ class RGBDStream:
 
     preset: Preset = Preset.HIGH_ACCURACY_PRESET
     depth_encoding: DepthEncoding = DepthEncoding.EURO_GRAPHICS_2011
-    threshold: tuple[float, float] = (0.15, 6.)
-    pixel_format = "yuv420p"
+    depth_units = 0.0001  # 0 - 6.5535 meters
+    threshold: tuple[float, float] = (0.15, 6)
+    min_valid_depth = round(threshold[0] / depth_units)
+    max_valid_depth = round(threshold[1] / depth_units)
+    pixel_format_table = {
+        DepthEncoding.HUE: "rgb24",
+        DepthEncoding.EURO_GRAPHICS_2011: "yuv420p"
+    }
+    pixel_format = pixel_format_table[depth_encoding]
 
     def __init__(self):
         self.gps = WTRTK982()
@@ -181,6 +192,7 @@ class RGBDStream:
         for s in sensors:
             if s.is_depth_sensor():
                 s.set_option(rs.option.visual_preset, self.preset)
+                s.set_option(rs.option.depth_units, self.depth_units)
 
         self.pipeline = rs.pipeline()
         self.pipeline.start()
@@ -195,9 +207,9 @@ class RGBDStream:
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)
 
-        device: rs.device = self.profile.get_device()
-        depth_sensor: rs.depth_sensor = device.first_depth_sensor()
-        self.depth_scale = depth_sensor.get_depth_scale()
+        # device: rs.device = self.profile.get_device()
+        # depth_sensor: rs.depth_sensor = device.first_depth_sensor()
+        # self.depth_scale = depth_sensor.get_depth_scale()
         self.intrinsics = (
             self.profile.get_stream(rs.stream.depth)
             .as_video_stream_profile()
@@ -216,12 +228,16 @@ class RGBDStream:
         self.filter_colorizer.set_option(rs.option.color_scheme, color_scheme_hue)
         self.filter_colorizer.set_option(rs.option.min_distance, min_dist)
         self.filter_colorizer.set_option(rs.option.max_distance, max_dist)
+        self.filter_spatial = rs.spatial_filter()
+        self.filter_spatial.set_option(rs.option.filter_magnitude, 5)
+        self.filter_spatial.set_option(rs.option.filter_smooth_alpha, 0.25)
+        self.filter_spatial.set_option(rs.option.filter_smooth_delta, 1)
 
     def destroy(self):
         self.pipeline.stop()
         self.gps.disconnect()
 
-    def get_frame(self) -> None | np.ndarray:
+    def get_frame(self) -> None | VideoFrame:
         frames = self.pipeline.poll_for_frames()
         depth, color = frames.get_depth_frame(), frames.get_color_frame()
         self.gps.pull_messages()
@@ -244,70 +260,122 @@ class RGBDStream:
             if p.epoch_seconds <= frame_time:
                 break
         # todo: synchronization mechanism improvement
-        blocks = pose.to_macroblocks()
-
         # https://dev.intelrealsense.com/docs/depth-image-compression-by-colorization-for-intel-realsense-depth-cameras
         depth = self.filter_threshold.process(depth)
+        depth = self.filter_spatial.process(depth)
+
+        rgb_ndarray = np.asanyarray(color.get_data())
+        pose.write_to_color_frame(rgb_ndarray)
         if self.depth_encoding == self.DepthEncoding.HUE:
             depth = self.filter_colorizer.process(depth)
-            depth_image = np.asanyarray(depth.get_data())
+            depth_ndarray = np.asanyarray(depth.get_data())
+            return VideoFrame.from_ndarray(np.hstack((rgb_ndarray, depth_ndarray)), self.pixel_format)
         elif self.depth_encoding == self.DepthEncoding.EURO_GRAPHICS_2011:
-            depth_image = np.asanyarray(depth.get_data())
-            yuv_encoded = depth2yuv(depth_image)
-
-        color_image = np.asanyarray(color.get_data())
-        depth_image[0:blocks.shape[0], 0:blocks.shape[1], :] = blocks
-        return np.vstack((color_image, depth_image))
+            depth_ndarray = np.asanyarray(depth.get_data())
+            vf = VideoFrame.from_ndarray(rgbd2yuv420p(rgb_ndarray, depth_ndarray), self.pixel_format)
+            vf.color_range = ColorRange.JPEG
+            vf.colorspace = Colorspace.ITU601
+            return vf
 
     @classmethod
-    def decolorize_depth_frame(cls, frame: np.ndarray) -> np.ndarray:
+    def video_frame_to_rgbd(cls, frame: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose]:
+        frame.color_range = ColorRange.JPEG
+        frame.colorspace = Colorspace.ITU601
+        frame = frame.to_ndarray(format=RGBDStream.pixel_format)
         if cls.depth_encoding == cls.DepthEncoding.HUE:
             min_dist, max_dist = cls.threshold
             min_dist -= 0.01  # Offset to avoid depth inversion. See Figure 7
-            frame = rgb_to_depth(frame, min_dist, max_dist)
+            rgb, d = frame[:, :rgbd_stream_width], frame[:, rgbd_stream_width:]
+            d = rgb_to_depth(d, min_dist, max_dist)
+            pose = GPSPose.read_from_color_frame(rgb, clear_macroblocks=True)
+            return rgb, d, pose
         elif cls.depth_encoding == cls.DepthEncoding.EURO_GRAPHICS_2011:
-            pass
-        frame[0:GPSPose.height_blocks * macroblock_size, 0:GPSPose.width_blocks * macroblock_size] = 0
-        return frame
+            rgb, d = yuv420p2rgbd(frame)
+            pose = GPSPose.read_from_color_frame(rgb, clear_macroblocks=True)
+            d[(d < cls.min_valid_depth) | (d > cls.max_valid_depth)] = 0
+            return rgb, d, pose
 
 
 if __name__ == "__main__":
     import open3d as o3d
+    import av
 
     os.environ["DUMMY_GPS"] = "1"
     stream = RGBDStream()
+    time.sleep(5)
 
 
-    def test():
-        _frame = stream.get_frame()
-        while _frame is None:
-            _frame = stream.get_frame()
-        _frame = stream.get_frame()
-        color_frame, depth_frame = _frame[:rgbd_stream_height, :], _frame[rgbd_stream_height:, :]
-        decolored = RGBDStream.decolorize_depth_frame(depth_frame)
-        plt.imshow(decolored, cmap="gray")
-        plt.show()
-
-
-    def integration_test():
-        vis = o3d.visualization.Visualizer()
-        vis.create_window()
-        intrinsics = o3d.camera.PinholeCameraIntrinsic(width=1280, height=720, fx=641.162, fy=641.162, cx=639.135,
-                                                       cy=361.356)
-        pcd = None
+    def gen_mp4(output_file: Path):
+        container = av.open(output_file, 'w',
+                            format="mp4")
+        av_stream = container.add_stream("h264", rgbd_stream_framerate)
+        av_stream.height = rgbd_stream_height
+        av_stream.width = rgbd_stream_width * 2
+        av_stream.bit_rate = 5000000
+        av_stream.pix_fmt = "yuv420p"
+        av_stream.options = {
+            "profile": "baseline",
+            "level": "31",
+            "tune": "zerolatency"
+        }
+        i = 0
         while True:
             _frame = stream.get_frame()
             if _frame is None:
-                vis.poll_events()
-                vis.update_renderer()
+                # vis.poll_events()
+                # vis.update_renderer()
                 continue
-            color_frame, depth_frame = _frame[:rgbd_stream_height, :], _frame[rgbd_stream_height:, :]
-            depth_intensity_frame = RGBDStream.decolorize_depth_frame(depth_frame)
-            im1 = o3d.geometry.Image(color_frame)
-            im2 = o3d.geometry.Image(depth_intensity_frame)
-            rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
-                                                                                                  convert_rgb_to_intensity=False)
-            o3d.visualization.draw_geometries([rgbd_img])
+            i += 1
+            if i > 100:
+                break
+            for packet in av_stream.encode(_frame):
+                container.mux(packet)
+        for packet in av_stream.encode():
+            container.mux(packet)
+        container.close()
+
+
+    output_file = root_dir.joinpath(datetime.datetime.now().strftime("%Y.%m.%d-%H.%M.%S") + ".mp4")
+    gen_mp4(output_file)
+    # output_file = Path("/home/henry/swarmnode/2024.12.29-14.06.44.mp4")
+
+    correct_pose = GPSPose(epoch_seconds=1735460258.7933, latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0,
+                           roll=0,
+                           yaw=0)
+    correct_bytes = correct_pose.to_bytes()
+    print(correct_bytes)
+    print(Colorspace.ITU601)
+    print(ColorRange.JPEG)
+    playback = av.open(output_file)
+    data = []
+    for frame in playback.decode(video=0):
+        rgb, d, pose = RGBDStream.video_frame_to_rgbd(frame)
+        data.append((rgb, d, pose))
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    intrinsics = o3d.camera.PinholeCameraIntrinsic(width=1280, height=720, fx=641.162, fy=641.162, cx=639.135,
+                                                   cy=361.356)
+    pcd = None
+
+    i = 0
+    last_update = time.time()
+    while True:
+        vis.poll_events()
+        vis.update_renderer()
+        if last_update < time.time() - 2:
+            i += 1
+            if i >= len(data):
+                i = 0
+            rgb, d, _ = data[i]
+            im1 = o3d.geometry.Image(np.ascontiguousarray(rgb))
+            im2 = o3d.geometry.Image(np.ascontiguousarray(d))
+            rgbd_img: o3d.geometry.RGBDImage = \
+                o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
+                                                                   depth_scale=1 / RGBDStream.depth_units,
+                                                                   depth_trunc=
+                                                                   RGBDStream.threshold[1],
+                                                                   convert_rgb_to_intensity=False)
             if pcd is None:
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
                 vis.add_geometry(pcd)
@@ -315,6 +383,4 @@ if __name__ == "__main__":
                 vis.remove_geometry(pcd, reset_bounding_box=False)
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
                 vis.add_geometry(pcd, reset_bounding_box=False)
-
-
-    test()
+            last_update = time.time()

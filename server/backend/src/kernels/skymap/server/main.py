@@ -8,6 +8,7 @@ from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.synchronize import Lock
 
 import av
+import numpy as np
 import uvloop
 from aiortc import (
     RTCPeerConnection,
@@ -21,7 +22,7 @@ from av.video.frame import VideoFrame
 from numpy import ndarray
 
 from ipc import write_state, Daemon
-from kernels.skymap.common import rgbd_stream_framerate
+from kernels.skymap.common import rgbd_stream_framerate, GPSPose
 from kernels.skymap.sensor_array.sensors import RGBDStream
 from kernels.skymap.server import reconstructor_d
 from models import (
@@ -133,7 +134,7 @@ def on_track(track: MediaStreamTrack):
     _sensor_video = track
     if _playback_sink is not None:
         _playback_sink.stop()
-    video_path=root_dir.joinpath(datetime.now().strftime("%Y.%m.%d-%H.%M.%S") + ".mp4")
+    video_path = root_dir.joinpath(datetime.now().strftime("%Y.%m.%d-%H.%M.%S") + ".mp4")
     _playback_sink = VideoSink(video_path, track)
     logging.info(f"Recording received video to {video_path}")
 
@@ -177,7 +178,7 @@ async def handle_offer(offer: WebrtcOffer):
 
 
 @loop_forever(0.01)
-async def process_frame(reconstruct_d: Daemon):
+async def process_frame(reconstruct_d: Daemon[None, tuple[np.ndarray, np.ndarray, GPSPose], None]):
     global _sensor_video
     if _sensor_video is None:
         return
@@ -186,7 +187,7 @@ async def process_frame(reconstruct_d: Daemon):
         if _playback_sink is not None:
             await _playback_sink.add_frame(frame)
         try:
-            reconstruct_d.mutate(frame.to_ndarray(format=RGBDStream.pixel_format))
+            reconstruct_d.mutate(RGBDStream.video_frame_to_rgbd(frame))
         except Exception as e:
             reconstruct_d.restart_if_failed()
             logging.exception(e)
@@ -218,7 +219,7 @@ def main(
     configure_root_logger()
     av.logging.set_level(av.logging.PANIC)
 
-    reconstruct_d: Daemon[None, ndarray, None] = Daemon(name="reconstructor", target=reconstructor_d.main)
+    reconstruct_d: Daemon[None, VideoFrame, None] = Daemon(name="reconstructor", target=reconstructor_d.main)
     loop = asyncio.get_event_loop()
     # Specify tasks in a collection to avoid garbage collection
     _ = (

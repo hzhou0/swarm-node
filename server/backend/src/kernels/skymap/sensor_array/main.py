@@ -72,7 +72,7 @@ class RGBDVideoStreamTrack(VideoStreamTrack):
         self.stream: RGBDStream | None = RGBDStream()
         self.wait_for_frames = True
 
-    async def recv(self):
+    async def recv(self) -> VideoFrame:
         if self.readyState != "live" or self.stream is None:
             raise MediaStreamError
         video_clock_rate = 90000
@@ -83,24 +83,23 @@ class RGBDVideoStreamTrack(VideoStreamTrack):
             self._start = time.time()
             self._timestamp = 0
 
-        frame = None
+        vf: VideoFrame | None = None
         i = 0
         # poll for frames at 10x the frame rate
         polling_time = (1 / self.stream.framerate) / 10
         limit = 5 / polling_time if self.wait_for_frames else 50 / polling_time  # wait 5 seconds for frames to arrive the first time
-        while frame is None:
+        while vf is None:
             if i > limit:
                 logging.error(f"Stopped receiving frames from depth camera")
                 self.stream.destroy()
                 self.stream = None
                 raise MediaStreamError
             i += 1
-            frame = self.stream.get_frame()
+            vf = self.stream.get_frame()
             await asyncio.sleep(polling_time)
-        video_frame = VideoFrame.from_ndarray(frame, format=RGBDStream.pixel_format)
-        video_frame.pts = self._timestamp
-        video_frame.time_base = time_base
-        return video_frame
+        vf.pts = self._timestamp
+        vf.time_base = time_base
+        return vf
 
 
 _rgbd_stream: RGBDVideoStreamTrack | None = None
@@ -137,7 +136,7 @@ async def maintain_peer_connection(sn_client: SwarmNodeClient) -> None:
 
     import aiortc.codecs.h264 as h264
     h264.MAX_FRAME_RATE = _rgbd_stream.stream.framerate
-    h264.MIN_BITRATE=h264.MAX_BITRATE=h264.MIN_BITRATE=5000000
+    h264.MIN_BITRATE = h264.MAX_BITRATE = h264.MIN_BITRATE = 5000000
 
     pc = RTCPeerConnection(
         RTCConfiguration(

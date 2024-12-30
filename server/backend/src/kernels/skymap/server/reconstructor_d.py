@@ -9,7 +9,6 @@ import numpy as np
 import open3d as o3d
 
 from ipc import write_state
-from kernels.skymap.common import GPSPose, rgbd_stream_height
 from kernels.skymap.sensor_array.sensors import RGBDStream
 from util import configure_root_logger
 
@@ -85,18 +84,16 @@ def main(state_mem: SharedMemory,
                 vis.poll_events()
                 vis.update_renderer()
                 continue
-
-            frame: np.ndarray = pipe.recv()
-            assert isinstance(frame, np.ndarray)
-            color_frame, depth_frame = frame[:rgbd_stream_height, :], frame[rgbd_stream_height:, :]
-            pose = GPSPose.from_depth_frame(depth_frame)
-            if pose is None:
-                continue
-            depth_intensity_frame = RGBDStream.decolorize_depth_frame(depth_frame)
-            im1 = o3d.geometry.Image(color_frame)
-            im2 = o3d.geometry.Image(depth_intensity_frame)
-            rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
-                                                                                                  convert_rgb_to_intensity=False)
+            rgb, d, pose = pipe.recv()
+            # if pose is None:
+            #     continue
+            im1 = o3d.geometry.Image(rgb)
+            im2 = o3d.geometry.Image(d)
+            rgbd_img: o3d.geometry.RGBDImage = (o3d.geometry.RGBDImage
+                                                .create_from_color_and_depth(im1, im2,
+                                                                             convert_rgb_to_intensity=False,
+                                                                             depth_scale=1 / RGBDStream.depth_units,
+                                                                             depth_trunc=RGBDStream.threshold[1]))
             if pcd is None:
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
                 vis.add_geometry(pcd)
