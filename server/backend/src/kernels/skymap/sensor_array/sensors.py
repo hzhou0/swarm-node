@@ -24,7 +24,7 @@ from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
 
 from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose
-from kernels.skymap.sensor_array.depth_encoding import rgb_to_depth, rgbd2yuv420p, yuv420p2rgbd
+from kernels.skymap.sensor_array.depth_encoding import DepthEncoder, TriangleDepthEncoder
 from util import root_dir
 
 
@@ -164,21 +164,11 @@ class RGBDStream:
         HIGH_DENSITY_PRESET = 1
         HIGH_ACCURACY_PRESET = 3
 
-    class DepthEncoding(IntEnum):
-        HUE = 1
-        EURO_GRAPHICS_2011 = 2
-
     preset: Preset = Preset.HIGH_ACCURACY_PRESET
-    depth_encoding: DepthEncoding = DepthEncoding.EURO_GRAPHICS_2011
     depth_units = 0.0001  # 0 - 6.5535 meters
-    threshold: tuple[float, float] = (0.15, 6)
-    min_valid_depth = round(threshold[0] / depth_units)
-    max_valid_depth = round(threshold[1] / depth_units)
-    pixel_format_table = {
-        DepthEncoding.HUE: "rgb24",
-        DepthEncoding.EURO_GRAPHICS_2011: "yuv420p"
-    }
-    pixel_format = pixel_format_table[depth_encoding]
+    min_depth_meters: float = 0.15
+    max_depth_meters: float = 6
+    depth_encoder: DepthEncoder = TriangleDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
 
     def __init__(self):
         self.gps = WTRTK982()
@@ -208,9 +198,6 @@ class RGBDStream:
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)
 
-        # device: rs.device = self.profile.get_device()
-        # depth_sensor: rs.depth_sensor = device.first_depth_sensor()
-        # self.depth_scale = depth_sensor.get_depth_scale()
         self.intrinsics = (
             self.profile.get_stream(rs.stream.depth)
             .as_video_stream_profile()
@@ -218,17 +205,7 @@ class RGBDStream:
         )
 
         # Filters
-        min_dist, max_dist = self.threshold
-        color_scheme_hue = 9
-        histogram_equalization_disable = 0
-        self.filter_threshold = rs.threshold_filter(min_dist, max_dist)
-        self.filter_colorizer = rs.colorizer()
-        self.filter_colorizer.set_option(
-            rs.option.histogram_equalization_enabled, histogram_equalization_disable
-        )
-        self.filter_colorizer.set_option(rs.option.color_scheme, color_scheme_hue)
-        self.filter_colorizer.set_option(rs.option.min_distance, min_dist)
-        self.filter_colorizer.set_option(rs.option.max_distance, max_dist)
+        self.filter_threshold = rs.threshold_filter(self.min_depth_meters, self.max_depth_meters)
         self.filter_spatial = rs.spatial_filter()
         self.filter_spatial.set_option(rs.option.filter_magnitude, 5)
         self.filter_spatial.set_option(rs.option.filter_smooth_alpha, 0.25)
@@ -265,36 +242,8 @@ class RGBDStream:
         depth = self.filter_threshold.process(depth)
         depth = self.filter_spatial.process(depth)
 
-        rgb_ndarray = np.asanyarray(color.get_data())
-        pose.write_to_color_frame(rgb_ndarray)
-        if self.depth_encoding == self.DepthEncoding.HUE:
-            depth = self.filter_colorizer.process(depth)
-            depth_ndarray = np.asanyarray(depth.get_data())
-            return VideoFrame.from_ndarray(np.hstack((rgb_ndarray, depth_ndarray)), self.pixel_format)
-        elif self.depth_encoding == self.DepthEncoding.EURO_GRAPHICS_2011:
-            depth_ndarray = np.asanyarray(depth.get_data())
-            vf = VideoFrame.from_ndarray(rgbd2yuv420p(rgb_ndarray, depth_ndarray), self.pixel_format)
-            vf.color_range = ColorRange.JPEG
-            vf.colorspace = Colorspace.ITU601
-            return vf
+        return self.depth_encoder.rgbd_to_video_frame(color, depth, pose)
 
-    @classmethod
-    def video_frame_to_rgbd(cls, frame: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose]:
-        frame.color_range = ColorRange.JPEG
-        frame.colorspace = Colorspace.ITU601
-        frame = frame.to_ndarray(format=RGBDStream.pixel_format)
-        if cls.depth_encoding == cls.DepthEncoding.HUE:
-            min_dist, max_dist = cls.threshold
-            min_dist -= 0.01  # Offset to avoid depth inversion. See Figure 7
-            rgb, d = frame[:, :rgbd_stream_width], frame[:, rgbd_stream_width:]
-            d = rgb_to_depth(d, min_dist, max_dist)
-            pose = GPSPose.read_from_color_frame(rgb, clear_macroblocks=True)
-            return rgb, d, pose
-        elif cls.depth_encoding == cls.DepthEncoding.EURO_GRAPHICS_2011:
-            rgb, d = yuv420p2rgbd(frame)
-            pose = GPSPose.read_from_color_frame(rgb, clear_macroblocks=True)
-            d[(d < cls.min_valid_depth) | (d > cls.max_valid_depth)] = 0
-            return rgb, d, pose
 
 
 if __name__ == "__main__":
@@ -350,10 +299,10 @@ if __name__ == "__main__":
     playback = av.open(output_file)
     data = []
     for frame in playback.decode(video=0):
-        rgb, depth, pose = RGBDStream.video_frame_to_rgbd(frame)
-        depth = cv2.medianBlur(depth, 5)
-        depth = cv2.morphologyEx(depth, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
-        data.append((rgb, depth, pose))
+        rgb, d, _pose = RGBDStream.depth_encoder.video_frame_to_rgbd(frame)
+        d = cv2.medianBlur(d, 5)
+        d = cv2.morphologyEx(d, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+        data.append((rgb, d, _pose))
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
@@ -377,7 +326,7 @@ if __name__ == "__main__":
                 o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
                                                                    depth_scale=1 / RGBDStream.depth_units,
                                                                    depth_trunc=
-                                                                   RGBDStream.threshold[1],
+                                                                   RGBDStream.max_depth_meters,
                                                                    convert_rgb_to_intensity=False)
             if pcd is None:
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
