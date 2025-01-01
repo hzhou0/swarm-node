@@ -441,14 +441,15 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
                     z_lower = z & 0xFF
                     phi_upper = (z_upper - 127) * math.tau / period
                     phi_lower = (z_lower - 127) * math.tau / period
-                    ret[i, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper - 2 * math.pi / 3)))
-                    ret[i, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper)))
-                    ret[i + 1, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper + 2 * math.pi / 3)))
 
-                    ret[i + 1, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower - 2 * math.pi / 3)))
-                    ret[chroma_y, chroma_x] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower)))
+                    ret[i + 1, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper - 2 * math.pi / 3)))
+                    ret[chroma_y, chroma_x] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper)))
                     ret[chroma_y + chroma_height, chroma_x] = \
-                        round((period - 1) * 0.5 * (1 + math.cos(phi_lower + 2 * math.pi / 3)))
+                        round((period - 1) * 0.5 * (1 + math.cos(phi_upper + 2 * math.pi / 3)))
+
+                    ret[i, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower - 2 * math.pi / 3)))
+                    ret[i, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower)))
+                    ret[i + 1, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower + 2 * math.pi / 3)))
         return ret
 
     @staticmethod
@@ -485,14 +486,14 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
                             b = max(min(round(y + 1.772 * u), 255), 0)
                             rgb[i + k, j + l] = r, g, b
                 else:
-                    I1 = np.int32(x[i, j])
-                    I2 = np.int32(x[i, j + 1])
-                    I3 = np.int32(x[i + 1, j])
-                    z_upper = round(
-                        (math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
                     I1 = np.int32(x[i + 1, j + 1])
                     I2 = np.int32(u)
                     I3 = np.int32(v)
+                    z_upper = round(
+                        (math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
+                    I1 = np.int32(x[i, j])
+                    I2 = np.int32(x[i, j + 1])
+                    I3 = np.int32(x[i + 1, j])
                     z_lower = round(
                         (math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
                     for k in range(2):

@@ -260,7 +260,7 @@ if __name__ == "__main__":
         av_stream = container.add_stream("h264", rgbd_stream_framerate)
         av_stream.height = rgbd_stream_height
         av_stream.width = rgbd_stream_width * 2
-        av_stream.bit_rate = 5000000
+        av_stream.bit_rate = 7000000
         av_stream.pix_fmt = "yuv420p"
         av_stream.options = {
             "profile": "baseline",
@@ -314,25 +314,25 @@ if __name__ == "__main__":
     for i in range(data_i):
         _, src_d, _ = source_data[i]
         _, dest_d, _ = recovered_data[i]
-        delta = src_d.astype(np.float32) - dest_d.astype(np.float32)
         nonzero_mask = (src_d != 0) & (dest_d != 0)
-        max_error = np.max(np.abs(src_d.astype(np.float32)[nonzero_mask] - dest_d.astype(np.float32)[nonzero_mask]))
+        delta = np.abs(src_d.astype(np.float32)[nonzero_mask] - dest_d.astype(np.float32)[nonzero_mask])
+        max_error = np.max(delta)
         acc_max_error = max(max_error, acc_max_error)
         empty_pixels = np.sum(src_d == 0)
-        rmse = np.sqrt(np.sum(delta ** 2) / (delta.size - empty_pixels))
+        rmse = np.sqrt(np.mean(delta ** 2))
         acc_rmse += rmse
-        acc_mean_dist += np.sum(src_d) / (delta.size - empty_pixels)
+        acc_mean_dist += np.mean(src_d[nonzero_mask])
         print(f"frame {i} rmse: {rmse}")
         print(f"frame {i} max_error: {max_error}")
     print(
-        f"average rmse: {acc_rmse / data_i}. mean dist: {acc_mean_dist / data_i}. percentage rmse: {acc_rmse / data_i / acc_mean_dist * 100}")
+        f"average rmse: {acc_rmse / data_i}. mean dist: {acc_mean_dist / data_i}. percentage rmse: {acc_rmse / data_i / (acc_mean_dist / data_i) * 100}")
     print(f"max error: {acc_max_error}")
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
     intrinsics = o3d.camera.PinholeCameraIntrinsic(width=1280, height=720, fx=641.162, fy=641.162, cx=639.135,
                                                    cy=361.356)
-    pcd = None
+    src_pcd = pcd = None
 
     i = 0
     last_update = time.time()
@@ -344,6 +344,14 @@ if __name__ == "__main__":
             if i >= len(recovered_data):
                 i = 0
             rgb, d, _ = recovered_data[i]
+            src_rgb, src_d, _ = source_data[i]
+            src_im1 = o3d.geometry.Image(np.ascontiguousarray(src_rgb))
+            src_im2 = o3d.geometry.Image(np.ascontiguousarray(src_d))
+            src_rgbd_img: o3d.geometry.RGBDImage = \
+                o3d.geometry.RGBDImage.create_from_color_and_depth(src_im1, src_im2,
+                                                                   depth_scale=1 / RGBDStream.depth_units,
+                                                                   depth_trunc=
+                                                                   RGBDStream.max_depth_meters)
             im1 = o3d.geometry.Image(np.ascontiguousarray(rgb))
             im2 = o3d.geometry.Image(np.ascontiguousarray(d))
             rgbd_img: o3d.geometry.RGBDImage = \
@@ -354,9 +362,16 @@ if __name__ == "__main__":
                                                                    convert_rgb_to_intensity=False)
             if pcd is None:
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
+                src_pcd = o3d.geometry.PointCloud.create_from_rgbd_image(src_rgbd_img, intrinsics)
+                src_pcd.paint_uniform_color([1, 0, 0])
                 vis.add_geometry(pcd)
+                vis.add_geometry(src_pcd)
             else:
                 vis.remove_geometry(pcd, reset_bounding_box=False)
+                vis.remove_geometry(src_pcd, reset_bounding_box=False)
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
+                src_pcd = o3d.geometry.PointCloud.create_from_rgbd_image(src_rgbd_img, intrinsics)
+                src_pcd.paint_uniform_color([1, 0, 0])
                 vis.add_geometry(pcd, reset_bounding_box=False)
+                vis.add_geometry(src_pcd, reset_bounding_box=False)
             last_update = time.time()
