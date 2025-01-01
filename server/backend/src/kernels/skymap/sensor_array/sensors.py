@@ -24,7 +24,8 @@ from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
 
 from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose
-from kernels.skymap.sensor_array.depth_encoding import DepthEncoder, TriangleDepthEncoder
+from kernels.skymap.sensor_array.depth_encoding import DepthEncoder, TriangleDepthEncoder, MultiWavelengthDepthEncoder, \
+    ZhouDepthEncoder
 from util import root_dir
 
 
@@ -168,7 +169,7 @@ class RGBDStream:
     depth_units = 0.0001  # 0 - 6.5535 meters
     min_depth_meters: float = 0.15
     max_depth_meters: float = 6
-    depth_encoder: DepthEncoder = TriangleDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
+    depth_encoder: DepthEncoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
 
     def __init__(self):
         self.gps = WTRTK982()
@@ -215,7 +216,7 @@ class RGBDStream:
         self.pipeline.stop()
         self.gps.disconnect()
 
-    def get_frame(self) -> None | VideoFrame:
+    def gather_frame_data(self) -> tuple[rs.frame, rs.frame, GPSPose] | None:
         frames = self.pipeline.poll_for_frames()
         depth, color = frames.get_depth_frame(), frames.get_color_frame()
         self.gps.pull_messages()
@@ -241,9 +242,7 @@ class RGBDStream:
         # https://dev.intelrealsense.com/docs/depth-image-compression-by-colorization-for-intel-realsense-depth-cameras
         depth = self.filter_threshold.process(depth)
         depth = self.filter_spatial.process(depth)
-
-        return self.depth_encoder.rgbd_to_video_frame(color, depth, pose)
-
+        return color, depth, pose
 
 
 if __name__ == "__main__":
@@ -261,7 +260,7 @@ if __name__ == "__main__":
         av_stream = container.add_stream("h264", rgbd_stream_framerate)
         av_stream.height = rgbd_stream_height
         av_stream.width = rgbd_stream_width * 2
-        av_stream.bit_rate = 7000000
+        av_stream.bit_rate = 5000000
         av_stream.pix_fmt = "yuv420p"
         av_stream.options = {
             "profile": "baseline",
@@ -269,25 +268,30 @@ if __name__ == "__main__":
             "tune": "zerolatency"
         }
         i = 0
+        source_data = []
         while True:
-            _frame = stream.get_frame()
-            if _frame is None:
+            f = stream.gather_frame_data()
+            if f is None:
                 # vis.poll_events()
                 # vis.update_renderer()
                 continue
             i += 1
-            if i > 100:
+            if i > 15:
                 break
+            rgb, d, pose = f
+            source_data.append([np.asanyarray(rgb.get_data()), np.asanyarray(d.get_data()), pose])
+            _frame = stream.depth_encoder.rgbd_to_video_frame(*f)
             for packet in av_stream.encode(_frame):
                 container.mux(packet)
         for packet in av_stream.encode():
             container.mux(packet)
         container.close()
+        return source_data
 
 
     output_file = root_dir.joinpath(datetime.datetime.now().strftime("%Y.%m.%d-%H.%M.%S") + ".mp4")
-    gen_mp4(output_file)
-    # output_file = Path("/home/henry/swarmnode/2024.12.29-19.13.23.mp4")
+    source_data = gen_mp4(output_file)
+    # output_file = Path("/home/henry/swarmnode/2024.12.30-20.28.10.mp4")
 
     correct_pose = GPSPose(epoch_seconds=1735460258.7933, latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0,
                            roll=0,
@@ -297,12 +301,32 @@ if __name__ == "__main__":
     print(Colorspace.ITU601)
     print(ColorRange.JPEG)
     playback = av.open(output_file)
-    data = []
+    recovered_data = []
     for frame in playback.decode(video=0):
         rgb, d, _pose = RGBDStream.depth_encoder.video_frame_to_rgbd(frame)
-        d = cv2.medianBlur(d, 5)
-        d = cv2.morphologyEx(d, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
-        data.append((rgb, d, _pose))
+        recovered_data.append((rgb, d, _pose))
+
+    assert len(recovered_data) == len(source_data)
+    acc_rmse = 0
+    acc_mean_dist = 0
+    data_i = len(recovered_data)
+    acc_max_error = 0
+    for i in range(data_i):
+        _, src_d, _ = source_data[i]
+        _, dest_d, _ = recovered_data[i]
+        delta = src_d.astype(np.float32) - dest_d.astype(np.float32)
+        nonzero_mask = (src_d != 0) & (dest_d != 0)
+        max_error = np.max(np.abs(src_d.astype(np.float32)[nonzero_mask] - dest_d.astype(np.float32)[nonzero_mask]))
+        acc_max_error = max(max_error, acc_max_error)
+        empty_pixels = np.sum(src_d == 0)
+        rmse = np.sqrt(np.sum(delta ** 2) / (delta.size - empty_pixels))
+        acc_rmse += rmse
+        acc_mean_dist += np.sum(src_d) / (delta.size - empty_pixels)
+        print(f"frame {i} rmse: {rmse}")
+        print(f"frame {i} max_error: {max_error}")
+    print(
+        f"average rmse: {acc_rmse / data_i}. mean dist: {acc_mean_dist / data_i}. percentage rmse: {acc_rmse / data_i / acc_mean_dist * 100}")
+    print(f"max error: {acc_max_error}")
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
@@ -317,9 +341,9 @@ if __name__ == "__main__":
         vis.update_renderer()
         if last_update < time.time() - 2:
             i += 1
-            if i >= len(data):
+            if i >= len(recovered_data):
                 i = 0
-            rgb, d, _ = data[i]
+            rgb, d, _ = recovered_data[i]
             im1 = o3d.geometry.Image(np.ascontiguousarray(rgb))
             im2 = o3d.geometry.Image(np.ascontiguousarray(d))
             rgbd_img: o3d.geometry.RGBDImage = \

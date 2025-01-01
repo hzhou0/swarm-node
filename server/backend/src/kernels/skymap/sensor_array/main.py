@@ -95,7 +95,10 @@ class RGBDVideoStreamTrack(VideoStreamTrack):
                 self.stream = None
                 raise MediaStreamError
             i += 1
-            vf = self.stream.get_frame()
+            data=self.stream.gather_frame_data()
+            if data is None:
+                continue
+            vf = self.stream.depth_encoder.rgbd_to_video_frame(*data)
             await asyncio.sleep(polling_time)
         vf.pts = self._timestamp
         vf.time_base = time_base
