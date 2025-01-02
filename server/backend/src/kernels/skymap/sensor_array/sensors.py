@@ -25,7 +25,7 @@ from pynmeagps.nmeatypes_core import DE, HX, TM
 
 from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose
 from kernels.skymap.sensor_array.depth_encoding import DepthEncoder, TriangleDepthEncoder, MultiWavelengthDepthEncoder, \
-    ZhouDepthEncoder
+    ZhouDepthEncoder, HueDepthEncoder
 from util import root_dir
 
 

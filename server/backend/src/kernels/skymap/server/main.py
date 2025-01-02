@@ -19,7 +19,6 @@ from aiortc import (
 )
 from aiortc.contrib.media import MediaRecorderContext
 from av.video.frame import VideoFrame
-from numpy import ndarray
 
 from ipc import write_state, Daemon
 from kernels.skymap.common import rgbd_stream_framerate, GPSPose
@@ -183,11 +182,12 @@ async def process_frame(reconstruct_d: Daemon[None, tuple[np.ndarray, np.ndarray
     if _sensor_video is None:
         return
     try:
+        await asyncio.sleep(0)
         frame: VideoFrame = await _sensor_video.recv()
         if _playback_sink is not None:
             await _playback_sink.add_frame(frame)
         try:
-            reconstruct_d.mutate(RGBDStream.video_frame_to_rgbd(frame))
+            reconstruct_d.mutate(RGBDStream.depth_encoder.video_frame_to_rgbd(frame))
         except Exception as e:
             reconstruct_d.restart_if_failed()
             logging.exception(e)

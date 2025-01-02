@@ -95,8 +95,9 @@ class RGBDVideoStreamTrack(VideoStreamTrack):
                 self.stream = None
                 raise MediaStreamError
             i += 1
-            data=self.stream.gather_frame_data()
+            data = self.stream.gather_frame_data()
             if data is None:
+                await asyncio.sleep(polling_time)
                 continue
             vf = self.stream.depth_encoder.rgbd_to_video_frame(*data)
             await asyncio.sleep(polling_time)
@@ -137,6 +138,7 @@ async def maintain_peer_connection(sn_client: SwarmNodeClient) -> None:
     aioice.stun.RETRY_MAX = 2
     aioice.stun.RETRY_RTO = 0.1
 
+    # todo: aiortc does not seem to handle this correctly
     import aiortc.codecs.h264 as h264
     h264.MAX_FRAME_RATE = _rgbd_stream.stream.framerate
     h264.MIN_BITRATE = h264.MAX_BITRATE = h264.MIN_BITRATE = 5000000

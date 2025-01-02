@@ -84,16 +84,19 @@ def main(state_mem: SharedMemory,
                 vis.poll_events()
                 vis.update_renderer()
                 continue
-            rgb, d, pose = pipe.recv()
-            # if pose is None:
-            #     continue
+            mutation = pipe.recv()
+            if mutation is None:
+                continue
+            rgb, d, pose = mutation
+            if pose is None:
+                continue
             im1 = o3d.geometry.Image(rgb)
             im2 = o3d.geometry.Image(d)
             rgbd_img: o3d.geometry.RGBDImage = (o3d.geometry.RGBDImage
                                                 .create_from_color_and_depth(im1, im2,
                                                                              convert_rgb_to_intensity=False,
                                                                              depth_scale=1 / RGBDStream.depth_units,
-                                                                             depth_trunc=RGBDStream.threshold[1]))
+                                                                             depth_trunc=RGBDStream.max_depth_meters))
             if pcd is None:
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
                 vis.add_geometry(pcd)
