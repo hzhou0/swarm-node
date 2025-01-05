@@ -1,0 +1,132 @@
+edition = "2023";
+package networking;
+option go_package = "github.com/hzhou0/swarm-node/server/networking;ipc";
+
+message AudioDevice {
+  message Options {
+    string name = 1;
+    bool default_ = 2; // default is a reserved keyword, so use default_
+    float volume = 3;
+    bool mute = 4;
+  }
+  Options options = 1;
+  string description = 2;
+  string driver = 3;
+  int32 index = 4;
+  bool is_monitor = 5;
+  enum AudioDeviceState {
+    IDLE = 0;
+    INVALID = 1;
+    RUNNING = 2;
+    SUSPENDED = 3;
+  }
+  AudioDeviceState state = 6;
+  enum Type {
+    SINK = 0;
+    SOURCE = 1;
+  }
+  Type type = 7;
+  map<string, string> properties = 8;
+  enum AudioDeviceFormFactor {
+    CAR = 0;
+    COMPUTER = 1;
+    HANDS_FREE = 2;
+    HANDSET = 3;
+    HEADPHONE = 4;
+    HEADSET = 5;
+    HIFI = 6;
+    INTERNAL = 7;
+    MICROPHONE = 8;
+    PORTABLE = 9;
+    SPEAKER = 10;
+    TV = 11;
+    WEBCAM = 12;
+    UNKNOWN = 13;
+  }
+  AudioDeviceFormFactor form_factor = 9;
+}
+
+
+
+message VideoDevice {
+  string name = 1;
+  uint32 index = 2;
+  bool closed = 3;
+  string description = 4;
+  repeated string capabilities = 5;
+  message VideoSize {
+    uint32 height = 1;
+    uint32 width = 2;
+    repeated float fps = 3;
+    string format = 4;
+  }
+  repeated VideoSize video_sizes = 6;
+}
+
+
+message WebrtcInfo {
+  message IceServer {
+    string urls = 1;
+    string username = 2;
+    string credential = 3;
+  }
+  repeated IceServer ice_servers = 1;
+}
+
+message NamedTrack {
+  string track_id = 1;
+  string stream_id = 2;
+  string mime_type = 3;
+  map<string, string> properties = 4;
+}
+
+// uuid can be any string that uniquely identifies the sender/receiver. No specific format required.
+// Define the transmitter (T) as the side with a dest_uuid (in either Data or Media Transmission) that refers to the broadcaster (B).
+// In the case that both sides have specified dest_uuid that refer to each other, the side that initiates first is T.
+// Offer negotiations is as follows:
+// 1. T -> T's Media -> B
+// 2. B -> Wanted T's Media, B's Media -> T
+// 3. T -> Wanted B's Media, SDP offer, type -> B
+// 4. B -> SDP answer, type -> T
+// 5. Connection Established. T -> Wanted T's Media -> B; B -> Wanted B's Media -> T
+message WebrtcOffer {
+  string src_uuid = 1; // Must uniquely identify the source (T or B) for the duration of the negotiation.
+  string sdp = 2;
+  string type = 3;
+  repeated NamedTrack local_tracks = 4;
+  repeated NamedTrack wanted_remote_tracks = 5;
+  bool abandon = 6; // Abandon negotiations. Both sides must forget each other.
+}
+
+message DataTransmission {
+  string src_uuid = 1; // Leave unset when sending; always present when receiving
+  string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
+  string mime_type = 3; // Always present
+  repeated bytes payload = 4;
+}
+
+message MediaTransmission {
+  string src_uuid = 1; // Leave unset when sending; always present when receiving
+  string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
+  string mime_type = 3; // Always present
+  string shm_src_path = 4; // File path for [shmsrc](https://gstreamer.freedesktop.org/documentation/shm/shmsrc.html) to begin consuming media
+  // Explicitly set this to true to stop this transmission.
+  // If dest_uuid is unset, stop sending to all destinations. Otherwise, stop sending to the specified destination.
+  bool stop = 5;
+  bool stop_all = 6; // Stop all media transmissions.
+}
+
+message KernelMutation {
+  DataTransmission data = 1;
+  MediaTransmission media = 2;
+}
+
+message SetWantedTracks {
+  repeated NamedTrack wanted_tracks = 1; // Any tracks not in this list will be rejected by the networking layer.
+}
+
+message KernelEvent {
+  DataTransmission data = 1;
+  repeated MediaTransmission media = 2;
+  SetWantedTracks wantedTracks = 3;
+}

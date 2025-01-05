@@ -1,0 +1,1 @@
+protoc --go_out=paths=source_relative:./ipc --go_opt=default_api_level=API_OPAQUE ./networking.proto
