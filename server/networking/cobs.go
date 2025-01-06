@@ -85,20 +85,20 @@ func (e CobsEncoder) Verify(src []byte) error {
 	loopLen := len(src)
 	if e.Delimiter {
 		if loopLen < 2 {
-			return errors.New("COBS[Native]: Encoded slice is too short to be valid.")
+			return errors.New("COBS[Native]: Encoded slice is too short to be valid")
 		}
 		if src[loopLen-1] != e.SpecialByte {
-			return errors.New("COBS[Native]: Encoded slice's delimiter is not special byte.")
+			return errors.New("COBS[Native]: Encoded slice's delimiter is not special byte")
 		}
 		loopLen--
 	} else {
 		if loopLen < 1 {
-			return errors.New("COBS[Native]: Encoded slice is too short to be valid.")
+			return errors.New("COBS[Native]: Encoded slice is too short to be valid")
 		}
 	}
 	for _, b := range src[:loopLen] {
 		if b == e.SpecialByte {
-			return errors.New("COBS[Native]: Encoded slice's byte (not the delimter) is special byte.")
+			return errors.New("COBS[Native]: Encoded slice's byte (not the delimter) is special byte")
 		}
 		if nextFlag == 0 {
 			if b == 0 {
@@ -110,7 +110,7 @@ func (e CobsEncoder) Verify(src []byte) error {
 		nextFlag--
 	}
 	if nextFlag != 0 {
-		return errors.New("COBS[Native]: Encoded slice's flags do not lead to end.")
+		return errors.New("COBS[Native]: Encoded slice's flags do not lead to end")
 	}
 	return nil
 }

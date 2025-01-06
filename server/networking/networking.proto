@@ -84,18 +84,19 @@ message NamedTrack {
 // Define the transmitter (T) as the side with a dest_uuid (in either Data or Media Transmission) that refers to the broadcaster (B).
 // In the case that both sides have specified dest_uuid that refer to each other, the side that initiates first is T.
 // Offer negotiations is as follows:
-// 1. T -> T's Media -> B
-// 2. B -> Wanted T's Media, B's Media -> T
-// 3. T -> Wanted B's Media, SDP offer, type -> B
-// 4. B -> SDP answer, type -> T
+// 1. T -> T's Media -> B (Request)
+// 2. B -> Wanted T's Media, B's Media -> T (Response)
+// 3. T -> Wanted B's Media, Wanted T's Media, SDP offer, type -> B (Request)
+// 4. B -> SDP answer, type -> T (Response)
 // 5. Connection Established. T -> Wanted T's Media -> B; B -> Wanted B's Media -> T
 message WebrtcOffer {
   string src_uuid = 1; // Must uniquely identify the source (T or B) for the duration of the negotiation.
   string sdp = 2;
   string type = 3;
   repeated NamedTrack local_tracks = 4;
-  repeated NamedTrack wanted_remote_tracks = 5;
-  bool abandon = 6; // Abandon negotiations. Both sides must forget each other.
+  bool local_tracks_set = 5; // Required: it's impossible to tell if no tracks exists or if tracks are unknown, hence these flags.
+  repeated NamedTrack remote_tracks = 6;
+  bool remote_tracks_set = 7; // Required
 }
 
 message DataTransmission {
@@ -108,12 +109,9 @@ message DataTransmission {
 message MediaTransmission {
   string src_uuid = 1; // Leave unset when sending; always present when receiving
   string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
-  string mime_type = 3; // Always present
-  string shm_src_path = 4; // File path for [shmsrc](https://gstreamer.freedesktop.org/documentation/shm/shmsrc.html) to begin consuming media
-  // Explicitly set this to true to stop this transmission.
-  // If dest_uuid is unset, stop sending to all destinations. Otherwise, stop sending to the specified destination.
-  bool stop = 5;
-  bool stop_all = 6; // Stop all media transmissions.
+  // Track properties must include `shmsrc_socket-path` [shmsrc](https://gstreamer.freedesktop.org/documentation/shm/shmsrc.html) to begin consuming media
+  // This is authoritative: only the given tracks will be sent, all previous configurations are forgotten.
+  repeated NamedTrack tracks = 3;
 }
 
 message KernelMutation {
@@ -127,6 +125,6 @@ message SetWantedTracks {
 
 message KernelEvent {
   DataTransmission data = 1;
-  repeated MediaTransmission media = 2;
+  MediaTransmission media = 2;
   SetWantedTracks wantedTracks = 3;
 }
