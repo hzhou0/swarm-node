@@ -87,7 +87,7 @@ message NamedTrack {
 // 1. T -> T's Media -> B (Request)
 // 2. B -> Wanted T's Media, B's Media -> T (Response)
 // 3. T -> Wanted B's Media, Wanted T's Media, SDP offer, type -> B (Request)
-// 4. B -> SDP answer, type -> T (Response)
+// 4. B -> Wanted B's Media, Wanted T's Media, SDP answer, type -> T (Response)
 // 5. Connection Established. T -> Wanted T's Media -> B; B -> Wanted B's Media -> T
 message WebrtcOffer {
   string src_uuid = 1; // Must uniquely identify the source (T or B) for the duration of the negotiation.
@@ -102,8 +102,7 @@ message WebrtcOffer {
 message DataTransmission {
   string src_uuid = 1; // Leave unset when sending; always present when receiving
   string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
-  string mime_type = 3; // Always present
-  repeated bytes payload = 4;
+  bytes payload = 3;
 }
 
 message MediaTransmission {
@@ -111,6 +110,7 @@ message MediaTransmission {
   string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
   // Track properties must include `shmsrc_socket-path` [shmsrc](https://gstreamer.freedesktop.org/documentation/shm/shmsrc.html) to begin consuming media
   // This is authoritative: only the given tracks will be sent, all previous configurations are forgotten.
+  // When sent from the kernel, this will be fulfilled on a best-effort basis. The dest can reject any track it doesn't want.
   repeated NamedTrack tracks = 3;
 }
 

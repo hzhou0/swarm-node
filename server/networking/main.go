@@ -72,12 +72,34 @@ func httpServer(webrtcState *WebrtcState) {
 			return
 		}
 		if offer.HasSdp() && offer.HasType() && offer.GetLocalTracksSet() && offer.GetRemoteTracksSet() {
-			// Step 3
+			// todo: Step 3
 			// Validate Outgoing/Remote Tracks
 			// Validate Local/Incoming Tracks
 		}
-		if offer.HasLocalTracksSet() {
-
+		if offer.HasLocalTracksSet() && offer.GetRemoteTracksSet() {
+			var allowedRemote []*ipc.NamedTrack
+			answer := ipc.WebrtcOffer{}
+			answer.SetSrcUuid(webrtcState.SrcUUID)
+			allowedTracks := <-webrtcState.AllowedInTracks
+			for _, track := range offer.GetLocalTracks() {
+				if trackAllowed(allowedTracks, NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())) {
+					allowedRemote = append(allowedRemote, track)
+				}
+			}
+			answer.SetRemoteTracks(allowedRemote)
+			answer.SetRemoteTracksSet(true)
+			var localTracks []*ipc.NamedTrack
+			for _, v := range <-webrtcState.OutTracks {
+				tr := ipc.NamedTrack{}
+				tr.SetStreamId(v.streamId)
+				tr.SetTrackId(v.trackId)
+				tr.SetMimeType(v.mimeType)
+				localTracks = append(localTracks, &tr)
+			}
+			answer.SetLocalTracks(localTracks)
+			answer.SetLocalTracksSet(true)
+			c.ProtoBuf(http.StatusOK, &answer)
+			return
 		}
 	})
 
