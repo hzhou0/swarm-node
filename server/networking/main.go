@@ -5,8 +5,10 @@ package main
 import (
 	"fmt"
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/pion/webrtc/v4"
 	"log"
 	"net/http"
 	"networking/ipc"
@@ -15,6 +17,7 @@ import (
 
 func httpServer(webrtcState *WebrtcState) {
 	s := gin.Default()
+	s.Use(gzip.Gzip(gzip.DefaultCompression))
 	err := s.SetTrustedProxies([]string{"127.0.0.1"})
 	if err != nil {
 		panic(err)
@@ -71,25 +74,82 @@ func httpServer(webrtcState *WebrtcState) {
 			c.String(http.StatusBadRequest, "Missing remote tracks set")
 			return
 		}
-		if offer.HasSdp() && offer.HasType() && offer.GetLocalTracksSet() && offer.GetRemoteTracksSet() {
-			// todo: Step 3
-			// Validate Outgoing/Remote Tracks
+		if offer.HasSdp() && offer.HasType() && offer.HasLocalTracksSet() &&
+			offer.HasRemoteTracksSet() && offer.GetLocalTracksSet() && offer.GetRemoteTracksSet() {
+			// Process Step 3 Request
 			// Validate Local/Incoming Tracks
+			lTracks := offer.GetLocalTracks()
+			var inTracks []NamedTrackKey
+			for _, lTrack := range lTracks {
+				k := NamedTrackKey{
+					trackId:  lTrack.GetTrackId(),
+					streamId: lTrack.GetStreamId(),
+					mimeType: lTrack.GetMimeType(),
+				}
+				if !webrtcState.InTrackAllowed(k) {
+					c.String(http.StatusNotAcceptable, "Incoming track %v not allowed", lTrack.GetTrackId())
+					return
+				} else {
+					inTracks = append(inTracks, k)
+				}
+			}
+			// Validate Outgoing/Remote Tracks
+			rTracks := offer.GetRemoteTracks()
+			var outTracks []NamedTrackKey
+			for _, oTrack := range rTracks {
+				k := NamedTrackKey{
+					trackId:  oTrack.GetTrackId(),
+					streamId: oTrack.GetStreamId(),
+					mimeType: oTrack.GetMimeType(),
+				}
+				if !webrtcState.OutTrackAllowed(k) {
+					c.String(http.StatusNotAcceptable, "Outbound track %v not allowed", oTrack.GetTrackId())
+				} else {
+					outTracks = append(outTracks, k)
+				}
+			}
+			pOffer := NewPeeringOffer(
+				offer.GetSrcUuid(),
+				&webrtc.SessionDescription{Type: webrtc.NewSDPType(offer.GetType()), SDP: offer.GetSdp()},
+				outTracks,
+				inTracks,
+			)
+			webrtcState.PutPeeringOffers <- *pOffer
+			sdpResp := <-pOffer.responseSdp
+			if sdpResp == nil {
+				c.String(http.StatusInternalServerError, "Peering failed")
+				return
+			}
+			answer := ipc.WebrtcOffer{}
+			c.Request.URL.Fragment = ""
+			c.Request.URL.RawQuery = ""
+			answer.SetSrcUuid(c.Request.URL.String())
+			answer.SetLocalTracks(rTracks)
+			answer.SetLocalTracksSet(true)
+			answer.SetRemoteTracks(lTracks)
+			answer.SetRemoteTracksSet(true)
+			answer.SetSdp(sdpResp.SDP)
+			answer.SetType(sdpResp.Type.String())
+			c.Header("Content-Type", "application/x-protobuf")
+			c.ProtoBuf(http.StatusOK, &answer)
+			return
 		}
 		if offer.HasLocalTracksSet() && offer.GetRemoteTracksSet() {
+			// Process Step 1 Request
 			var allowedRemote []*ipc.NamedTrack
 			answer := ipc.WebrtcOffer{}
-			answer.SetSrcUuid(webrtcState.SrcUUID)
-			allowedTracks := <-webrtcState.AllowedInTracks
+			c.Request.URL.Fragment = ""
+			c.Request.URL.RawQuery = ""
+			answer.SetSrcUuid(c.Request.URL.String())
 			for _, track := range offer.GetLocalTracks() {
-				if trackAllowed(allowedTracks, NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())) {
+				if webrtcState.InTrackAllowed(NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())) {
 					allowedRemote = append(allowedRemote, track)
 				}
 			}
 			answer.SetRemoteTracks(allowedRemote)
 			answer.SetRemoteTracksSet(true)
 			var localTracks []*ipc.NamedTrack
-			for _, v := range <-webrtcState.OutTracks {
+			for _, v := range webrtcState.OutTracks() {
 				tr := ipc.NamedTrack{}
 				tr.SetStreamId(v.streamId)
 				tr.SetTrackId(v.trackId)
@@ -98,6 +158,7 @@ func httpServer(webrtcState *WebrtcState) {
 			}
 			answer.SetLocalTracks(localTracks)
 			answer.SetLocalTracksSet(true)
+			c.Header("Content-Type", "application/x-protobuf")
 			c.ProtoBuf(http.StatusOK, &answer)
 			return
 		}

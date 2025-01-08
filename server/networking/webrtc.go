@@ -21,6 +21,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -78,33 +79,78 @@ type WebrtcPeer struct {
 }
 
 type PeeringOffer struct {
-	peerId    UUID
-	sdp       *webrtc.SessionDescription
-	outTracks []NamedTrackKey
-	inTracks  []NamedTrackKey
+	peerId      UUID
+	sdp         *webrtc.SessionDescription
+	outTracks   []NamedTrackKey
+	inTracks    []NamedTrackKey
+	responseSdp chan *webrtc.SessionDescription
+}
+
+func NewPeeringOffer(peerId UUID, sdp *webrtc.SessionDescription, outTracks []NamedTrackKey, inTracks []NamedTrackKey) *PeeringOffer {
+	n := &PeeringOffer{
+		peerId:      peerId,
+		sdp:         sdp,
+		outTracks:   outTracks,
+		inTracks:    inTracks,
+		responseSdp: make(chan *webrtc.SessionDescription),
+	}
+	return n
 }
 
 type WebrtcState struct {
-	config             webrtc.Configuration
 	SrcUUID            UUID
+	config             webrtc.Configuration
 	peers              map[UUID]*WebrtcPeer
+	outTrackStates     map[NamedTrackKey]*OutTrack
+	outTracks          []NamedTrackKey // the current outbound tracks
+	outTracksMu        sync.RWMutex
+	InTrack            chan NamedTrackKey         // Receive inbound tracks
+	DataOut            chan *ipc.DataTransmission // Send outbound data
+	DataIn             chan *ipc.DataTransmission // Receive inbound data
+	SetAllowedInTracks chan []NamedTrackKey       // Set the current allowed inbound named tracks
 	allowedInTracks    []NamedTrackKey
-	outTracks          map[NamedTrackKey]*OutTrack // to peer
-	OutTracks          chan []NamedTrackKey
-	InTrack            chan NamedTrackKey
-	DataOut            chan *ipc.DataTransmission
-	DataIn             chan *ipc.DataTransmission
-	SetAllowedInTracks chan []NamedTrackKey
-	AllowedInTracks    chan []NamedTrackKey
-	ClosePeer          chan *WebrtcPeer
-	Close              context.CancelFunc
-	PutPeeringOffers   chan PeeringOffer
+	allowedInTracksMu  sync.RWMutex
+	ClosePeer          chan *WebrtcPeer   // Send a peer here to close it; idempotent
+	Close              context.CancelFunc // Destroy all associated resources
+	PutPeeringOffers   chan PeeringOffer  // Put new peering offers. Offers must be valid and tracks acceptable to both sides (prenegotiations completed).
+}
+
+// AllowedInTracks Returns the current allowed inbound named tracks
+func (state *WebrtcState) AllowedInTracks() []NamedTrackKey {
+	state.allowedInTracksMu.RLock()
+	defer state.allowedInTracksMu.RUnlock()
+	return state.allowedInTracks
+}
+
+// OutTracks Returns the current outbound track keys
+func (state *WebrtcState) OutTracks() []NamedTrackKey {
+	state.outTracksMu.RLock()
+	defer state.outTracksMu.RUnlock()
+	return state.outTracks
+}
+
+func (state *WebrtcState) OutTrackAllowed(key NamedTrackKey) bool {
+	for _, trackKey := range state.OutTracks() {
+		if key.trackId == trackKey.trackId && key.streamId == trackKey.streamId && key.mimeType == trackKey.mimeType {
+			return true
+		}
+	}
+	return false
+}
+
+func (state *WebrtcState) InTrackAllowed(key NamedTrackKey) bool {
+	for _, trackKey := range state.AllowedInTracks() {
+		if key.trackId == trackKey.trackId && key.streamId == trackKey.streamId && key.mimeType == trackKey.mimeType {
+			return true
+		}
+	}
+	return false
 }
 
 func (peer *WebrtcPeer) unsafeClose(state *WebrtcState) {
 	if peer.outTracks != nil {
 		for _, outTrack := range peer.outTracks {
-			ot := state.outTracks[outTrack]
+			ot := state.outTrackStates[outTrack]
 			delete(ot.subscribers, peer)
 			if len(ot.subscribers) == 0 {
 				err := ot.pipeline.SetState(gst.StatePaused)
@@ -152,14 +198,13 @@ func NewWebrtcState() *WebrtcState {
 		},
 		SrcUUID:            NewUUID(),
 		peers:              make(map[UUID]*WebrtcPeer),
-		allowedInTracks:    make([]NamedTrackKey, 10),
-		outTracks:          make(map[NamedTrackKey]*OutTrack),
-		DataOut:            make(chan *ipc.DataTransmission),
-		DataIn:             make(chan *ipc.DataTransmission),
-		OutTracks:          make(chan []NamedTrackKey),
+		allowedInTracks:    nil,
+		outTrackStates:     make(map[NamedTrackKey]*OutTrack),
+		DataOut:            make(chan *ipc.DataTransmission, 10),
+		DataIn:             make(chan *ipc.DataTransmission, 10),
+		outTracks:          nil,
 		InTrack:            make(chan NamedTrackKey),
 		SetAllowedInTracks: make(chan []NamedTrackKey),
-		AllowedInTracks:    make(chan []NamedTrackKey),
 		ClosePeer:          make(chan *WebrtcPeer),
 		Close:              Close,
 		PutPeeringOffers:   make(chan PeeringOffer),
@@ -185,9 +230,9 @@ func NewWebrtcState() *WebrtcState {
 					track.sender = ""
 					track.shmSinkPath = ""
 				}
+				r.allowedInTracksMu.Lock()
 				r.allowedInTracks = allowedTracks
-			case r.AllowedInTracks <- r.allowedInTracks:
-			case r.OutTracks <- slices.Collect(maps.Keys(r.outTracks)):
+				r.allowedInTracksMu.Unlock()
 			case dataOut := <-r.DataOut:
 				dataBytes, err := proto.Marshal(dataOut)
 				if err != nil {
@@ -207,15 +252,25 @@ func NewWebrtcState() *WebrtcState {
 	return r
 }
 
-// todo: cleanup the panics
 func (state *WebrtcState) PutPeer(offer PeeringOffer) error {
+	defer func() {
+		// In case this operation failed, try to put a nil into offer.responseSdp
+		select {
+		case offer.responseSdp <- nil:
+		default:
+		}
+		// This function can alter OutTracks Keys, update it
+		state.outTracksMu.Lock()
+		defer state.outTracksMu.Unlock()
+		state.outTracks = slices.Collect(maps.Keys(state.outTrackStates))
+	}()
 	// If peerId is none, create the media pipeline and return
 	if offer.peerId == "" {
 		for _, v := range offer.outTracks {
-			_, exists := state.outTracks[v]
+			_, exists := state.outTrackStates[v]
 			if !exists {
 				pipeline := state.pipelineForCodec(v)
-				state.outTracks[v] = &OutTrack{subscribers: make(map[*WebrtcPeer]*webrtc.TrackLocalStaticSample), pipeline: pipeline}
+				state.outTrackStates[v] = &OutTrack{subscribers: make(map[*WebrtcPeer]*webrtc.TrackLocalStaticSample), pipeline: pipeline}
 			}
 		}
 		return nil
@@ -254,10 +309,10 @@ func (state *WebrtcState) PutPeer(offer PeeringOffer) error {
 			state.ClosePeer <- &newPeer
 			return err
 		}
-		namedTrack, exists := state.outTracks[v]
+		namedTrack, exists := state.outTrackStates[v]
 		if !exists {
 			pipeline := state.pipelineForCodec(v)
-			state.outTracks[v] = &OutTrack{subscribers: make(map[*WebrtcPeer]*webrtc.TrackLocalStaticSample), pipeline: pipeline}
+			state.outTrackStates[v] = &OutTrack{subscribers: make(map[*WebrtcPeer]*webrtc.TrackLocalStaticSample), pipeline: pipeline}
 		}
 		namedTrack.subscribers[&newPeer] = webrtcTrack
 	}
@@ -268,7 +323,7 @@ func (state *WebrtcState) PutPeer(offer PeeringOffer) error {
 	newPeer.pc.OnICEConnectionStateChange(func(s webrtc.ICEConnectionState) {
 		if s == webrtc.ICEConnectionStateConnected {
 			for _, t := range newPeer.outTracks {
-				if err = state.outTracks[t].pipeline.SetState(gst.StatePlaying); err != nil {
+				if err = state.outTrackStates[t].pipeline.SetState(gst.StatePlaying); err != nil {
 					log.Println(err)
 					state.ClosePeer <- &newPeer
 					return
@@ -337,6 +392,8 @@ func (state *WebrtcState) PutPeer(offer PeeringOffer) error {
 		}
 
 		<-gatherComplete
+
+		offer.responseSdp <- newPeer.pc.LocalDescription()
 	} else {
 		// For outgoing requests, peerId must be a valid URI
 		// No other IDs are currently supported
@@ -429,16 +486,10 @@ func (state *WebrtcState) PutPeer(offer PeeringOffer) error {
 	return nil
 }
 
-func trackAllowed(allowedIn []NamedTrackKey, key NamedTrackKey) bool {
-	key.sender = ""
-	key.shmSinkPath = ""
-	return slices.Contains(allowedIn, key)
-}
-
 func (state *WebrtcState) registerTrackHandlers(peer *WebrtcPeer, peerId UUID) {
 	peer.pc.OnTrack(func(track *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
 		trackKey := NewNamedTrackKey(peerId, track.ID(), track.StreamID(), track.Codec().MimeType)
-		if trackAllowed(<-state.AllowedInTracks, trackKey) {
+		if state.InTrackAllowed(trackKey) {
 			log.Printf("Disallowed track %+v, closing connection\n", trackKey)
 			err := peer.pc.Close()
 			if err != nil {
@@ -550,7 +601,7 @@ func (state *WebrtcState) pipelineForCodec(trackKey NamedTrackKey) *gst.Pipeline
 
 	app.SinkFromElement(appSink).SetCallbacks(&app.SinkCallbacks{
 		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			namedTrackVal, exists := state.outTracks[trackKey]
+			namedTrackVal, exists := state.outTrackStates[trackKey]
 			if !exists {
 				return gst.FlowEOS
 			}
