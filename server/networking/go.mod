@@ -12,6 +12,7 @@ require (
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/pion/rtcp v1.2.15
 	github.com/pion/webrtc/v4 v4.0.7
+	github.com/stretchr/testify v1.10.0
 	google.golang.org/protobuf v1.36.2
 )
 
@@ -19,6 +20,7 @@ require (
 	github.com/bytedance/sonic v1.12.7 // indirect
 	github.com/bytedance/sonic/loader v0.2.2 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gin-contrib/sse v1.0.0 // indirect
 	github.com/go-gst/go-glib v1.4.0 // indirect
@@ -50,6 +52,7 @@ require (
 	github.com/pion/stun/v3 v3.0.0 // indirect
 	github.com/pion/transport/v3 v3.0.7 // indirect
 	github.com/pion/turn/v4 v4.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect

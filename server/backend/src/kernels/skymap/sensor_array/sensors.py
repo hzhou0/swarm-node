@@ -16,16 +16,21 @@ import numpy as np
 import pyrealsense2 as rs
 import pyudev
 import serial
-import cv2
-from av import VideoFrame
 from av.video.reformatter import ColorRange, Colorspace
 from msgspec import field
 from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
 
-from kernels.skymap.common import rgbd_stream_width, rgbd_stream_height, rgbd_stream_framerate, GPSPose
-from kernels.skymap.sensor_array.depth_encoding import DepthEncoder, TriangleDepthEncoder, MultiWavelengthDepthEncoder, \
-    ZhouDepthEncoder, HueDepthEncoder
+from kernels.skymap.common import (
+    rgbd_stream_width,
+    rgbd_stream_height,
+    rgbd_stream_framerate,
+    GPSPose,
+)
+from kernels.skymap.sensor_array.depth_encoding import (
+    DepthEncoder,
+    ZhouDepthEncoder,
+)
 from util import root_dir
 
 
@@ -47,17 +52,22 @@ class WTRTK982(msgspec.Struct):
         }
     }
 
-    poses: deque[GPSPose] = field(
-        default_factory=lambda: collections.deque([], maxlen=20)
-    )
+    poses: deque[GPSPose] = field(default_factory=lambda: collections.deque([], maxlen=20))
     speed_ms: float | None = None
 
     def pull_messages(self):
         if "DUMMY_GPS" in os.environ:
             self.poses.appendleft(
-                GPSPose(epoch_seconds=1735460258.7933, latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0,
-                        roll=0,
-                        yaw=0))
+                GPSPose(
+                    epoch_seconds=1735460258.7933,
+                    latitude=53.2734,
+                    longitude=-7.7783,
+                    altitude=52,
+                    pitch=0,
+                    roll=0,
+                    yaw=0,
+                )
+            )
             return
         if self._serial is None or self._nmr is None:
             self._serial, self._nmr = self.connect()
@@ -107,11 +117,7 @@ class WTRTK982(msgspec.Struct):
             return
         try:
             context = pyudev.Context()
-            ch340_serial = list(
-                context.list_devices(
-                    subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523"
-                )
-            )
+            ch340_serial = list(context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523"))
             assert len(ch340_serial) == 1
             assert ch340_serial[0].device_node is not None
             # ch340_serial requires 115200 baud rate
@@ -165,8 +171,9 @@ class RGBDStream:
         HIGH_DENSITY_PRESET = 1
         HIGH_ACCURACY_PRESET = 3
 
+    device_fps = 60
     preset: Preset = Preset.HIGH_ACCURACY_PRESET
-    depth_units = 0.0001  # 0 - 6.5535 meters
+    depth_units = 0.0001  # 0 – 6.5535 meters
     min_depth_meters: float = 0.15
     max_depth_meters: float = 6
     depth_encoder: DepthEncoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
@@ -179,31 +186,28 @@ class RGBDStream:
         self.height: int = rgbd_stream_height
         assert self.height % 4 == 0
         self.framerate = rgbd_stream_framerate
+        assert self.device_fps % self.framerate == 0
+        # process a frame every frame_quotient frames received
+        self.frame_quotient: int = self.device_fps // self.framerate
+        self.frame_i = 0
 
         sensors: list[rs.sensor] = rs.context().query_all_sensors()
         for s in sensors:
             if s.is_depth_sensor():
                 s.set_option(rs.option.visual_preset, self.preset)
                 s.set_option(rs.option.depth_units, self.depth_units)
-
+                s.set_option(rs.option.enable_auto_exposure, 1)
+            elif s.is_color_sensor():
+                s.set_option(rs.option.enable_auto_exposure, 1)
         self.pipeline = rs.pipeline()
         self.pipeline.start()
         self.pipeline.stop()
         self.config = rs.config()
-        self.config.enable_stream(
-            rs.stream.depth, self.width, self.height, rs.format.z16, self.framerate
-        )
-        self.config.enable_stream(
-            rs.stream.color, self.width, self.height, rs.format.rgb8, self.framerate
-        )
+        self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps)
+        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps)
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)
-
-        self.intrinsics = (
-            self.profile.get_stream(rs.stream.depth)
-            .as_video_stream_profile()
-            .get_intrinsics()
-        )
+        self.intrinsics = self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
 
         # Filters
         self.filter_threshold = rs.threshold_filter(self.min_depth_meters, self.max_depth_meters)
@@ -221,6 +225,11 @@ class RGBDStream:
         depth, color = frames.get_depth_frame(), frames.get_color_frame()
         self.gps.pull_messages()
         if not (depth and color):
+            return None
+        self.frame_i += 1
+        if self.frame_i >= self.frame_quotient:
+            self.frame_i = 0
+        else:
             return None
         # Use the depth timestamp as the canonical frame time
         # Even synchronized frames are slightly off, the depth timestamp is more reliable for depth data
@@ -251,22 +260,18 @@ if __name__ == "__main__":
 
     os.environ["DUMMY_GPS"] = "1"
     stream = RGBDStream()
-    time.sleep(5)
-
+    now = time.time()
+    while time.time() < now + 5:
+        stream.gather_frame_data()
 
     def gen_mp4(output_file: Path):
-        container = av.open(output_file, 'w',
-                            format="mp4")
+        container = av.open(output_file, "w", format="mp4")
         av_stream = container.add_stream("h264", rgbd_stream_framerate)
         av_stream.height = rgbd_stream_height
         av_stream.width = rgbd_stream_width * 2
-        av_stream.bit_rate = 7000000
+        av_stream.bit_rate = 5000000
         av_stream.pix_fmt = "yuv420p"
-        av_stream.options = {
-            "profile": "baseline",
-            "level": "31",
-            "tune": "zerolatency"
-        }
+        av_stream.options = {"profile": "baseline", "level": "31", "tune": "grain"}
         i = 0
         source_data = []
         while True:
@@ -276,7 +281,7 @@ if __name__ == "__main__":
                 # vis.update_renderer()
                 continue
             i += 1
-            if i > 15:
+            if i > 10:
                 break
             rgb, d, pose = f
             source_data.append([np.asanyarray(rgb.get_data()), np.asanyarray(d.get_data()), pose])
@@ -288,14 +293,19 @@ if __name__ == "__main__":
         container.close()
         return source_data
 
-
     output_file = root_dir.joinpath(datetime.datetime.now().strftime("%Y.%m.%d-%H.%M.%S") + ".mp4")
     source_data = gen_mp4(output_file)
     # output_file = Path("/home/henry/swarmnode/2024.12.30-20.28.10.mp4")
 
-    correct_pose = GPSPose(epoch_seconds=1735460258.7933, latitude=53.2734, longitude=-7.7783, altitude=52, pitch=0,
-                           roll=0,
-                           yaw=0)
+    correct_pose = GPSPose(
+        epoch_seconds=1735460258.7933,
+        latitude=53.2734,
+        longitude=-7.7783,
+        altitude=52,
+        pitch=0,
+        roll=0,
+        yaw=0,
+    )
     correct_bytes = correct_pose.to_bytes()
     print(correct_bytes)
     print(Colorspace.ITU601)
@@ -319,23 +329,63 @@ if __name__ == "__main__":
         max_error = np.max(delta)
         acc_max_error = max(max_error, acc_max_error)
         empty_pixels = np.sum(src_d == 0)
-        rmse = np.sqrt(np.mean(delta ** 2))
+        rmse = np.sqrt(np.mean(delta**2))
         acc_rmse += rmse
         acc_mean_dist += np.mean(src_d[nonzero_mask])
         print(f"frame {i} rmse: {rmse}")
         print(f"frame {i} max_error: {max_error}")
     print(
-        f"average rmse: {acc_rmse / data_i}. mean dist: {acc_mean_dist / data_i}. percentage rmse: {acc_rmse / data_i / (acc_mean_dist / data_i) * 100}")
+        f"average rmse: {acc_rmse / data_i}. mean dist: {acc_mean_dist / data_i}. percentage rmse: {acc_rmse / data_i / (acc_mean_dist / data_i) * 100}"
+    )
     print(f"max error: {acc_max_error}")
+    intrinsics = o3d.camera.PinholeCameraIntrinsic(
+        width=848, height=480, fx=424.770, fy=424.770, cx=423.427, cy=240.898
+    )
+
+    volume = o3d.pipelines.integration.ScalableTSDFVolume(
+        voxel_length=4 / 512.0,
+        sdf_trunc=0.04,
+        color_type=o3d.pipelines.integration.TSDFVolumeColorType.RGB8,
+    )
+    for data in recovered_data:
+        rgb, d, _ = data
+        im1 = o3d.geometry.Image(np.ascontiguousarray(rgb))
+        im2 = o3d.geometry.Image(np.ascontiguousarray(d))
+        rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(
+            im1,
+            im2,
+            depth_scale=1 / RGBDStream.depth_units,
+            depth_trunc=RGBDStream.max_depth_meters,
+            convert_rgb_to_intensity=False,
+        )
+        pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
+        volume.integrate(rgbd_img, intrinsics, np.linalg.inv(np.identity(4)))
+        print("integrated")
+    mesh = volume.extract_triangle_mesh()
+    mesh.compute_vertex_normals()
+    o3d.io.write_triangle_mesh(
+        output_file.parent.joinpath(output_file.name.removesuffix(".mp4") + ".glb").as_posix(),
+        mesh,
+        compressed=True,
+    )  # GLB
+    o3d.io.write_triangle_mesh(
+        output_file.parent.joinpath(output_file.name.removesuffix(".mp4") + ".obj").as_posix(),
+        mesh,
+        compressed=True,
+    )  # OBJ
+    o3d.io.write_triangle_mesh(
+        output_file.parent.joinpath(output_file.name.removesuffix(".mp4") + ".stl").as_posix(),
+        mesh,
+        compressed=True,
+    )
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
-    intrinsics = o3d.camera.PinholeCameraIntrinsic(width=1280, height=720, fx=641.162, fy=641.162, cx=639.135,
-                                                   cy=361.356)
-    src_pcd = pcd = None
-
-    i = 0
+    src_pcd = None
+    pcd = None
     last_update = time.time()
+    i = 0
+    once = True
     while True:
         vis.poll_events()
         vis.update_renderer()
@@ -347,19 +397,21 @@ if __name__ == "__main__":
             src_rgb, src_d, _ = source_data[i]
             src_im1 = o3d.geometry.Image(np.ascontiguousarray(src_rgb))
             src_im2 = o3d.geometry.Image(np.ascontiguousarray(src_d))
-            src_rgbd_img: o3d.geometry.RGBDImage = \
-                o3d.geometry.RGBDImage.create_from_color_and_depth(src_im1, src_im2,
-                                                                   depth_scale=1 / RGBDStream.depth_units,
-                                                                   depth_trunc=
-                                                                   RGBDStream.max_depth_meters)
+            src_rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(
+                src_im1,
+                src_im2,
+                depth_scale=1 / RGBDStream.depth_units,
+                depth_trunc=RGBDStream.max_depth_meters,
+            )
             im1 = o3d.geometry.Image(np.ascontiguousarray(rgb))
             im2 = o3d.geometry.Image(np.ascontiguousarray(d))
-            rgbd_img: o3d.geometry.RGBDImage = \
-                o3d.geometry.RGBDImage.create_from_color_and_depth(im1, im2,
-                                                                   depth_scale=1 / RGBDStream.depth_units,
-                                                                   depth_trunc=
-                                                                   RGBDStream.max_depth_meters,
-                                                                   convert_rgb_to_intensity=False)
+            rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(
+                im1,
+                im2,
+                depth_scale=1 / RGBDStream.depth_units,
+                depth_trunc=RGBDStream.max_depth_meters,
+                convert_rgb_to_intensity=False,
+            )
             if pcd is None:
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
                 src_pcd = o3d.geometry.PointCloud.create_from_rgbd_image(src_rgbd_img, intrinsics)

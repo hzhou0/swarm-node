@@ -15,13 +15,19 @@ import (
 	"os"
 )
 
-func httpServer(webrtcState *WebrtcState) {
+func httpServer(webrtcState *WebrtcState, addr string) {
 	s := gin.Default()
 	s.Use(gzip.Gzip(gzip.DefaultCompression))
 	err := s.SetTrustedProxies([]string{"127.0.0.1"})
 	if err != nil {
 		panic(err)
 	}
+	s.NoRoute(func(c *gin.Context) {
+		c.String(http.StatusNotFound, "Not Found")
+	})
+	s.NoMethod(func(c *gin.Context) {
+		c.String(http.StatusMethodNotAllowed, "Method Not Allowed")
+	})
 
 	api := s.Group("/api")
 	cloudflareDomain := os.Getenv("CF_TEAM_DOMAIN")
@@ -164,7 +170,7 @@ func httpServer(webrtcState *WebrtcState) {
 		}
 	})
 
-	err = s.Run(":8080")
+	err = s.Run(addr)
 	if err != nil {
 		panic(err)
 	}
@@ -172,7 +178,7 @@ func httpServer(webrtcState *WebrtcState) {
 
 func main() {
 	webrtcState := NewWebrtcState()
-	go httpServer(webrtcState)
+	go httpServer(webrtcState, ":8080")
 	select {}
 	_, eventR := runKernelBackground()
 	go handleKernelEvents(eventR)

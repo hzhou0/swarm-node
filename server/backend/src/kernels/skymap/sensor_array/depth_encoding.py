@@ -25,12 +25,19 @@ class DepthEncoder(Protocol):
         self.min_depth_meters = min_depth_meters
         self.max_depth_meters = max_depth_meters
 
-    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> VideoFrame: ...
+    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> VideoFrame:
+        ...
 
-    def video_frame_to_rgbd(self, vf: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose | None]: ...
+    def video_frame_to_rgbd(self, vf: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
+        ...
 
 
-@guvectorize([(uint8[:, :, :], float64, float64, uint16[:, :])], "(i,j,k),(),()->(i,j)", cache=True, nopython=True)
+@guvectorize(
+    [(uint8[:, :, :], float64, float64, uint16[:, :])],
+    "(i,j,k),(),()->(i,j)",
+    cache=True,
+    nopython=True,
+)
 def rgb_to_depth(x: np.ndarray, min_dist: float, max_dist: float, y):
     """
     Adapted from intel's documentation:
@@ -52,7 +59,7 @@ def rgb_to_depth(x: np.ndarray, min_dist: float, max_dist: float, y):
             elif b >= g and b >= r:
                 y[i, j] = r - g + 1020
             if y[i, j] > 0:
-                y[i, j] = ((min_dist + (max_dist - min_dist) * y[i, j] / 1529) * 1000 + 0.5)
+                y[i, j] = (min_dist + (max_dist - min_dist) * y[i, j] / 1529) * 1000 + 0.5
 
 
 class HueDepthEncoder(DepthEncoder, Protocol):
@@ -64,9 +71,7 @@ class HueDepthEncoder(DepthEncoder, Protocol):
         color_scheme_hue = 9
         histogram_equalization_disable = 0
         self.filter_colorizer = rs.colorizer()
-        self.filter_colorizer.set_option(
-            rs.option.histogram_equalization_enabled, histogram_equalization_disable
-        )
+        self.filter_colorizer.set_option(rs.option.histogram_equalization_enabled, histogram_equalization_disable)
         self.filter_colorizer.set_option(rs.option.color_scheme, color_scheme_hue)
         self.filter_colorizer.set_option(rs.option.min_distance, min_depth_meters)
         self.filter_colorizer.set_option(rs.option.max_distance, max_depth_meters)
@@ -91,13 +96,13 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
     # Adapted from the paper by the University College London at http://reality.cs.ucl.ac.uk/projects/depth-streaming/depth-streaming.pdf
     # In YUV420, there are two bits used for each of the U and V samples. In selecting n_p, the integer period for H_a and H_b, the paper
     # states n_p must be at most twice the number of output quantization levels, which in the case of YUV420 is channel dependent. Thus,
-    w = 2 ** 16
+    w = 2**16
     n_p = 512
     p = n_p / w
     # webrtc can sometimes use limited yuv, but this is configurable
     # yuv_min = 16
     # yuv_max = 235
-    norm_to_8bit = 2 ** 8 - 1
+    norm_to_8bit = 2**8 - 1
     depth2yuv_lookup: np.ndarray | None = None
     yuv2depth_lookup: np.ndarray | None = None
 
@@ -118,8 +123,11 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
                 start = time.time()
                 self.depth2yuv_lookup = self.build_depth2yuv_lookup(self.w, self.p, self.norm_to_8bit)
                 self.yuv2depth_lookup = self.build_yuv2depth_lookup(self.w, self.p, self.norm_to_8bit)
-                np.savez_compressed(lookups_file, depth2yuv_lookup=self.depth2yuv_lookup,
-                                    yuv2depth_lookup=self.yuv2depth_lookup)
+                np.savez_compressed(
+                    lookups_file,
+                    depth2yuv_lookup=self.depth2yuv_lookup,
+                    yuv2depth_lookup=self.yuv2depth_lookup,
+                )
                 logging.warning(f"Done: {time.time() - start}")
 
     @staticmethod
@@ -146,8 +154,7 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
     @staticmethod
     @njit(parallel=True, cache=True)
     def build_yuv2depth_lookup(w, p, norm_to_8bit):
-        lookup = np.empty((norm_to_8bit + 1, norm_to_8bit + 1, norm_to_8bit + 1),
-                          dtype=np.uint16)
+        lookup = np.empty((norm_to_8bit + 1, norm_to_8bit + 1, norm_to_8bit + 1), dtype=np.uint16)
         for i in prange(lookup.shape[0]):
             for j in prange(lookup.shape[1]):
                 for k in prange(lookup.shape[2]):
@@ -168,8 +175,13 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
         return lookup
 
     @staticmethod
-    @njit([uint8[:, :](uint8[:, :, :], uint16[:, :], uint8[:, :])], cache=True, parallel=True, nogil=True,
-          fastmath=True)
+    @njit(
+        [uint8[:, :](uint8[:, :, :], uint16[:, :], uint8[:, :])],
+        cache=True,
+        parallel=True,
+        nogil=True,
+        fastmath=True,
+    )
     def rgbd2yuv420p_averaged(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -> np.ndarray:
         height = rgb.shape[0]
         width = rgb.shape[1] * 2  # stack the frames horizontally: [rgb][d]
@@ -179,15 +191,15 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
             for _j in prange(width // 2):
                 i = _i * 2
                 j = _j * 2
-                u = v = .0
+                u = v = 0.0
                 for k in range(2):
                     for l in range(2):
                         if j < width // 2:
                             # full-range YCbCr (BT601) color conversion from https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
                             r, g, b = rgb[i + k, j + l]
                             y = max(min(round(0.299 * r + 0.587 * g + 0.114 * b), 255), 0)
-                            u += max(min(128. - 0.168736 * r - 0.331264 * g + 0.5 * b, 255), 0)
-                            v += max(min(128. + 0.5 * r - 0.418688 * g - 0.081312 * b, 255), 0)
+                            u += max(min(128.0 - 0.168736 * r - 0.331264 * g + 0.5 * b, 255), 0)
+                            v += max(min(128.0 + 0.5 * r - 0.418688 * g - 0.081312 * b, 255), 0)
                         else:
                             y, _u, _v = depth2yuv_lookup[d[i + k, j + l - width // 2]]
                             u += _u
@@ -202,7 +214,12 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
         return ret
 
     @staticmethod
-    @njit([uint8[:, :](uint8[:, :, :], uint16[:, :], uint8[:, :])], cache=True, parallel=True, nogil=True)
+    @njit(
+        [uint8[:, :](uint8[:, :, :], uint16[:, :], uint8[:, :])],
+        cache=True,
+        parallel=True,
+        nogil=True,
+    )
     def rgbd2yuv420p_sampled(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -> np.ndarray:
         height = rgb.shape[0]
         width = rgb.shape[1] * 2  # stack the frames horizontally: [rgb][d]
@@ -230,8 +247,13 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
         return ret
 
     @staticmethod
-    @njit([numba.types.Tuple((uint8[:, :, :], uint16[:, :]))(uint8[:, :], uint16[:, :, :])], cache=True, parallel=True,
-          nogil=True, fastmath=True)
+    @njit(
+        [numba.types.Tuple((uint8[:, :, :], uint16[:, :]))(uint8[:, :], uint16[:, :, :])],
+        cache=True,
+        parallel=True,
+        nogil=True,
+        fastmath=True,
+    )
     def yuv420p2rgbd(x: np.ndarray, yuv2depth_lookup: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         width = x.shape[1]
         height = x.shape[0] * 2 // 3
@@ -292,13 +314,18 @@ class MultiWavelengthDepthEncoder(DepthEncoder, Protocol):
         self.p = math.ceil(self.max_valid_depth / self.stairs)
 
     @staticmethod
-    @njit([uint8[:, :](uint8[:, :, :], uint16[:, :], uint16, uint16)], cache=True, parallel=True, nogil=True,
-          fastmath=True)
+    @njit(
+        [uint8[:, :](uint8[:, :, :], uint16[:, :], uint16, uint16)],
+        cache=True,
+        parallel=True,
+        nogil=True,
+        fastmath=True,
+    )
     def rgbd2yuv420p(rgb: np.ndarray, d: np.ndarray, max_z: int, p: int) -> np.ndarray:
         height = rgb.shape[0]
         width = rgb.shape[1] * 2  # stack the frames horizontally: [rgb][d]
         chroma_height = height // 4
-        norm_to_8bit = 2 ** 8 - 1
+        norm_to_8bit = 2**8 - 1
         ret = np.empty((height + chroma_height * 2, width), dtype=np.uint8)
         for i in prange(height):
             for j in prange(width):
@@ -328,14 +355,18 @@ class MultiWavelengthDepthEncoder(DepthEncoder, Protocol):
         return ret
 
     @staticmethod
-    @njit([numba.types.Tuple((uint8[:, :, :], uint16[:, :]))(uint8[:, :], uint16, uint16)], cache=True,
-          parallel=True,
-          nogil=True, fastmath=True)
+    @njit(
+        [numba.types.Tuple((uint8[:, :, :], uint16[:, :]))(uint8[:, :], uint16, uint16)],
+        cache=True,
+        parallel=True,
+        nogil=True,
+        fastmath=True,
+    )
     def yuv420p2rgbd(x: np.ndarray, max_z: int, p: int) -> tuple[np.ndarray, np.ndarray]:
         width = x.shape[1]
         height = x.shape[0] * 2 // 3
         chroma_height = height // 4
-        norm_to_8bit = 2 ** 8 - 1
+        norm_to_8bit = 2**8 - 1
         depth = np.empty((height, width // 2), dtype=np.uint16)
         rgb = np.empty((height, width // 2, 3), dtype=np.uint8)
         for i in prange(height):
@@ -372,8 +403,7 @@ class MultiWavelengthDepthEncoder(DepthEncoder, Protocol):
         d = np.asanyarray(depth.get_data())
         pose.write_to_color_frame(rgb)
         assert rgb.shape[:2] == d.shape
-        vf = VideoFrame.from_ndarray(self.rgbd2yuv420p(rgb, d, self.max_valid_depth, self.p),
-                                     self.pixel_format)
+        vf = VideoFrame.from_ndarray(self.rgbd2yuv420p(rgb, d, self.max_valid_depth, self.p), self.pixel_format)
         vf.color_range = ColorRange.JPEG  # Force full range color instead of limited (16-235)
         vf.colorspace = Colorspace.ITU601
         return vf
@@ -398,8 +428,13 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
         self.max_valid_depth = round(max_depth_meters / depth_units)
 
     @staticmethod
-    @njit([uint8[:, :](uint8[:, :, :], uint16[:, :])], cache=True, parallel=True, nogil=True,
-          fastmath=True)
+    @njit(
+        [uint8[:, :](uint8[:, :, :], uint16[:, :])],
+        cache=True,
+        parallel=True,
+        nogil=True,
+        fastmath=True,
+    )
     def rgbd2yuv420p(rgb: np.ndarray, d: np.ndarray) -> np.ndarray:
         height = rgb.shape[0]
         width = rgb.shape[1] * 2  # stack the frames horizontally: [rgb][d]
@@ -414,14 +449,14 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
                     chroma_x += width // 2
                 chroma_y = height + i // 4
                 if j < width // 2:
-                    u = v = .0
+                    u = v = 0.0
                     for k in range(2):
                         for l in range(2):
                             # full-range YCbCr (BT601) color conversion from https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
                             r, g, b = rgb[i + k, j + l]
                             y = max(min(round(0.299 * r + 0.587 * g + 0.114 * b), 255), 0)
-                            u += max(min(128. - 0.168736 * r - 0.331264 * g + 0.5 * b, 255), 0)
-                            v += max(min(128. + 0.5 * r - 0.418688 * g - 0.081312 * b, 255), 0)
+                            u += max(min(128.0 - 0.168736 * r - 0.331264 * g + 0.5 * b, 255), 0)
+                            v += max(min(128.0 + 0.5 * r - 0.418688 * g - 0.081312 * b, 255), 0)
                             ret[i + k, j + l] = y
                     ret[chroma_y, chroma_x] = round(u / 4)
                     ret[chroma_y + chroma_height, chroma_x] = round(v / 4)
@@ -434,33 +469,41 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
                     z = z_mean
                     for k in range(2):
                         for l in range(2):
-                            if abs(z_mean - z) < abs(z_mean - d[i + k, j + l - width // 2]) and d[i + k, j + l - width // 2]>0:
+                            if (
+                                abs(z_mean - z) < abs(z_mean - d[i + k, j + l - width // 2])
+                                and d[i + k, j + l - width // 2] > 0
+                            ):
                                 z = d[i + k, j + l - width // 2]
-                    period = 2 ** 8
+                    period = 2**8
                     z_upper = z >> 8
                     z_lower = z & 0xFF
                     phi_upper = (z_upper - 127) * math.tau / period
                     phi_lower = (z_lower - 127) * math.tau / period
 
-                    ret[i + 1, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper - 2 * math.pi / 3)))
+                    ret[i, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper - 2 * math.pi / 3)))
                     ret[chroma_y, chroma_x] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper)))
-                    ret[chroma_y + chroma_height, chroma_x] = \
-                        round((period - 1) * 0.5 * (1 + math.cos(phi_upper + 2 * math.pi / 3)))
+                    ret[chroma_y + chroma_height, chroma_x] = round(
+                        (period - 1) * 0.5 * (1 + math.cos(phi_upper + 2 * math.pi / 3))
+                    )
 
-                    ret[i, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower - 2 * math.pi / 3)))
+                    ret[i + 1, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower - 2 * math.pi / 3)))
                     ret[i, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower)))
                     ret[i + 1, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower + 2 * math.pi / 3)))
         return ret
 
     @staticmethod
-    @njit([numba.types.Tuple((uint8[:, :, :], uint16[:, :]))(uint8[:, :])], cache=True,
-          parallel=True,
-          nogil=True, fastmath=True)
+    @njit(
+        [numba.types.Tuple((uint8[:, :, :], uint16[:, :]))(uint8[:, :])],
+        cache=True,
+        parallel=True,
+        nogil=True,
+        fastmath=True,
+    )
     def yuv420p2rgbd(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         width = x.shape[1]
         height = x.shape[0] * 2 // 3
         chroma_height = height // 4
-        period = 2 ** 8
+        period = 2**8
         depth = np.empty((height, width // 2), dtype=np.uint16)
         rgb = np.empty((height, width // 2, 3), dtype=np.uint8)
         for _i in prange(height // 2):
@@ -486,16 +529,18 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
                             b = max(min(round(y + 1.772 * u), 255), 0)
                             rgb[i + k, j + l] = r, g, b
                 else:
-                    I1 = np.int32(x[i + 1, j + 1])
+                    I1 = np.int32(x[i, j])
                     I2 = np.int32(u)
                     I3 = np.int32(v)
-                    z_upper = round(
-                        (math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
-                    I1 = np.int32(x[i, j])
+                    z_upper = (
+                        round((math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
+                    )
+                    I1 = np.int32(x[i + 1, j + 1])
                     I2 = np.int32(x[i, j + 1])
                     I3 = np.int32(x[i + 1, j])
-                    z_lower = round(
-                        (math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
+                    z_lower = (
+                        round((math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
+                    )
                     for k in range(2):
                         for l in range(2):
                             depth[i + k, j + l - width // 2] = (z_upper << 8) + z_lower
@@ -506,8 +551,7 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
         d = np.asanyarray(depth.get_data())
         pose.write_to_color_frame(rgb)
         assert rgb.shape[:2] == d.shape
-        vf = VideoFrame.from_ndarray(self.rgbd2yuv420p(rgb, d),
-                                     self.pixel_format)
+        vf = VideoFrame.from_ndarray(self.rgbd2yuv420p(rgb, d), self.pixel_format)
         vf.color_range = ColorRange.JPEG  # Force full range color instead of limited (16-235)
         vf.colorspace = Colorspace.ITU601
         return vf
@@ -538,13 +582,15 @@ if __name__ == "__main__":
     depth_encoder = TriangleDepthEncoder(0.0001, 0.15, 6)
     start = time.time()
     for _ in range(iters):
-        yuv_encoded_rgbd_triangle = depth_encoder.rgbd2yuv420p_averaged(test_rgb, test_d,
-                                                                        depth_encoder.depth2yuv_lookup)
+        yuv_encoded_rgbd_triangle = depth_encoder.rgbd2yuv420p_averaged(
+            test_rgb, test_d, depth_encoder.depth2yuv_lookup
+        )
     print(f"triangle rgbd2yuv420p: {time.time() - start}")
     start = time.time()
     for _ in range(iters):
-        recovered_rgb_triangle, recovered_d_triangle = depth_encoder.yuv420p2rgbd(yuv_encoded_rgbd_triangle,
-                                                                                  depth_encoder.yuv2depth_lookup)
+        recovered_rgb_triangle, recovered_d_triangle = depth_encoder.yuv420p2rgbd(
+            yuv_encoded_rgbd_triangle, depth_encoder.yuv2depth_lookup
+        )
     print(f"triangle yuv420p2rgbd: {time.time() - start}")
     rgb_delta = np.absolute(test_rgb.astype(np.int32) - recovered_rgb_triangle.astype(np.int32))
     print(f"rgb delta: {np.average(rgb_delta)}")
@@ -558,8 +604,9 @@ if __name__ == "__main__":
     print(f"multiwavelength rgbd2yuv420p: {time.time() - start}")
     start = time.time()
     for _ in range(iters):
-        recovered_rgb, recovered_d = depth_encoder.yuv420p2rgbd(yuv_encoded_rgbd, depth_encoder.max_valid_depth,
-                                                                depth_encoder.p)
+        recovered_rgb, recovered_d = depth_encoder.yuv420p2rgbd(
+            yuv_encoded_rgbd, depth_encoder.max_valid_depth, depth_encoder.p
+        )
     print(f"multiwavelength yuv420p2rgbd: {time.time() - start}")
     rgb_delta = np.absolute(test_rgb.astype(np.int32) - recovered_rgb.astype(np.int32))
     print(f"rgb delta: {np.average(rgb_delta)}")
@@ -586,6 +633,6 @@ if __name__ == "__main__":
     ax1.imshow(test_rgb)
     ax2.imshow(test_d)
     ax3.imshow(recovered_rgb)
-    graph = ax4.imshow(depth_delta, cmap='gray')
+    graph = ax4.imshow(depth_delta, cmap="gray")
     fig.colorbar(graph)
     plt.show()
