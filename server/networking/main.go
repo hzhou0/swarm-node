@@ -120,10 +120,9 @@ func httpServer(webrtcState *WebrtcState, addr string) {
 				outTracks,
 				inTracks,
 			)
-			webrtcState.PutPeeringOffers <- *pOffer
-			sdpResp := <-pOffer.responseSdp
-			if sdpResp == nil {
-				c.String(http.StatusInternalServerError, "Peering failed")
+			err, answerSdp := webrtcState.PutPeer(*pOffer)
+			if err != nil {
+				c.String(http.StatusInternalServerError, "Peering failed %w", err)
 				return
 			}
 			answer := ipc.WebrtcOffer{}
@@ -134,8 +133,8 @@ func httpServer(webrtcState *WebrtcState, addr string) {
 			answer.SetLocalTracksSet(true)
 			answer.SetRemoteTracks(lTracks)
 			answer.SetRemoteTracksSet(true)
-			answer.SetSdp(sdpResp.SDP)
-			answer.SetType(sdpResp.Type.String())
+			answer.SetSdp(answerSdp.SDP)
+			answer.SetType(answerSdp.Type.String())
 			c.Header("Content-Type", "application/x-protobuf")
 			c.ProtoBuf(http.StatusOK, &answer)
 			return
