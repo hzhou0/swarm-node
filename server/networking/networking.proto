@@ -103,6 +103,7 @@ message DataTransmission {
   string src_uuid = 1; // Leave unset when sending; always present when receiving
   string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
   bytes payload = 3;
+  bool close = 4; // Close this peer connection, all other options ignored if this is present
 }
 
 message MediaTransmission {
@@ -112,6 +113,7 @@ message MediaTransmission {
   // This is authoritative: only the given tracks will be sent, all previous configurations are forgotten.
   // When sent from the kernel, this will be fulfilled on a best-effort basis. The dest can reject any track it doesn't want.
   repeated NamedTrack tracks = 3;
+  bool close = 4; // Close this peer connection, all other options ignored if this is present
 }
 
 message KernelMutation {

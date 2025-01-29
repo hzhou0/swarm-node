@@ -10,12 +10,13 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/pion/webrtc/v4"
 	"log"
+	"net"
 	"net/http"
 	"networking/ipc"
 	"os"
 )
 
-func httpServer(webrtcState *WebrtcState, addr string) {
+func runHttpServer(webrtcState *WebrtcState, addr string) {
 	s := gin.Default()
 	s.Use(gzip.Gzip(gzip.DefaultCompression))
 	err := s.SetTrustedProxies([]string{"127.0.0.1"})
@@ -61,7 +62,7 @@ func httpServer(webrtcState *WebrtcState, addr string) {
 		log.Println("Warning: API unprotected.")
 	}
 
-	api.POST("/webrtc", func(c *gin.Context) {
+	api.PUT("/webrtc", func(c *gin.Context) {
 		offer := ipc.WebrtcOffer{}
 		err := c.MustBindWith(&offer, binding.ProtoBuf)
 		if err != nil {
@@ -87,11 +88,7 @@ func httpServer(webrtcState *WebrtcState, addr string) {
 			lTracks := offer.GetLocalTracks()
 			var inTracks []NamedTrackKey
 			for _, lTrack := range lTracks {
-				k := NamedTrackKey{
-					trackId:  lTrack.GetTrackId(),
-					streamId: lTrack.GetStreamId(),
-					mimeType: lTrack.GetMimeType(),
-				}
+				k := NewNamedTrackKey("", lTrack.GetTrackId(), lTrack.GetStreamId(), lTrack.GetMimeType())
 				if !webrtcState.InTrackAllowed(k) {
 					c.String(http.StatusNotAcceptable, "Incoming track %v not allowed", lTrack.GetTrackId())
 					return
@@ -103,13 +100,10 @@ func httpServer(webrtcState *WebrtcState, addr string) {
 			rTracks := offer.GetRemoteTracks()
 			var outTracks []NamedTrackKey
 			for _, oTrack := range rTracks {
-				k := NamedTrackKey{
-					trackId:  oTrack.GetTrackId(),
-					streamId: oTrack.GetStreamId(),
-					mimeType: oTrack.GetMimeType(),
-				}
+				k := NewNamedTrackKey("", oTrack.GetTrackId(), oTrack.GetStreamId(), oTrack.GetMimeType())
 				if !webrtcState.OutTrackAllowed(k) {
 					c.String(http.StatusNotAcceptable, "Outbound track %v not allowed", oTrack.GetTrackId())
+					return
 				} else {
 					outTracks = append(outTracks, k)
 				}
@@ -120,14 +114,17 @@ func httpServer(webrtcState *WebrtcState, addr string) {
 				outTracks,
 				inTracks,
 			)
-			err, answerSdp := webrtcState.PutPeer(*pOffer)
+			webrtcState.UnPeer(pOffer.peerId)
+			err, answerSdp := webrtcState.Peer(*pOffer)
 			if err != nil {
-				c.String(http.StatusInternalServerError, "Peering failed %w", err)
+				c.String(http.StatusInternalServerError, "Peering failed %v", err)
 				return
 			}
 			answer := ipc.WebrtcOffer{}
 			c.Request.URL.Fragment = ""
 			c.Request.URL.RawQuery = ""
+			c.Request.URL.Host = c.Request.Host
+			c.Request.URL.Scheme = "http"
 			answer.SetSrcUuid(c.Request.URL.String())
 			answer.SetLocalTracks(rTracks)
 			answer.SetLocalTracksSet(true)
@@ -139,12 +136,14 @@ func httpServer(webrtcState *WebrtcState, addr string) {
 			c.ProtoBuf(http.StatusOK, &answer)
 			return
 		}
-		if offer.HasLocalTracksSet() && offer.GetRemoteTracksSet() {
+		if offer.HasLocalTracksSet() {
 			// Process Step 1 Request
 			var allowedRemote []*ipc.NamedTrack
 			answer := ipc.WebrtcOffer{}
 			c.Request.URL.Fragment = ""
 			c.Request.URL.RawQuery = ""
+			c.Request.URL.Host = c.Request.Host
+			c.Request.URL.Scheme = "http"
 			answer.SetSrcUuid(c.Request.URL.String())
 			for _, track := range offer.GetLocalTracks() {
 				if webrtcState.InTrackAllowed(NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())) {
@@ -168,16 +167,36 @@ func httpServer(webrtcState *WebrtcState, addr string) {
 			return
 		}
 	})
-
-	err = s.Run(addr)
+	api.DELETE("/webrtc", func(c *gin.Context) {
+		offer := ipc.WebrtcOffer{}
+		err := c.MustBindWith(&offer, binding.ProtoBuf)
+		if err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
+		if !offer.HasSrcUuid() {
+			c.String(http.StatusBadRequest, "No source UUID")
+			return
+		}
+		webrtcState.UnPeer(offer.GetSrcUuid())
+		c.String(http.StatusNoContent, "")
+		return
+	})
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
 	}
+	go func() {
+		err := s.RunListener(l)
+		if err != nil {
+			panic(err)
+		}
+	}()
 }
 
 func main() {
 	webrtcState := NewWebrtcState()
-	go httpServer(webrtcState, ":8080")
+	go runHttpServer(webrtcState, ":8080")
 	select {}
 	_, eventR := runKernelBackground()
 	go handleKernelEvents(eventR)
