@@ -37,14 +37,12 @@ func NewUUID() UUID {
 }
 
 type NamedTrackKey struct {
-	sender   UUID // `""` when outbound
 	trackId  string
 	streamId string
 	mimeType string
-	shmPath  string //Absolute
 }
 
-func NewNamedTrackKey(sender UUID, trackId string, streamId string, mimeType string) NamedTrackKey {
+func (n NamedTrackKey) shmPath(sender string) string {
 	dirPath := "/tmp/swarmnode-network"
 	err := os.MkdirAll(dirPath, 0777)
 	if err != nil {
@@ -55,9 +53,33 @@ func NewNamedTrackKey(sender UUID, trackId string, streamId string, mimeType str
 		sender = "outbound"
 	}
 
-	serialized := fmt.Sprintf("gst|%s|%s|%s|%s", sender, streamId, trackId, strings.ToLower(mimeType))
+	serialized := fmt.Sprintf("gst|%s|%s|%s|%s", sender, n.streamId, n.trackId, strings.ToLower(n.mimeType))
 	serialized = strings.ReplaceAll(serialized, "/", "_")
-	return NamedTrackKey{sender, trackId, streamId, strings.ToLower(mimeType), path.Join(dirPath, serialized)}
+	return path.Join(dirPath, serialized)
+}
+
+func (n NamedTrackKey) toProto() *ipc.NamedTrack {
+	msg := &ipc.NamedTrack{}
+	msg.SetTrackId(n.trackId)
+	msg.SetStreamId(n.streamId)
+	msg.SetMimeType(n.mimeType)
+	return msg
+}
+
+func NamedTrackKeyFromProto(msg *ipc.NamedTrack) NamedTrackKey {
+	return NewNamedTrackKey(msg.GetTrackId(), msg.GetStreamId(), msg.GetMimeType())
+}
+
+func NewNamedTrackKey(trackId string, streamId string, mimeType string) NamedTrackKey {
+	return NamedTrackKey{trackId, streamId, strings.ToLower(mimeType)}
+}
+
+func Map[T, V any](ts []T, fn func(T) V) []V {
+	result := make([]V, len(ts))
+	for i, t := range ts {
+		result[i] = fn(t)
+	}
+	return result
 }
 
 type OutTrack struct {
@@ -93,17 +115,6 @@ type PeeringOffer struct {
 	dataChannel bool
 }
 
-func NewPeeringOffer(peerId UUID, sdp *webrtc.SessionDescription, outTracks []NamedTrackKey, inTracks []NamedTrackKey, dataChannel bool) *PeeringOffer {
-	n := &PeeringOffer{
-		peerId:      peerId,
-		sdp:         sdp,
-		outTracks:   outTracks,
-		inTracks:    inTracks,
-		dataChannel: dataChannel,
-	}
-	return n
-}
-
 func (po *PeeringOffer) Prenegotiate(state *WebrtcState) error {
 	// To initiate pre-negotiation, peerId must be a valid URI
 	// No other IDs are currently supported
@@ -111,16 +122,8 @@ func (po *PeeringOffer) Prenegotiate(state *WebrtcState) error {
 		return err
 	}
 	query := ipc.WebrtcOffer{}
-	var localTracks []*ipc.NamedTrack
-	for _, ot := range po.outTracks {
-		tr := ipc.NamedTrack{}
-		tr.SetStreamId(ot.streamId)
-		tr.SetTrackId(ot.trackId)
-		tr.SetMimeType(ot.mimeType)
-		localTracks = append(localTracks, &tr)
-	}
 	query.SetSrcUuid(state.SrcUUID)
-	query.SetLocalTracks(localTracks)
+	query.SetLocalTracks(Map(po.outTracks, NamedTrackKey.toProto))
 	query.SetLocalTracksSet(true)
 	query.SetRemoteTracksSet(false)
 	query.SetDatachannel(po.dataChannel)
@@ -147,15 +150,15 @@ func (po *PeeringOffer) Prenegotiate(state *WebrtcState) error {
 	}
 	var allowedRemote []NamedTrackKey
 	for _, track := range answer.GetLocalTracks() {
-		k := NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())
+		k := NamedTrackKeyFromProto(track)
 		if state.InTrackAllowed(k) {
 			allowedRemote = append(allowedRemote, k)
 		}
 	}
 	var allowedLocal []NamedTrackKey
 	for _, track := range answer.GetRemoteTracks() {
-		k := NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())
-		if state.OutTrackAllowed(k) {
+		k := NamedTrackKeyFromProto(track)
+		if slices.Contains(po.outTracks, k) {
 			allowedLocal = append(allowedLocal, k)
 		}
 	}
@@ -178,7 +181,7 @@ type WebrtcState struct {
 	peersMu        sync.RWMutex
 	outTrackStates map[NamedTrackKey]*OutTrack
 	outTracksMu    sync.RWMutex
-	InTrack        chan NamedTrackKey         // Receive inbound tracks
+	InMedia        chan *ipc.MediaChannel     // Receive inbound tracks
 	DataOut        chan *ipc.DataTransmission // Send outbound data
 	DataIn         chan *ipc.DataTransmission // Receive inbound data
 	Close          context.CancelFunc         // Destroy all associated resources
@@ -195,7 +198,7 @@ func NewWebrtcState(config WebrtcStateConfig) *WebrtcState {
 		outTrackStates: make(map[NamedTrackKey]*OutTrack),
 		DataOut:        make(chan *ipc.DataTransmission, 100),
 		DataIn:         make(chan *ipc.DataTransmission, 100),
-		InTrack:        make(chan NamedTrackKey),
+		InMedia:        make(chan *ipc.MediaChannel, 10),
 		Close:          Close,
 		Ctx:            ctx,
 	}
@@ -224,10 +227,6 @@ func NewWebrtcState(config WebrtcStateConfig) *WebrtcState {
 }
 
 func (state *WebrtcState) Reconfigure(config WebrtcStateConfig) {
-	for _, track := range config.allowedInTracks {
-		track.sender = ""
-		track.shmPath = ""
-	}
 	state.configMu.Lock()
 	state.config = config
 	state.configMu.Unlock()
@@ -250,15 +249,6 @@ func (state *WebrtcState) BroadcastOutTracks() []NamedTrackKey {
 		}
 	}
 	return ret
-}
-
-func (state *WebrtcState) OutTrackAllowed(key NamedTrackKey) bool {
-	for _, trackKey := range state.OutTracks() {
-		if key.trackId == trackKey.trackId && key.streamId == trackKey.streamId && key.mimeType == trackKey.mimeType {
-			return true
-		}
-	}
-	return false
 }
 
 func (state *WebrtcState) InTrackAllowed(key NamedTrackKey) bool {
@@ -370,17 +360,17 @@ func (peer *WebrtcPeer) setupDataChannel(offer PeeringOffer, state *WebrtcState)
 // 2. sdp ==nil: `peerId` must be a POST URL that accepts ipc.WebrtcOffer. Assume the T role and nil is returned. `offer.outTracks` and `offer.inTracks` will be modified with Prenegotiate().
 // 3. sdp!=nil: `peerId` can be any string. Assume the B role and a webrtc.SessionDescription answer is returned.
 func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *webrtc.SessionDescription) {
-	state.outTracksMu.Lock()
-	for _, v := range offer.outTracks {
-		_, exists := state.outTrackStates[v]
-		if !exists {
-			pipeline := state.pipelineForCodec(v)
-			state.outTrackStates[v] = &OutTrack{subscribers: make(map[*WebrtcPeer]*webrtc.TrackLocalStaticSample), pipeline: pipeline, broadcast: true}
-		}
-	}
-	state.outTracksMu.Unlock()
 	// If peerId is none, create the media pipeline and return
 	if offer.peerId == "" {
+		state.outTracksMu.Lock()
+		for _, v := range offer.outTracks {
+			_, exists := state.outTrackStates[v]
+			if !exists {
+				pipeline := state.pipelineForCodec(v)
+				state.outTrackStates[v] = &OutTrack{subscribers: make(map[*WebrtcPeer]*webrtc.TrackLocalStaticSample), pipeline: pipeline, broadcast: true}
+			}
+		}
+		state.outTracksMu.Unlock()
 		return nil, nil
 	}
 
@@ -454,7 +444,8 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 		namedTrack, exists := state.outTrackStates[v]
 		if !exists {
 			pipeline := state.pipelineForCodec(v)
-			state.outTrackStates[v] = &OutTrack{subscribers: make(map[*WebrtcPeer]*webrtc.TrackLocalStaticSample), pipeline: pipeline, broadcast: false}
+			namedTrack = &OutTrack{subscribers: make(map[*WebrtcPeer]*webrtc.TrackLocalStaticSample), pipeline: pipeline, broadcast: false}
+			state.outTrackStates[v] = namedTrack
 		}
 		state.outTracksMu.Unlock()
 		namedTrack.subscribers[newPeer] = webrtcTrack
@@ -558,25 +549,9 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 		localSDPOffer := newPeer.pc.LocalDescription()
 		newOffer.SetSdp(localSDPOffer.SDP)
 		newOffer.SetType(localSDPOffer.Type.String())
-		var localTracks []*ipc.NamedTrack
-		for _, tr := range offer.outTracks {
-			localTrack := ipc.NamedTrack{}
-			localTrack.SetTrackId(tr.trackId)
-			localTrack.SetStreamId(tr.streamId)
-			localTrack.SetMimeType(tr.mimeType)
-			localTracks = append(localTracks, &localTrack)
-		}
-		newOffer.SetLocalTracks(localTracks)
+		newOffer.SetLocalTracks(Map(offer.outTracks, NamedTrackKey.toProto))
 		newOffer.SetLocalTracksSet(true)
-		var remoteTracks []*ipc.NamedTrack
-		for _, tr := range offer.inTracks {
-			remoteTrack := ipc.NamedTrack{}
-			remoteTrack.SetTrackId(tr.trackId)
-			remoteTrack.SetStreamId(tr.streamId)
-			remoteTrack.SetMimeType(tr.mimeType)
-			remoteTracks = append(remoteTracks, &remoteTrack)
-		}
-		newOffer.SetRemoteTracks(remoteTracks)
+		newOffer.SetRemoteTracks(Map(offer.inTracks, NamedTrackKey.toProto))
 		newOffer.SetRemoteTracksSet(true)
 		newOffer.SetDatachannel(offer.dataChannel)
 		var payload []byte
@@ -624,7 +599,7 @@ func (state *WebrtcState) UnPeer(peerId UUID) {
 
 func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 	peer.pc.OnTrack(func(track *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-		trackKey := NewNamedTrackKey(peerId, track.ID(), track.StreamID(), track.Codec().MimeType)
+		trackKey := NewNamedTrackKey(track.ID(), track.StreamID(), track.Codec().MimeType)
 		if !state.InTrackAllowed(trackKey) {
 			log.Printf("Disallowed track %+v, closing connection\n", trackKey)
 			err := peer.pc.Close()
@@ -653,7 +628,7 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 		log.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().MimeType)
 
 		pipelineString := "appsrc format=time is-live=true do-timestamp=true name=src ! application/x-rtp"
-		sinkString := fmt.Sprintf("shmsink socket-path=%s shm-size=67108864 wait-for-connection=true", trackKey.shmPath)
+		sinkString := fmt.Sprintf("shmsink socket-path=%s shm-size=67108864 wait-for-connection=true", trackKey.shmPath(peerId))
 		switch strings.ToLower(track.Codec().MimeType) {
 		case "video/vp8":
 			pipelineString += fmt.Sprintf(", payload=%d, encoding-name=VP8-DRAFT-IETF-01 ! rtpvp8depay ! ", track.PayloadType())
@@ -691,9 +666,11 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 			panic("track already exists")
 		}
 		peer.inTracks[trackKey] = pipeline
-		go func() {
-			state.InTrack <- trackKey
-		}()
+
+		inMedia := &ipc.MediaChannel{}
+		inMedia.SetTrack(trackKey.toProto())
+		inMedia.SetSrcUuid(peerId)
+		state.InMedia <- inMedia
 
 		buf := make([]byte, 1500)
 		for {
@@ -710,7 +687,7 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 
 func (state *WebrtcState) pipelineForCodec(trackKey NamedTrackKey) *gst.Pipeline {
 	pipelineStr := "appsink name=appsink"
-	pipelineSrc := fmt.Sprintf("shmsrc socket-path=%s is-live=true ! queue ! ", trackKey.shmPath)
+	pipelineSrc := fmt.Sprintf("shmsrc socket-path=%s is-live=true ! queue ! ", trackKey.shmPath(""))
 	switch strings.ToLower(trackKey.mimeType) {
 	case "video/vp8":
 		pipelineStr = pipelineSrc + "vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! " + pipelineStr

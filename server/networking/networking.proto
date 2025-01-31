@@ -7,7 +7,6 @@ message NamedTrack {
   string track_id = 1;
   string stream_id = 2;
   string mime_type = 3;
-  bool required = 4;
 }
 
 // uuid can be any string that uniquely identifies the sender/receiver. No specific format required.
@@ -33,8 +32,7 @@ message WebrtcOffer {
 message DataChannel {
   string src_uuid = 1; // Leave unset when sending; always present when receiving
   string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
-  bool required = 3;
-}
+} // Data channel is always required if present
 
 message DataTransmission {
   DataChannel channel = 1;

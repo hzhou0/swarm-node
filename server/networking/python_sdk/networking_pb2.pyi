@@ -6,16 +6,14 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class NamedTrack(_message.Message):
-    __slots__ = ("track_id", "stream_id", "mime_type", "required")
+    __slots__ = ("track_id", "stream_id", "mime_type")
     TRACK_ID_FIELD_NUMBER: _ClassVar[int]
     STREAM_ID_FIELD_NUMBER: _ClassVar[int]
     MIME_TYPE_FIELD_NUMBER: _ClassVar[int]
-    REQUIRED_FIELD_NUMBER: _ClassVar[int]
     track_id: str
     stream_id: str
     mime_type: str
-    required: bool
-    def __init__(self, track_id: _Optional[str] = ..., stream_id: _Optional[str] = ..., mime_type: _Optional[str] = ..., required: bool = ...) -> None: ...
+    def __init__(self, track_id: _Optional[str] = ..., stream_id: _Optional[str] = ..., mime_type: _Optional[str] = ...) -> None: ...
 
 class WebrtcOffer(_message.Message):
     __slots__ = ("src_uuid", "sdp", "type", "local_tracks", "local_tracks_set", "remote_tracks", "remote_tracks_set", "datachannel")
@@ -38,14 +36,12 @@ class WebrtcOffer(_message.Message):
     def __init__(self, src_uuid: _Optional[str] = ..., sdp: _Optional[str] = ..., type: _Optional[str] = ..., local_tracks: _Optional[_Iterable[_Union[NamedTrack, _Mapping]]] = ..., local_tracks_set: bool = ..., remote_tracks: _Optional[_Iterable[_Union[NamedTrack, _Mapping]]] = ..., remote_tracks_set: bool = ..., datachannel: bool = ...) -> None: ...
 
 class DataChannel(_message.Message):
-    __slots__ = ("src_uuid", "dest_uuid", "required")
+    __slots__ = ("src_uuid", "dest_uuid")
     SRC_UUID_FIELD_NUMBER: _ClassVar[int]
     DEST_UUID_FIELD_NUMBER: _ClassVar[int]
-    REQUIRED_FIELD_NUMBER: _ClassVar[int]
     src_uuid: str
     dest_uuid: str
-    required: bool
-    def __init__(self, src_uuid: _Optional[str] = ..., dest_uuid: _Optional[str] = ..., required: bool = ...) -> None: ...
+    def __init__(self, src_uuid: _Optional[str] = ..., dest_uuid: _Optional[str] = ...) -> None: ...
 
 class DataTransmission(_message.Message):
     __slots__ = ("channel", "payload")

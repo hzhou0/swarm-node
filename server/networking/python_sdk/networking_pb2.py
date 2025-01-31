@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10networking.proto\x12\nnetworking\"V\n\nNamedTrack\x12\x10\n\x08track_id\x18\x01 \x01(\t\x12\x11\n\tstream_id\x18\x02 \x01(\t\x12\x11\n\tmime_type\x18\x03 \x01(\t\x12\x10\n\x08required\x18\x04 \x01(\x08\"\xe1\x01\n\x0bWebrtcOffer\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x0b\n\x03sdp\x18\x02 \x01(\t\x12\x0c\n\x04type\x18\x03 \x01(\t\x12,\n\x0clocal_tracks\x18\x04 \x03(\x0b\x32\x16.networking.NamedTrack\x12\x18\n\x10local_tracks_set\x18\x05 \x01(\x08\x12-\n\rremote_tracks\x18\x06 \x03(\x0b\x32\x16.networking.NamedTrack\x12\x19\n\x11remote_tracks_set\x18\x07 \x01(\x08\x12\x13\n\x0b\x64\x61tachannel\x18\x08 \x01(\x08\"D\n\x0b\x44\x61taChannel\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x11\n\tdest_uuid\x18\x02 \x01(\t\x12\x10\n\x08required\x18\x03 \x01(\x08\"M\n\x10\x44\x61taTransmission\x12(\n\x07\x63hannel\x18\x01 \x01(\x0b\x32\x17.networking.DataChannel\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"Z\n\x0cMediaChannel\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x11\n\tdest_uuid\x18\x02 \x01(\t\x12%\n\x05track\x18\x03 \x01(\x0b\x32\x16.networking.NamedTrack\"\\\n\x05\x45vent\x12*\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1c.networking.DataTransmission\x12\'\n\x05media\x18\x02 \x01(\x0b\x32\x18.networking.MediaChannel\"\x88\x01\n\x0cWebrtcConfig\x12\x37\n\x0bice_servers\x18\x01 \x03(\x0b\x32\".networking.WebrtcConfig.IceServer\x1a?\n\tIceServer\x12\x0c\n\x04urls\x18\x01 \x01(\t\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x12\n\ncredential\x18\x03 \x01(\t\"\xca\x01\n\x05State\x12%\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x17.networking.DataChannel\x12\'\n\x05media\x18\x02 \x03(\x0b\x32\x18.networking.MediaChannel\x12,\n\x0cwantedTracks\x18\x03 \x03(\x0b\x32\x16.networking.NamedTrack\x12(\n\x06\x63onfig\x18\x04 \x01(\x0b\x32\x18.networking.WebrtcConfig\x12\x19\n\x11reconnectAttempts\x18\x05 \x01(\r\"[\n\x08Mutation\x12*\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1c.networking.DataTransmission\x12#\n\x08setState\x18\x02 \x01(\x0b\x32\x11.networking.StateB4Z2github.com/hzhou0/swarm-node/server/networking;ipcb\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10networking.proto\x12\nnetworking\"D\n\nNamedTrack\x12\x10\n\x08track_id\x18\x01 \x01(\t\x12\x11\n\tstream_id\x18\x02 \x01(\t\x12\x11\n\tmime_type\x18\x03 \x01(\t\"\xe1\x01\n\x0bWebrtcOffer\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x0b\n\x03sdp\x18\x02 \x01(\t\x12\x0c\n\x04type\x18\x03 \x01(\t\x12,\n\x0clocal_tracks\x18\x04 \x03(\x0b\x32\x16.networking.NamedTrack\x12\x18\n\x10local_tracks_set\x18\x05 \x01(\x08\x12-\n\rremote_tracks\x18\x06 \x03(\x0b\x32\x16.networking.NamedTrack\x12\x19\n\x11remote_tracks_set\x18\x07 \x01(\x08\x12\x13\n\x0b\x64\x61tachannel\x18\x08 \x01(\x08\"2\n\x0b\x44\x61taChannel\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x11\n\tdest_uuid\x18\x02 \x01(\t\"M\n\x10\x44\x61taTransmission\x12(\n\x07\x63hannel\x18\x01 \x01(\x0b\x32\x17.networking.DataChannel\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"Z\n\x0cMediaChannel\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x11\n\tdest_uuid\x18\x02 \x01(\t\x12%\n\x05track\x18\x03 \x01(\x0b\x32\x16.networking.NamedTrack\"\\\n\x05\x45vent\x12*\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1c.networking.DataTransmission\x12\'\n\x05media\x18\x02 \x01(\x0b\x32\x18.networking.MediaChannel\"\x88\x01\n\x0cWebrtcConfig\x12\x37\n\x0bice_servers\x18\x01 \x03(\x0b\x32\".networking.WebrtcConfig.IceServer\x1a?\n\tIceServer\x12\x0c\n\x04urls\x18\x01 \x01(\t\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x12\n\ncredential\x18\x03 \x01(\t\"\xca\x01\n\x05State\x12%\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x17.networking.DataChannel\x12\'\n\x05media\x18\x02 \x03(\x0b\x32\x18.networking.MediaChannel\x12,\n\x0cwantedTracks\x18\x03 \x03(\x0b\x32\x16.networking.NamedTrack\x12(\n\x06\x63onfig\x18\x04 \x01(\x0b\x32\x18.networking.WebrtcConfig\x12\x19\n\x11reconnectAttempts\x18\x05 \x01(\r\"[\n\x08Mutation\x12*\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1c.networking.DataTransmission\x12#\n\x08setState\x18\x02 \x01(\x0b\x32\x11.networking.StateB4Z2github.com/hzhou0/swarm-node/server/networking;ipcb\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,23 +33,23 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z2github.com/hzhou0/swarm-node/server/networking;ipc'
   _globals['_NAMEDTRACK']._serialized_start=32
-  _globals['_NAMEDTRACK']._serialized_end=118
-  _globals['_WEBRTCOFFER']._serialized_start=121
-  _globals['_WEBRTCOFFER']._serialized_end=346
-  _globals['_DATACHANNEL']._serialized_start=348
-  _globals['_DATACHANNEL']._serialized_end=416
-  _globals['_DATATRANSMISSION']._serialized_start=418
-  _globals['_DATATRANSMISSION']._serialized_end=495
-  _globals['_MEDIACHANNEL']._serialized_start=497
-  _globals['_MEDIACHANNEL']._serialized_end=587
-  _globals['_EVENT']._serialized_start=589
-  _globals['_EVENT']._serialized_end=681
-  _globals['_WEBRTCCONFIG']._serialized_start=684
-  _globals['_WEBRTCCONFIG']._serialized_end=820
-  _globals['_WEBRTCCONFIG_ICESERVER']._serialized_start=757
-  _globals['_WEBRTCCONFIG_ICESERVER']._serialized_end=820
-  _globals['_STATE']._serialized_start=823
-  _globals['_STATE']._serialized_end=1025
-  _globals['_MUTATION']._serialized_start=1027
-  _globals['_MUTATION']._serialized_end=1118
+  _globals['_NAMEDTRACK']._serialized_end=100
+  _globals['_WEBRTCOFFER']._serialized_start=103
+  _globals['_WEBRTCOFFER']._serialized_end=328
+  _globals['_DATACHANNEL']._serialized_start=330
+  _globals['_DATACHANNEL']._serialized_end=380
+  _globals['_DATATRANSMISSION']._serialized_start=382
+  _globals['_DATATRANSMISSION']._serialized_end=459
+  _globals['_MEDIACHANNEL']._serialized_start=461
+  _globals['_MEDIACHANNEL']._serialized_end=551
+  _globals['_EVENT']._serialized_start=553
+  _globals['_EVENT']._serialized_end=645
+  _globals['_WEBRTCCONFIG']._serialized_start=648
+  _globals['_WEBRTCCONFIG']._serialized_end=784
+  _globals['_WEBRTCCONFIG_ICESERVER']._serialized_start=721
+  _globals['_WEBRTCCONFIG_ICESERVER']._serialized_end=784
+  _globals['_STATE']._serialized_start=787
+  _globals['_STATE']._serialized_end=989
+  _globals['_MUTATION']._serialized_start=991
+  _globals['_MUTATION']._serialized_end=1082
 # @@protoc_insertion_point(module_scope)

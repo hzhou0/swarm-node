@@ -181,7 +181,7 @@ func (k *Kernel) streamEvents() {
 			t.SetStreamId(track.streamId)
 			t.SetTrackId(track.trackId)
 			t.SetMimeType(track.mimeType)
-			m.SetSrcUuid(track.sender)
+			//m.SetSrcUuid(track.)
 			m.SetTrack(&t)
 			ev.SetMedia(&m)
 		}

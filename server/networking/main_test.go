@@ -40,34 +40,29 @@ func TestNewWebrtcState(t *testing.T) {
 func TestWebrtcState_OutTrack(t *testing.T) {
 	wst := NewWebrtcState(webrtcConfig)
 	assert.Len(t, wst.OutTracks(), 0)
-	track1 := NewNamedTrackKey("", "track1", "stream1", "video/h264")
-	track2 := NewNamedTrackKey("", "track2", "stream2", "video/h264")
-	pf := NewPeeringOffer("", nil, []NamedTrackKey{track1, track2}, nil, true)
-	err, _ := wst.Peer(*pf, 0)
+
+	track1 := NewNamedTrackKey("track1", "stream1", "video/h264")
+	track2 := NewNamedTrackKey("track2", "stream2", "video/h264")
+
+	pf := PeeringOffer{
+		peerId:      "",
+		sdp:         nil,
+		outTracks:   []NamedTrackKey{track1, track2},
+		inTracks:    nil,
+		dataChannel: true,
+	}
+	err, _ := wst.Peer(pf, 0)
 	assert.Nil(t, err)
 	assert.Len(t, wst.OutTracks(), 2)
 	assert.Contains(t, wst.OutTracks(), track1)
 	assert.Contains(t, wst.OutTracks(), track2)
 }
 
-func TestWebrtcState_OutTrackAllowed(t *testing.T) {
-	wst := NewWebrtcState(webrtcConfig)
-	track1 := NewNamedTrackKey("", "track1", "stream1", "video/h264")
-	track2 := NewNamedTrackKey("", "track2", "stream2", "video/h264")
-	track3 := NewNamedTrackKey("", "track3", "stream3", "video/vp9")
-	pf := NewPeeringOffer("", nil, []NamedTrackKey{track1, track2}, nil, true)
-	err, _ := wst.Peer(*pf, 0)
-	assert.Nil(t, err)
-	assert.True(t, wst.OutTrackAllowed(track1))
-	assert.True(t, wst.OutTrackAllowed(track2))
-	assert.False(t, wst.OutTrackAllowed(track3))
-}
-
 func TestWebrtcState_InTrackAllowed(t *testing.T) {
 	wst := NewWebrtcState(webrtcConfig)
-	track1 := NewNamedTrackKey("", "track1", "stream1", "video/h264")
-	track2 := NewNamedTrackKey("", "track2", "stream2", "video/h264")
-	track3 := NewNamedTrackKey("", "track3", "stream3", "video/vp9")
+	track1 := NewNamedTrackKey("track1", "stream1", "video/h264")
+	track2 := NewNamedTrackKey("track2", "stream2", "video/h264")
+	track3 := NewNamedTrackKey("track3", "stream3", "video/vp9")
 	assert.False(t, wst.InTrackAllowed(track1))
 	assert.False(t, wst.InTrackAllowed(track2))
 	webrtcConfig1 := WebrtcStateConfig{
@@ -94,8 +89,14 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 	wst2 := NewWebrtcState(webrtcConfig)
 	assert.Len(t, maps.Keys(wst2.peers), 0)
 	assert.Len(t, maps.Keys(wst1.peers), 0)
-	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil, true)
-	err, _ := wst2.Peer(*pf, 0)
+	pf := PeeringOffer{
+		peerId:      "http://" + servAddr + "/api/webrtc",
+		sdp:         nil,
+		outTracks:   nil,
+		inTracks:    nil,
+		dataChannel: true,
+	}
+	err, _ := wst2.Peer(pf, 0)
 	assert.Nil(t, err)
 	assert.Len(t, maps.Keys(wst2.peers), 1)
 	assert.Len(t, maps.Keys(wst1.peers), 1)
@@ -106,8 +107,14 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 	wst2.UnPeer("http://" + servAddr + "/api/webrtc")
 	time.Sleep(200 * time.Millisecond)
 	assert.Len(t, maps.Keys(wst1.peers), 0)
-	pf2 := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil, true)
-	err, _ = wst2.Peer(*pf2, 0)
+	pf2 := PeeringOffer{
+		peerId:      "http://" + servAddr + "/api/webrtc",
+		sdp:         nil,
+		outTracks:   nil,
+		inTracks:    nil,
+		dataChannel: true,
+	}
+	err, _ = wst2.Peer(pf2, 0)
 	assert.Nil(t, err)
 	assert.Len(t, maps.Keys(wst2.peers), 1)
 	assert.Len(t, maps.Keys(wst1.peers), 1)
@@ -122,8 +129,14 @@ func TestWebrtcState_PutPeer_DataChannels(t *testing.T) {
 	wst1 := NewWebrtcState(webrtcConfig)
 	runHttpServer(wst1, servAddr)
 	wst2 := NewWebrtcState(webrtcConfig)
-	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil, true)
-	err, _ := wst2.Peer(*pf, 0)
+	pf := PeeringOffer{
+		peerId:      "http://" + servAddr + "/api/webrtc",
+		sdp:         nil,
+		outTracks:   nil,
+		inTracks:    nil,
+		dataChannel: true,
+	}
+	err, _ := wst2.Peer(pf, 0)
 	assert.Nil(t, err)
 
 	trans := ipc.DataTransmission{}
@@ -176,25 +189,31 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 		},
 		reconnectAttempts: 0,
 		allowedInTracks: []NamedTrackKey{
-			NewNamedTrackKey("", "rgbd", "realsenseD455", "video/h264"),
-			NewNamedTrackKey("", "rgbd", "randomSensor", "video/h264"),
+			NewNamedTrackKey("rgbd", "realsenseD455", "video/h264"),
+			NewNamedTrackKey("rgbd", "randomSensor", "video/h264"),
 		},
 	})
 	runHttpServer(wst1, servAddr)
 	wst2 := NewWebrtcState(webrtcConfig)
-	outputTrackKey := NewNamedTrackKey("", "rgbd", "realsenseD455", "video/h264")
-	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, []NamedTrackKey{outputTrackKey}, nil, false)
+	outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", "video/h264")
+	pf := PeeringOffer{
+		peerId:      "http://" + servAddr + "/api/webrtc",
+		sdp:         nil,
+		outTracks:   []NamedTrackKey{outputTrackKey},
+		inTracks:    nil,
+		dataChannel: false,
+	}
 
 	gst.Init(nil)
-	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath))
+	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath("")))
 	assert.Nil(t, err)
 	assert.Nil(t, pipeline.Start())
-	err, _ = wst2.Peer(*pf, 0)
+	err, _ = wst2.Peer(pf, 0)
 	assert.Nil(t, err)
-	receivedTrack := <-wst1.InTrack
-	assert.Equal(t, receivedTrack.trackId, outputTrackKey.trackId)
-	assert.Equal(t, strings.ToUpper(receivedTrack.mimeType), strings.ToUpper(outputTrackKey.mimeType))
-	assert.Equal(t, receivedTrack.streamId, outputTrackKey.streamId)
-	assert.Equal(t, receivedTrack.sender, wst2.SrcUUID)
-	assert.FileExists(t, receivedTrack.shmPath)
+	receivedTrack := <-wst1.InMedia
+	assert.Equal(t, receivedTrack.GetTrack().GetTrackId(), outputTrackKey.trackId)
+	assert.Equal(t, strings.ToUpper(receivedTrack.GetTrack().GetMimeType()), strings.ToUpper(outputTrackKey.mimeType))
+	assert.Equal(t, receivedTrack.GetTrack().GetStreamId(), outputTrackKey.streamId)
+	assert.Equal(t, receivedTrack.GetSrcUuid(), wst2.SrcUUID)
+	assert.FileExists(t, NamedTrackKeyFromProto(receivedTrack.GetTrack()).shmPath(receivedTrack.GetSrcUuid()))
 }

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"networking/ipc"
 	"os"
+	"slices"
 )
 
 func runHttpServer(webrtcState *WebrtcState, addr string) {
@@ -86,37 +87,32 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 			// Process Step 3 Request
 			// Validate Local/Incoming Tracks
 			lTracks := offer.GetLocalTracks()
-			var inTracks []NamedTrackKey
 			for _, lTrack := range lTracks {
-				k := NewNamedTrackKey("", lTrack.GetTrackId(), lTrack.GetStreamId(), lTrack.GetMimeType())
+				k := NamedTrackKeyFromProto(lTrack)
 				if !webrtcState.InTrackAllowed(k) {
 					c.String(http.StatusNotAcceptable, "Incoming track %v not allowed", lTrack.GetTrackId())
 					return
-				} else {
-					inTracks = append(inTracks, k)
 				}
 			}
 			// Validate Outgoing/Remote Tracks
+			broadcasts := webrtcState.BroadcastOutTracks()
 			rTracks := offer.GetRemoteTracks()
-			var outTracks []NamedTrackKey
 			for _, oTrack := range rTracks {
-				k := NewNamedTrackKey("", oTrack.GetTrackId(), oTrack.GetStreamId(), oTrack.GetMimeType())
-				if !webrtcState.OutTrackAllowed(k) {
-					c.String(http.StatusNotAcceptable, "Outbound track %v not allowed", oTrack.GetTrackId())
+				k := NamedTrackKeyFromProto(oTrack)
+				if !slices.Contains(broadcasts, k) {
+					c.String(http.StatusNotAcceptable, "Requested track %v not available", oTrack.GetTrackId())
 					return
-				} else {
-					outTracks = append(outTracks, k)
 				}
 			}
-			pOffer := NewPeeringOffer(
-				offer.GetSrcUuid(),
-				&webrtc.SessionDescription{Type: webrtc.NewSDPType(offer.GetType()), SDP: offer.GetSdp()},
-				outTracks,
-				inTracks,
-				offer.GetDatachannel(),
-			)
+			pOffer := PeeringOffer{
+				peerId:      offer.GetSrcUuid(),
+				sdp:         &webrtc.SessionDescription{Type: webrtc.NewSDPType(offer.GetType()), SDP: offer.GetSdp()},
+				outTracks:   Map(rTracks, NamedTrackKeyFromProto),
+				inTracks:    Map(lTracks, NamedTrackKeyFromProto),
+				dataChannel: offer.GetDatachannel(),
+			}
 			webrtcState.UnPeer(pOffer.peerId)
-			err, answerSdp := webrtcState.Peer(*pOffer, 0)
+			err, answerSdp := webrtcState.Peer(pOffer, 0)
 			if err != nil {
 				c.String(http.StatusInternalServerError, "Peering failed %v", err)
 				return
@@ -147,12 +143,9 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 			c.Request.URL.Scheme = "http"
 			answer.SetSrcUuid(c.Request.URL.String())
 			for _, track := range offer.GetLocalTracks() {
-				ntk := NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())
+				ntk := NamedTrackKeyFromProto(track)
 				if webrtcState.InTrackAllowed(ntk) {
 					allowedRemote = append(allowedRemote, track)
-				} else if track.GetRequired() {
-					c.String(http.StatusBadRequest, "Required track %+v not acceptable", ntk)
-					return
 				}
 			}
 			answer.SetRemoteTracks(allowedRemote)
@@ -163,7 +156,6 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 				tr.SetStreamId(v.streamId)
 				tr.SetTrackId(v.trackId)
 				tr.SetMimeType(v.mimeType)
-				tr.SetRequired(false)
 				localTracks = append(localTracks, &tr)
 			}
 			answer.SetLocalTracks(localTracks)
