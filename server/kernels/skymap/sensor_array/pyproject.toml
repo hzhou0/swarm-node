@@ -1,0 +1,27 @@
+[project]
+name = "swarm-node"
+description = "middleware stack for real time remote operation of connected devices"
+version = "0.0.7"
+requires-python = "~=3.11.0"
+classifiers = [
+    "Environment :: No Input/Output (Daemon)",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "uvloop==0.21.0",
+    "msgspec~=0.19.0",
+    "pyudev==0.24.3",
+    "psutil==5.9.8",
+    "pyserial==3.5",
+    "numpy~=1.0",
+    "opencv-python==4.10.0.84",
+    "pyrealsense2==2.55.1.6486",
+    "pygnssutils==1.1.8",
+    "pynmeagps==1.0.43",
+    "google-crc32c>=1",
+    "numba~=0.60.0",
+    "rp2040"
+]
+
+[tool.uv.sources]
+rp2040 = { path = "../../../utils/rp2040" }

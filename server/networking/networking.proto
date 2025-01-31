@@ -2,82 +2,12 @@ edition = "2023";
 package networking;
 option go_package = "github.com/hzhou0/swarm-node/server/networking;ipc";
 
-message AudioDevice {
-  message Options {
-    string name = 1;
-    bool default_ = 2; // default is a reserved keyword, so use default_
-    float volume = 3;
-    bool mute = 4;
-  }
-  Options options = 1;
-  string description = 2;
-  string driver = 3;
-  int32 index = 4;
-  bool is_monitor = 5;
-  enum AudioDeviceState {
-    IDLE = 0;
-    INVALID = 1;
-    RUNNING = 2;
-    SUSPENDED = 3;
-  }
-  AudioDeviceState state = 6;
-  enum Type {
-    SINK = 0;
-    SOURCE = 1;
-  }
-  Type type = 7;
-  map<string, string> properties = 8;
-  enum AudioDeviceFormFactor {
-    CAR = 0;
-    COMPUTER = 1;
-    HANDS_FREE = 2;
-    HANDSET = 3;
-    HEADPHONE = 4;
-    HEADSET = 5;
-    HIFI = 6;
-    INTERNAL = 7;
-    MICROPHONE = 8;
-    PORTABLE = 9;
-    SPEAKER = 10;
-    TV = 11;
-    WEBCAM = 12;
-    UNKNOWN = 13;
-  }
-  AudioDeviceFormFactor form_factor = 9;
-}
-
-
-
-message VideoDevice {
-  string name = 1;
-  uint32 index = 2;
-  bool closed = 3;
-  string description = 4;
-  repeated string capabilities = 5;
-  message VideoSize {
-    uint32 height = 1;
-    uint32 width = 2;
-    repeated float fps = 3;
-    string format = 4;
-  }
-  repeated VideoSize video_sizes = 6;
-}
-
-
-message WebrtcInfo {
-  message IceServer {
-    string urls = 1;
-    string username = 2;
-    string credential = 3;
-  }
-  repeated IceServer ice_servers = 1;
-}
 
 message NamedTrack {
   string track_id = 1;
   string stream_id = 2;
   string mime_type = 3;
-  map<string, string> properties = 4;
+  bool required = 4;
 }
 
 // uuid can be any string that uniquely identifies the sender/receiver. No specific format required.
@@ -97,36 +27,50 @@ message WebrtcOffer {
   bool local_tracks_set = 5; // Required: it's impossible to tell if no tracks exists or if tracks are unknown, hence these flags.
   repeated NamedTrack remote_tracks = 6;
   bool remote_tracks_set = 7; // Required
+  bool datachannel = 8;
+}
+
+message DataChannel {
+  string src_uuid = 1; // Leave unset when sending; always present when receiving
+  string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
+  bool required = 3;
 }
 
 message DataTransmission {
-  string src_uuid = 1; // Leave unset when sending; always present when receiving
-  string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
-  bytes payload = 3;
-  bool close = 4; // Close this peer connection, all other options ignored if this is present
+  DataChannel channel = 1;
+  bytes payload = 2;
 }
 
-message MediaTransmission {
+message MediaChannel {
   string src_uuid = 1; // Leave unset when sending; always present when receiving
   string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
-  // Track properties must include `shmsrc_socket-path` [shmsrc](https://gstreamer.freedesktop.org/documentation/shm/shmsrc.html) to begin consuming media
-  // This is authoritative: only the given tracks will be sent, all previous configurations are forgotten.
   // When sent from the kernel, this will be fulfilled on a best-effort basis. The dest can reject any track it doesn't want.
-  repeated NamedTrack tracks = 3;
-  bool close = 4; // Close this peer connection, all other options ignored if this is present
+  NamedTrack track = 3;
 }
 
-message KernelMutation {
+message Event {
   DataTransmission data = 1;
-  MediaTransmission media = 2;
+  MediaChannel media = 2;
 }
 
-message SetWantedTracks {
-  repeated NamedTrack wanted_tracks = 1; // Any tracks not in this list will be rejected by the networking layer.
+message WebrtcConfig {
+  message IceServer {
+    string urls = 1;
+    string username = 2;
+    string credential = 3;
+  }
+  repeated IceServer ice_servers = 1;
 }
 
-message KernelEvent {
+message State {
+  repeated DataChannel data = 1;
+  repeated MediaChannel media = 2;
+  repeated NamedTrack wantedTracks = 3;
+  WebrtcConfig config = 4;
+  uint32 reconnectAttempts = 5;
+}
+
+message Mutation {
   DataTransmission data = 1;
-  MediaTransmission media = 2;
-  SetWantedTracks wantedTracks = 3;
+  State setState = 2;
 }

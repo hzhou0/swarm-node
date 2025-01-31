@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/go-gst/go-gst/gst"
+	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 	"log"
@@ -15,9 +16,21 @@ import (
 	"time"
 )
 
+var webrtcConfig = WebrtcStateConfig{
+	webrtcConfig: webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302"},
+			},
+		},
+	},
+	reconnectAttempts: 0,
+	allowedInTracks:   []NamedTrackKey{},
+}
+
 func TestNewWebrtcState(t *testing.T) {
 	baseNum := runtime.NumGoroutine()
-	wst := NewWebrtcState()
+	wst := NewWebrtcState(webrtcConfig)
 	assert.Equal(t, runtime.NumGoroutine(), baseNum+1)
 	wst.Close()
 	time.Sleep(1 * time.Millisecond)
@@ -25,12 +38,12 @@ func TestNewWebrtcState(t *testing.T) {
 }
 
 func TestWebrtcState_OutTrack(t *testing.T) {
-	wst := NewWebrtcState()
+	wst := NewWebrtcState(webrtcConfig)
 	assert.Len(t, wst.OutTracks(), 0)
 	track1 := NewNamedTrackKey("", "track1", "stream1", "video/h264")
 	track2 := NewNamedTrackKey("", "track2", "stream2", "video/h264")
-	pf := NewPeeringOffer("", nil, []NamedTrackKey{track1, track2}, nil)
-	err, _ := wst.Peer(*pf)
+	pf := NewPeeringOffer("", nil, []NamedTrackKey{track1, track2}, nil, true)
+	err, _ := wst.Peer(*pf, 0)
 	assert.Nil(t, err)
 	assert.Len(t, wst.OutTracks(), 2)
 	assert.Contains(t, wst.OutTracks(), track1)
@@ -38,12 +51,12 @@ func TestWebrtcState_OutTrack(t *testing.T) {
 }
 
 func TestWebrtcState_OutTrackAllowed(t *testing.T) {
-	wst := NewWebrtcState()
+	wst := NewWebrtcState(webrtcConfig)
 	track1 := NewNamedTrackKey("", "track1", "stream1", "video/h264")
 	track2 := NewNamedTrackKey("", "track2", "stream2", "video/h264")
 	track3 := NewNamedTrackKey("", "track3", "stream3", "video/vp9")
-	pf := NewPeeringOffer("", nil, []NamedTrackKey{track1, track2}, nil)
-	err, _ := wst.Peer(*pf)
+	pf := NewPeeringOffer("", nil, []NamedTrackKey{track1, track2}, nil, true)
+	err, _ := wst.Peer(*pf, 0)
 	assert.Nil(t, err)
 	assert.True(t, wst.OutTrackAllowed(track1))
 	assert.True(t, wst.OutTrackAllowed(track2))
@@ -51,27 +64,38 @@ func TestWebrtcState_OutTrackAllowed(t *testing.T) {
 }
 
 func TestWebrtcState_InTrackAllowed(t *testing.T) {
-	wst := NewWebrtcState()
+	wst := NewWebrtcState(webrtcConfig)
 	track1 := NewNamedTrackKey("", "track1", "stream1", "video/h264")
 	track2 := NewNamedTrackKey("", "track2", "stream2", "video/h264")
 	track3 := NewNamedTrackKey("", "track3", "stream3", "video/vp9")
 	assert.False(t, wst.InTrackAllowed(track1))
 	assert.False(t, wst.InTrackAllowed(track2))
-	wst.SetAllowedInTracks([]NamedTrackKey{track1, track2})
+	webrtcConfig1 := WebrtcStateConfig{
+		webrtcConfig: webrtc.Configuration{
+			ICEServers: []webrtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+		},
+		reconnectAttempts: 0,
+		allowedInTracks:   []NamedTrackKey{track1, track2},
+	}
+	wst.Reconfigure(webrtcConfig1)
 	assert.True(t, wst.InTrackAllowed(track1))
 	assert.True(t, wst.InTrackAllowed(track2))
 	assert.False(t, wst.InTrackAllowed(track3))
 }
 
 func TestWebrtcState_PutPeer(t *testing.T) {
-	wst1 := NewWebrtcState()
+	wst1 := NewWebrtcState(webrtcConfig)
 	servAddr := "127.0.0.1:8080"
 	runHttpServer(wst1, servAddr)
-	wst2 := NewWebrtcState()
+	wst2 := NewWebrtcState(webrtcConfig)
 	assert.Len(t, maps.Keys(wst2.peers), 0)
 	assert.Len(t, maps.Keys(wst1.peers), 0)
-	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil)
-	err, _ := wst2.Peer(*pf)
+	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil, true)
+	err, _ := wst2.Peer(*pf, 0)
 	assert.Nil(t, err)
 	assert.Len(t, maps.Keys(wst2.peers), 1)
 	assert.Len(t, maps.Keys(wst1.peers), 1)
@@ -82,8 +106,8 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 	wst2.UnPeer("http://" + servAddr + "/api/webrtc")
 	time.Sleep(200 * time.Millisecond)
 	assert.Len(t, maps.Keys(wst1.peers), 0)
-	pf2 := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil)
-	err, _ = wst2.Peer(*pf2)
+	pf2 := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil, true)
+	err, _ = wst2.Peer(*pf2, 0)
 	assert.Nil(t, err)
 	assert.Len(t, maps.Keys(wst2.peers), 1)
 	assert.Len(t, maps.Keys(wst1.peers), 1)
@@ -95,23 +119,25 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 
 func TestWebrtcState_PutPeer_DataChannels(t *testing.T) {
 	servAddr := "127.0.0.1:8081"
-	wst1 := NewWebrtcState()
+	wst1 := NewWebrtcState(webrtcConfig)
 	runHttpServer(wst1, servAddr)
-	wst2 := NewWebrtcState()
-	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil)
-	err, _ := wst2.Peer(*pf)
+	wst2 := NewWebrtcState(webrtcConfig)
+	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, nil, nil, true)
+	err, _ := wst2.Peer(*pf, 0)
 	assert.Nil(t, err)
 
 	trans := ipc.DataTransmission{}
+	dChan := ipc.DataChannel{}
+	dChan.SetDestUuid(maps.Keys(wst1.peers)[0])
 	trans.SetPayload([]byte("test payload 1wafdf54yrhtfg"))
-	trans.SetDestUuid(maps.Keys(wst1.peers)[0])
+	trans.SetChannel(&dChan)
 	wst1.DataOut <- &trans
 
 	recv := <-wst2.DataIn
 
 	assert.Equal(t, recv.GetPayload(), trans.GetPayload())
-	assert.Equal(t, recv.GetSrcUuid(), maps.Keys(wst2.peers)[0])
-	assert.False(t, recv.HasDestUuid())
+	assert.Equal(t, recv.GetChannel().GetSrcUuid(), maps.Keys(wst2.peers)[0])
+	assert.False(t, recv.GetChannel().HasDestUuid())
 }
 
 func removeGlob(pattern string) {
@@ -140,21 +166,30 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 
 	log.SetFlags(log.Lshortfile)
 	servAddr := "127.0.0.1:8082"
-	wst1 := NewWebrtcState()
-	wst1.SetAllowedInTracks([]NamedTrackKey{
-		NewNamedTrackKey("", "rgbd", "realsenseD455", "video/h264"),
-		NewNamedTrackKey("", "rgbd", "randomSensor", "video/h264"),
+	wst1 := NewWebrtcState(WebrtcStateConfig{
+		webrtcConfig: webrtc.Configuration{
+			ICEServers: []webrtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+		},
+		reconnectAttempts: 0,
+		allowedInTracks: []NamedTrackKey{
+			NewNamedTrackKey("", "rgbd", "realsenseD455", "video/h264"),
+			NewNamedTrackKey("", "rgbd", "randomSensor", "video/h264"),
+		},
 	})
 	runHttpServer(wst1, servAddr)
-	wst2 := NewWebrtcState()
+	wst2 := NewWebrtcState(webrtcConfig)
 	outputTrackKey := NewNamedTrackKey("", "rgbd", "realsenseD455", "video/h264")
-	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, []NamedTrackKey{outputTrackKey}, nil)
+	pf := NewPeeringOffer("http://"+servAddr+"/api/webrtc", nil, []NamedTrackKey{outputTrackKey}, nil, false)
 
 	gst.Init(nil)
 	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath))
 	assert.Nil(t, err)
 	assert.Nil(t, pipeline.Start())
-	err, _ = wst2.Peer(*pf)
+	err, _ = wst2.Peer(*pf, 0)
 	assert.Nil(t, err)
 	receivedTrack := <-wst1.InTrack
 	assert.Equal(t, receivedTrack.trackId, outputTrackKey.trackId)

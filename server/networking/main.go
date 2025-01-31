@@ -113,9 +113,10 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 				&webrtc.SessionDescription{Type: webrtc.NewSDPType(offer.GetType()), SDP: offer.GetSdp()},
 				outTracks,
 				inTracks,
+				offer.GetDatachannel(),
 			)
 			webrtcState.UnPeer(pOffer.peerId)
-			err, answerSdp := webrtcState.Peer(*pOffer)
+			err, answerSdp := webrtcState.Peer(*pOffer, 0)
 			if err != nil {
 				c.String(http.StatusInternalServerError, "Peering failed %v", err)
 				return
@@ -146,18 +147,23 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 			c.Request.URL.Scheme = "http"
 			answer.SetSrcUuid(c.Request.URL.String())
 			for _, track := range offer.GetLocalTracks() {
-				if webrtcState.InTrackAllowed(NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())) {
+				ntk := NewNamedTrackKey("", track.GetTrackId(), track.GetStreamId(), track.GetMimeType())
+				if webrtcState.InTrackAllowed(ntk) {
 					allowedRemote = append(allowedRemote, track)
+				} else if track.GetRequired() {
+					c.String(http.StatusBadRequest, "Required track %+v not acceptable", ntk)
+					return
 				}
 			}
 			answer.SetRemoteTracks(allowedRemote)
 			answer.SetRemoteTracksSet(true)
 			var localTracks []*ipc.NamedTrack
-			for _, v := range webrtcState.OutTracks() {
+			for _, v := range webrtcState.BroadcastOutTracks() {
 				tr := ipc.NamedTrack{}
 				tr.SetStreamId(v.streamId)
 				tr.SetTrackId(v.trackId)
 				tr.SetMimeType(v.mimeType)
+				tr.SetRequired(false)
 				localTracks = append(localTracks, &tr)
 			}
 			answer.SetLocalTracks(localTracks)
@@ -195,10 +201,18 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 }
 
 func main() {
-	webrtcState := NewWebrtcState()
+	webrtcConfig := WebrtcStateConfig{
+		webrtcConfig: webrtc.Configuration{
+			ICEServers: []webrtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+		},
+		reconnectAttempts: 0,
+		allowedInTracks:   []NamedTrackKey{},
+	}
+	webrtcState := NewWebrtcState(webrtcConfig)
 	go runHttpServer(webrtcState, ":8080")
-	select {}
-	_, eventR := runKernelBackground()
-	go handleKernelEvents(eventR)
 	select {}
 }
