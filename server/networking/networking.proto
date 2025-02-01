@@ -31,7 +31,7 @@ message WebrtcOffer {
 
 message DataChannel {
   string src_uuid = 1; // Leave unset when sending; always present when receiving
-  string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
+  string dest_uuid = 2; // Set when sending; unset when receiving
 } // Data channel is always required if present
 
 message DataTransmission {
@@ -49,13 +49,15 @@ message MediaChannel {
 message Event {
   DataTransmission data = 1;
   MediaChannel media = 2;
+  State achievedState = 3;
 }
 
 message WebrtcConfig {
   message IceServer {
-    string urls = 1;
+    repeated string urls = 1;
     string username = 2;
     string credential = 3;
+    string credentialType = 4;
   }
   repeated IceServer ice_servers = 1;
 }

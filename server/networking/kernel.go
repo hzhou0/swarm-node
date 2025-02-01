@@ -34,18 +34,20 @@ type Kernel struct {
 	Close      context.CancelFunc
 	Ctx        context.Context
 
-	dataOut     chan<- *ipc.DataTransmission
-	dataIn      <-chan *ipc.DataTransmission
-	inTrack     <-chan NamedTrackKey
-	targetState chan *ipc.State
+	dataOut       chan<- *ipc.DataTransmission
+	dataIn        <-chan *ipc.DataTransmission
+	mediaIn       <-chan *ipc.MediaChannel
+	TargetState   chan *ipc.State
+	achievedState <-chan *ipc.State
 }
 
-func NewKernel(dataOut chan<- *ipc.DataTransmission, dataIn <-chan *ipc.DataTransmission, inTrack <-chan NamedTrackKey) (Kernel, error) {
+func NewKernel(dataOut chan<- *ipc.DataTransmission, dataIn <-chan *ipc.DataTransmission, mediaIn <-chan *ipc.MediaChannel, achievedState <-chan *ipc.State) (Kernel, error) {
 	k := Kernel{
-		dataOut:     dataOut,
-		dataIn:      dataIn,
-		inTrack:     inTrack,
-		targetState: make(chan *ipc.State),
+		dataOut:       dataOut,
+		dataIn:        dataIn,
+		mediaIn:       mediaIn,
+		achievedState: achievedState,
+		TargetState:   make(chan *ipc.State),
 	}
 
 	k.envVar = os.Getenv("SWARM_NODE_KERNEL")
@@ -163,7 +165,7 @@ func (k *Kernel) streamMutations() {
 				k.dataOut <- mutation.GetData()
 			}
 			if mutation.HasSetState() {
-				k.targetState <- mutation.GetSetState()
+				k.TargetState <- mutation.GetSetState()
 			}
 		}
 	}
@@ -175,15 +177,10 @@ func (k *Kernel) streamEvents() {
 		select {
 		case dataIn := <-k.dataIn:
 			ev.SetData(dataIn)
-		case track := <-k.inTrack:
-			m := ipc.MediaChannel{}
-			t := ipc.NamedTrack{}
-			t.SetStreamId(track.streamId)
-			t.SetTrackId(track.trackId)
-			t.SetMimeType(track.mimeType)
-			//m.SetSrcUuid(track.)
-			m.SetTrack(&t)
-			ev.SetMedia(&m)
+		case media := <-k.mediaIn:
+			ev.SetMedia(media)
+		case state := <-k.achievedState:
+			ev.SetAchievedState(state)
 		}
 		err := k.writeEvent(&ev)
 		if err != nil {

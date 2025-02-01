@@ -112,7 +112,7 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 				dataChannel: offer.GetDatachannel(),
 			}
 			webrtcState.UnPeer(pOffer.peerId)
-			err, answerSdp := webrtcState.Peer(pOffer, 0)
+			answerSdp, err := webrtcState.Peer(pOffer, 0)
 			if err != nil {
 				c.String(http.StatusInternalServerError, "Peering failed %v", err)
 				return
@@ -192,6 +192,18 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 	}()
 }
 
+func drainChannel[T any](ch <-chan T) {
+	for {
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				return // Stop when the channel is closed
+			}
+		default:
+			return // Stop when the channel is empty
+		}
+	}
+}
 func main() {
 	webrtcConfig := WebrtcStateConfig{
 		webrtcConfig: webrtc.Configuration{
@@ -206,5 +218,31 @@ func main() {
 	}
 	webrtcState := NewWebrtcState(webrtcConfig)
 	go runHttpServer(webrtcState, ":8080")
-	select {}
+
+	achievedState := make(chan *ipc.State)
+	kernel, err := NewKernel(webrtcState.DataOut, webrtcState.DataIn, webrtcState.MediaIn, achievedState)
+	if err != nil {
+		panic(err)
+	}
+	for {
+		select {
+		case newState := <-kernel.TargetState:
+			err := webrtcState.Reconcile(newState)
+			if err != nil {
+				panic(err)
+			}
+			stateMsg, err := webrtcState.ToProto()
+			if err != nil {
+				panic(err)
+			}
+			achievedState <- stateMsg
+		case <-webrtcState.backgroundChange:
+			drainChannel(webrtcState.backgroundChange)
+			stateMsg, err := webrtcState.ToProto()
+			if err != nil {
+				panic(err)
+			}
+			achievedState <- stateMsg
+		}
+	}
 }

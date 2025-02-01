@@ -51,7 +51,7 @@ func TestWebrtcState_OutTrack(t *testing.T) {
 		inTracks:    nil,
 		dataChannel: true,
 	}
-	err, _ := wst.Peer(pf, 0)
+	_, err := wst.Peer(pf, 0)
 	assert.Nil(t, err)
 	assert.Len(t, wst.OutTracks(), 2)
 	assert.Contains(t, wst.OutTracks(), track1)
@@ -96,7 +96,7 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 		inTracks:    nil,
 		dataChannel: true,
 	}
-	err, _ := wst2.Peer(pf, 0)
+	_, err := wst2.Peer(pf, 0)
 	assert.Nil(t, err)
 	assert.Len(t, maps.Keys(wst2.peers), 1)
 	assert.Len(t, maps.Keys(wst1.peers), 1)
@@ -114,7 +114,7 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 		inTracks:    nil,
 		dataChannel: true,
 	}
-	err, _ = wst2.Peer(pf2, 0)
+	_, err = wst2.Peer(pf2, 0)
 	assert.Nil(t, err)
 	assert.Len(t, maps.Keys(wst2.peers), 1)
 	assert.Len(t, maps.Keys(wst1.peers), 1)
@@ -136,7 +136,7 @@ func TestWebrtcState_PutPeer_DataChannels(t *testing.T) {
 		inTracks:    nil,
 		dataChannel: true,
 	}
-	err, _ := wst2.Peer(pf, 0)
+	_, err := wst2.Peer(pf, 0)
 	assert.Nil(t, err)
 
 	trans := ipc.DataTransmission{}
@@ -208,9 +208,9 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath("")))
 	assert.Nil(t, err)
 	assert.Nil(t, pipeline.Start())
-	err, _ = wst2.Peer(pf, 0)
+	_, err = wst2.Peer(pf, 0)
 	assert.Nil(t, err)
-	receivedTrack := <-wst1.InMedia
+	receivedTrack := <-wst1.MediaIn
 	assert.Equal(t, receivedTrack.GetTrack().GetTrackId(), outputTrackKey.trackId)
 	assert.Equal(t, strings.ToUpper(receivedTrack.GetTrack().GetMimeType()), strings.ToUpper(outputTrackKey.mimeType))
 	assert.Equal(t, receivedTrack.GetTrack().GetStreamId(), outputTrackKey.streamId)

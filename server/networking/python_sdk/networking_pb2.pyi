@@ -62,24 +62,28 @@ class MediaChannel(_message.Message):
     def __init__(self, src_uuid: _Optional[str] = ..., dest_uuid: _Optional[str] = ..., track: _Optional[_Union[NamedTrack, _Mapping]] = ...) -> None: ...
 
 class Event(_message.Message):
-    __slots__ = ("data", "media")
+    __slots__ = ("data", "media", "achievedState")
     DATA_FIELD_NUMBER: _ClassVar[int]
     MEDIA_FIELD_NUMBER: _ClassVar[int]
+    ACHIEVEDSTATE_FIELD_NUMBER: _ClassVar[int]
     data: DataTransmission
     media: MediaChannel
-    def __init__(self, data: _Optional[_Union[DataTransmission, _Mapping]] = ..., media: _Optional[_Union[MediaChannel, _Mapping]] = ...) -> None: ...
+    achievedState: State
+    def __init__(self, data: _Optional[_Union[DataTransmission, _Mapping]] = ..., media: _Optional[_Union[MediaChannel, _Mapping]] = ..., achievedState: _Optional[_Union[State, _Mapping]] = ...) -> None: ...
 
 class WebrtcConfig(_message.Message):
     __slots__ = ("ice_servers",)
     class IceServer(_message.Message):
-        __slots__ = ("urls", "username", "credential")
+        __slots__ = ("urls", "username", "credential", "credentialType")
         URLS_FIELD_NUMBER: _ClassVar[int]
         USERNAME_FIELD_NUMBER: _ClassVar[int]
         CREDENTIAL_FIELD_NUMBER: _ClassVar[int]
-        urls: str
+        CREDENTIALTYPE_FIELD_NUMBER: _ClassVar[int]
+        urls: _containers.RepeatedScalarFieldContainer[str]
         username: str
         credential: str
-        def __init__(self, urls: _Optional[str] = ..., username: _Optional[str] = ..., credential: _Optional[str] = ...) -> None: ...
+        credentialType: str
+        def __init__(self, urls: _Optional[_Iterable[str]] = ..., username: _Optional[str] = ..., credential: _Optional[str] = ..., credentialType: _Optional[str] = ...) -> None: ...
     ICE_SERVERS_FIELD_NUMBER: _ClassVar[int]
     ice_servers: _containers.RepeatedCompositeFieldContainer[WebrtcConfig.IceServer]
     def __init__(self, ice_servers: _Optional[_Iterable[_Union[WebrtcConfig.IceServer, _Mapping]]] = ...) -> None: ...

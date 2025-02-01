@@ -42,6 +42,10 @@ type NamedTrackKey struct {
 	mimeType string
 }
 
+func (n NamedTrackKey) repr() string {
+	return n.trackId + n.streamId + n.mimeType
+}
+
 func (n NamedTrackKey) shmPath(sender string) string {
 	dirPath := "/tmp/swarmnode-network"
 	err := os.MkdirAll(dirPath, 0777)
@@ -64,6 +68,29 @@ func (n NamedTrackKey) toProto() *ipc.NamedTrack {
 	msg.SetStreamId(n.streamId)
 	msg.SetMimeType(n.mimeType)
 	return msg
+}
+
+func dedupeNamedTrackKeys(keys []NamedTrackKey) []NamedTrackKey {
+	m := make(map[NamedTrackKey]struct{})
+
+	for _, key := range keys {
+		m[key] = struct{}{}
+	}
+	return slices.Collect(maps.Keys(m))
+}
+
+func sortNamedTrackKeys(keys []NamedTrackKey) {
+	slices.SortFunc(keys, func(a, b NamedTrackKey) int {
+		return strings.Compare(a.repr(), b.repr())
+	})
+}
+
+func setCmpNamedTrackKeys(a, b []NamedTrackKey) bool {
+	a = dedupeNamedTrackKeys(a)
+	b = dedupeNamedTrackKeys(b)
+	sortNamedTrackKeys(a)
+	sortNamedTrackKeys(b)
+	return slices.Equal(a, b)
 }
 
 func NamedTrackKeyFromProto(msg *ipc.NamedTrack) NamedTrackKey {
@@ -103,8 +130,9 @@ type WebrtcPeer struct {
 	inTracks    map[NamedTrackKey]*gst.Pipeline // from peer
 	dataOut     chan []byte
 	fails       uint
-	Close       func()
+	close       func()
 	Fail        func()
+	sync.Mutex
 }
 
 type PeeringOffer struct {
@@ -174,33 +202,35 @@ type WebrtcStateConfig struct {
 }
 
 type WebrtcState struct {
-	SrcUUID        UUID
-	config         WebrtcStateConfig
-	configMu       sync.RWMutex
-	peers          map[UUID]*WebrtcPeer
-	peersMu        sync.RWMutex
-	outTrackStates map[NamedTrackKey]*OutTrack
-	outTracksMu    sync.RWMutex
-	InMedia        chan *ipc.MediaChannel     // Receive inbound tracks
-	DataOut        chan *ipc.DataTransmission // Send outbound data
-	DataIn         chan *ipc.DataTransmission // Receive inbound data
-	Close          context.CancelFunc         // Destroy all associated resources
-	Ctx            context.Context
+	SrcUUID          UUID
+	config           WebrtcStateConfig
+	configMu         sync.RWMutex
+	peers            map[UUID]*WebrtcPeer
+	peersMu          sync.RWMutex
+	outTrackStates   map[NamedTrackKey]*OutTrack
+	outTracksMu      sync.RWMutex
+	backgroundChange chan struct{}
+	MediaIn          chan *ipc.MediaChannel     // Receive inbound tracks
+	DataOut          chan *ipc.DataTransmission // Send outbound data
+	DataIn           chan *ipc.DataTransmission // Receive inbound data
+	Close            context.CancelFunc         // Destroy all associated resources
+	Ctx              context.Context
 }
 
 func NewWebrtcState(config WebrtcStateConfig) *WebrtcState {
 	gst.Init(nil)
 	ctx, Close := context.WithCancel(context.Background())
 	r := &WebrtcState{
-		config:         config,
-		SrcUUID:        NewUUID(),
-		peers:          make(map[UUID]*WebrtcPeer),
-		outTrackStates: make(map[NamedTrackKey]*OutTrack),
-		DataOut:        make(chan *ipc.DataTransmission, 100),
-		DataIn:         make(chan *ipc.DataTransmission, 100),
-		InMedia:        make(chan *ipc.MediaChannel, 10),
-		Close:          Close,
-		Ctx:            ctx,
+		config:           config,
+		SrcUUID:          NewUUID(),
+		peers:            make(map[UUID]*WebrtcPeer),
+		outTrackStates:   make(map[NamedTrackKey]*OutTrack),
+		backgroundChange: make(chan struct{}, 10),
+		DataOut:          make(chan *ipc.DataTransmission, 100),
+		DataIn:           make(chan *ipc.DataTransmission, 100),
+		MediaIn:          make(chan *ipc.MediaChannel, 10),
+		Close:            Close,
+		Ctx:              ctx,
 	}
 
 	go func() {
@@ -208,7 +238,7 @@ func NewWebrtcState(config WebrtcStateConfig) *WebrtcState {
 			select {
 			case <-ctx.Done():
 				for _, peer := range r.peers {
-					peer.Close()
+					peer.close()
 				}
 				return
 			case dataOut := <-r.DataOut:
@@ -359,7 +389,7 @@ func (peer *WebrtcPeer) setupDataChannel(offer PeeringOffer, state *WebrtcState)
 // 1. peerId==nil: create the media pipelines for outTracks and exit.
 // 2. sdp ==nil: `peerId` must be a POST URL that accepts ipc.WebrtcOffer. Assume the T role and nil is returned. `offer.outTracks` and `offer.inTracks` will be modified with Prenegotiate().
 // 3. sdp!=nil: `peerId` can be any string. Assume the B role and a webrtc.SessionDescription answer is returned.
-func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *webrtc.SessionDescription) {
+func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (ans *webrtc.SessionDescription, err error) {
 	// If peerId is none, create the media pipeline and return
 	if offer.peerId == "" {
 		state.outTracksMu.Lock()
@@ -375,14 +405,15 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 	}
 
 	state.peersMu.Lock()
-	// If peer already exists, close down its connection and delete it from the map.
 	_, exists := state.peers[offer.peerId]
 	if exists {
 		state.peersMu.Unlock()
-		return errors.New("peer already exists"), nil
+		return nil, errors.New("peer already exists")
 	}
 	// Create a new peer
 	newPeer := &WebrtcPeer{}
+	newPeer.Lock()
+	defer newPeer.Unlock()
 	state.peers[offer.peerId] = newPeer
 	state.peersMu.Unlock()
 
@@ -393,26 +424,27 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 		newPeer.role = WebrtcPeerRoleT
 		err = offer.Prenegotiate(state)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 	}
 	newPeer.inTracks = make(map[NamedTrackKey]*gst.Pipeline)
-	newPeer.outTracks = offer.outTracks
+	newPeer.outTracks = dedupeNamedTrackKeys(offer.outTracks)
 	newPeer.dataOut = make(chan []byte, 10)
-	newPeer.Close = sync.OnceFunc(func() { newPeer.unsafeClose(offer.peerId, state) })
+	newPeer.close = sync.OnceFunc(func() { newPeer.unsafeClose(offer.peerId, state) })
 	newPeer.Fail = sync.OnceFunc(func() {
 		log.Printf("Failed -->%s", offer.peerId)
-		newPeer.Close()
+		newPeer.close()
 		if newPeer.role == WebrtcPeerRoleT {
 			state.configMu.RLock()
 			if newPeer.fails < state.config.reconnectAttempts {
 				log.Printf("try reconnecting -->%s\n", offer.peerId)
 				state.configMu.RUnlock()
-				err, _ = state.Peer(offer, newPeer.fails+1)
+				_, err = state.Peer(offer, newPeer.fails+1)
 				if err != nil {
 					log.Printf("reconnection failed -->%s %v\n", offer.peerId, err)
 				}
 			} else {
+				state.backgroundChange <- struct{}{}
 				log.Printf("not reconnecting -->%s\n", offer.peerId)
 			}
 		}
@@ -428,17 +460,17 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 	newPeer.pc, err = webrtc.NewPeerConnection(state.config.webrtcConfig)
 	state.configMu.RUnlock()
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	for _, v := range newPeer.outTracks {
 		var webrtcTrack *webrtc.TrackLocalStaticSample
 		webrtcTrack, err = webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: v.mimeType}, v.trackId, v.streamId)
 		if err != nil {
-			newPeer.Close()
-			return err, nil
+			newPeer.close()
+			return nil, err
 		} else if _, err = newPeer.pc.AddTrack(webrtcTrack); err != nil {
-			newPeer.Close()
-			return err, nil
+			newPeer.close()
+			return nil, err
 		}
 		state.outTracksMu.Lock()
 		namedTrack, exists := state.outTrackStates[v]
@@ -454,6 +486,8 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 	newPeer.registerTrackHandlers(state, offer.peerId)
 
 	newPeer.pc.OnICEConnectionStateChange(func(s webrtc.ICEConnectionState) {
+		newPeer.Lock()
+		defer newPeer.Unlock()
 		log.Printf("ICE %s %s->%s\n", strings.ToUpper(s.String()), state.SrcUUID, offer.peerId)
 		switch s {
 		case webrtc.ICEConnectionStateConnected:
@@ -487,7 +521,7 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 			if err != nil {
 				log.Println(err)
 				newPeer.Fail()
-				return err, nil
+				return nil, err
 			}
 			newPeer.setupDataChannel(offer, state)
 		}
@@ -498,14 +532,14 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 		err = newPeer.pc.SetRemoteDescription(*offer.sdp)
 		if err != nil {
 			newPeer.Fail()
-			return err, nil
+			return nil, err
 		}
 
 		var answer webrtc.SessionDescription
 		answer, err = newPeer.pc.CreateAnswer(nil)
 		if err != nil {
 			newPeer.Fail()
-			return err, nil
+			return nil, err
 		}
 
 		// Create channel that is blocked until ICE Gathering is complete
@@ -515,24 +549,24 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 		err = newPeer.pc.SetLocalDescription(answer)
 		if err != nil {
 			newPeer.Fail()
-			return err, nil
+			return nil, err
 		}
 
 		<-gatherComplete
 
-		return nil, newPeer.pc.LocalDescription()
+		return newPeer.pc.LocalDescription(), nil
 	} else {
 		// For outgoing requests, peerId must be a valid URI
 		// No other IDs are currently supported
 		// This must be at step 3: both local_tracks and remote_tracks must be wanted
 		if _, err = url.ParseRequestURI(offer.peerId); err != nil {
-			return err, nil
+			return nil, err
 		}
 
 		var sdpOffer webrtc.SessionDescription
 		sdpOffer, err = newPeer.pc.CreateOffer(nil)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 
 		// Create channel that is blocked until ICE Gathering is complete
@@ -540,7 +574,7 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 
 		// Sets the LocalDescription, and starts our UDP listeners
 		if err = newPeer.pc.SetLocalDescription(sdpOffer); err != nil {
-			return err, nil
+			return nil, err
 		}
 		<-gatherComplete
 
@@ -557,22 +591,22 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 		var payload []byte
 		payload, err = proto.Marshal(&newOffer)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 		// Set the remote SessionDescription when received
 		var resp *resty.Response
 		resp, err = client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(offer.peerId)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 		if resp.StatusCode() < 200 || resp.StatusCode() > 300 {
 			err = errors.New(fmt.Sprintf("Unsuccessful HTTP Status: %d", resp.StatusCode()))
-			return err, nil
+			return nil, err
 		}
 		answer := ipc.WebrtcOffer{}
 		err = proto.Unmarshal(resp.Body(), &answer)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 		answerSdp := webrtc.SessionDescription{
 			Type: webrtc.NewSDPType(answer.GetType()),
@@ -580,7 +614,7 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (err error, ans *
 		}
 		err = newPeer.pc.SetRemoteDescription(answerSdp)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
 	}
 	return nil, nil
@@ -594,11 +628,13 @@ func (state *WebrtcState) UnPeer(peerId UUID) {
 	if !exists {
 		return
 	}
-	peer.Close()
+	peer.close()
 }
 
 func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 	peer.pc.OnTrack(func(track *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
+		peer.Lock()
+		defer peer.Unlock()
 		trackKey := NewNamedTrackKey(track.ID(), track.StreamID(), track.Codec().MimeType)
 		if !state.InTrackAllowed(trackKey) {
 			log.Printf("Disallowed track %+v, closing connection\n", trackKey)
@@ -667,10 +703,10 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 		}
 		peer.inTracks[trackKey] = pipeline
 
-		inMedia := &ipc.MediaChannel{}
-		inMedia.SetTrack(trackKey.toProto())
-		inMedia.SetSrcUuid(peerId)
-		state.InMedia <- inMedia
+		mediaIn := &ipc.MediaChannel{}
+		mediaIn.SetTrack(trackKey.toProto())
+		mediaIn.SetSrcUuid(peerId)
+		state.MediaIn <- mediaIn
 
 		buf := make([]byte, 1500)
 		for {
@@ -743,4 +779,133 @@ func (state *WebrtcState) pipelineForCodec(trackKey NamedTrackKey) *gst.Pipeline
 		},
 	})
 	return pipeline
+}
+
+func (state *WebrtcState) Reconcile(stateMsg *ipc.State) error {
+	if err := state.Ctx.Err(); err != nil {
+		return fmt.Errorf("webrtc closed %w", err)
+	}
+	state.configMu.RLock()
+	if stateMsg.HasReconnectAttempts() {
+		state.config.reconnectAttempts = uint(stateMsg.GetReconnectAttempts())
+	}
+	if stateMsg.HasConfig() {
+		state.config.webrtcConfig = webrtc.Configuration{
+			ICEServers: Map(stateMsg.GetConfig().GetIceServers(), func(s *ipc.WebrtcConfig_IceServer) webrtc.ICEServer {
+				var credType webrtc.ICECredentialType
+				switch s.GetCredentialType() {
+				case "password":
+					credType = webrtc.ICECredentialTypePassword
+				case "oauth":
+					credType = webrtc.ICECredentialTypeOauth
+				default:
+					credType = webrtc.ICECredentialTypePassword
+				}
+				return webrtc.ICEServer{
+					URLs:           s.GetUrls(),
+					Username:       s.GetUsername(),
+					Credential:     s.GetCredential(),
+					CredentialType: credType,
+				}
+			}),
+		}
+	}
+	state.config.allowedInTracks = Map(stateMsg.GetWantedTracks(), NamedTrackKeyFromProto)
+	state.configMu.RUnlock()
+
+	// Find desired the desired state for each peer, represented by a peeringOffer
+	peeringOffers := make(map[UUID]PeeringOffer)
+	for _, dataChan := range stateMsg.GetData() {
+		peer := dataChan.GetDestUuid()
+		po := peeringOffers[peer]
+		po.dataChannel = true
+		peeringOffers[peer] = po
+	}
+	for _, mediaChan := range stateMsg.GetMedia() {
+		peer := mediaChan.GetDestUuid()
+		po := peeringOffers[peer]
+		ntk := NamedTrackKeyFromProto(mediaChan.GetTrack())
+		if !slices.Contains(po.outTracks, ntk) {
+			po.outTracks = append(po.outTracks, ntk)
+		}
+		peeringOffers[peer] = po
+	}
+	state.peersMu.RLock()
+	var badPeers []UUID
+	for uuid, target := range peeringOffers {
+		if peer, peerExists := state.peers[uuid]; peerExists {
+			hasData := peer.dataOut != nil
+			peer.Lock()
+			if target.dataChannel != hasData || !setCmpNamedTrackKeys(target.outTracks, peer.outTracks) {
+				badPeers = append(badPeers, uuid)
+			}
+			peer.Unlock()
+		} else {
+			badPeers = append(badPeers, uuid)
+		}
+	}
+	state.peersMu.RUnlock()
+
+	var wg sync.WaitGroup
+	for _, badPeer := range badPeers {
+		wg.Add(1)
+		pf := peeringOffers[badPeer]
+		go func() {
+			defer wg.Done()
+			state.UnPeer(badPeer)
+			_, err := state.Peer(pf, 0)
+			if err != nil {
+				log.Printf("Failed to peer %s\n", err)
+			}
+		}()
+	}
+	wg.Wait()
+	return nil
+}
+
+func (state *WebrtcState) ToProto() (*ipc.State, error) {
+	if err := state.Ctx.Err(); err != nil {
+		return nil, fmt.Errorf("webrtc closed %w", err)
+	}
+	state.configMu.RLock()
+	msg := &ipc.State{}
+	msg.SetReconnectAttempts(uint32(state.config.reconnectAttempts))
+	msgConfig := &ipc.WebrtcConfig{}
+	iceServers := Map(state.config.webrtcConfig.ICEServers, func(s webrtc.ICEServer) *ipc.WebrtcConfig_IceServer {
+		r := &ipc.WebrtcConfig_IceServer{}
+		r.SetUrls(s.URLs)
+		r.SetCredential(fmt.Sprintf("%v", s.Credential))
+		r.SetUsername(s.Username)
+		r.SetCredentialType(s.CredentialType.String())
+		return r
+	})
+	msgConfig.SetIceServers(iceServers)
+	msg.SetConfig(msgConfig)
+	msg.SetWantedTracks(Map(state.config.allowedInTracks, NamedTrackKey.toProto))
+	state.configMu.RUnlock()
+
+	state.peersMu.RLock()
+	dataChannels := make([]*ipc.DataChannel, 0)
+	mediaChannels := make([]*ipc.MediaChannel, 0)
+	for uuid, peer := range state.peers {
+		peer.Lock()
+		if peer.datachannel != nil {
+			d := &ipc.DataChannel{}
+			d.SetDestUuid(uuid)
+			dataChannels = append(dataChannels, d)
+		}
+		ms := Map(peer.outTracks, func(t NamedTrackKey) *ipc.MediaChannel {
+			m := &ipc.MediaChannel{}
+			m.SetTrack(t.toProto())
+			m.SetDestUuid(uuid)
+			return m
+		})
+		mediaChannels = append(mediaChannels, ms...)
+		peer.Unlock()
+	}
+	state.peersMu.RUnlock()
+
+	msg.SetMedia(mediaChannels)
+	msg.SetData(dataChannels)
+	return msg, nil
 }
