@@ -3,6 +3,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/gzip"
@@ -10,14 +12,14 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/pion/webrtc/v4"
 	"log"
-	"net"
 	"net/http"
 	"networking/ipc"
 	"os"
 	"slices"
+	"time"
 )
 
-func runHttpServer(webrtcState *WebrtcState, addr string) {
+func runHttpServer(webrtcState *WebrtcState, addr string) func() {
 	s := gin.Default()
 	s.Use(gzip.Gzip(gzip.DefaultCompression))
 	err := s.SetTrustedProxies([]string{"127.0.0.1"})
@@ -180,16 +182,22 @@ func runHttpServer(webrtcState *WebrtcState, addr string) {
 		c.String(http.StatusNoContent, "")
 		return
 	})
-	l, err := net.Listen("tcp", addr)
-	if err != nil {
-		panic(err)
+	server := &http.Server{
+		Addr:    addr,
+		Handler: s.Handler(),
 	}
 	go func() {
-		err := s.RunListener(l)
-		if err != nil {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			panic(err)
 		}
 	}()
+	return func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("Error shutting down server %v\n", err)
+		}
+	}
 }
 
 func drainChannel[T any](ch <-chan T) {
@@ -217,7 +225,9 @@ func main() {
 		allowedInTracks:   []NamedTrackKey{},
 	}
 	webrtcState := NewWebrtcState(webrtcConfig)
-	go runHttpServer(webrtcState, ":8080")
+	cancelServer := func() {}
+	serverAddr := ""
+	serverRunning := false
 
 	achievedState := make(chan *ipc.State)
 	kernel, err := NewKernel(webrtcState.DataOut, webrtcState.DataIn, webrtcState.MediaIn, achievedState)
@@ -227,6 +237,17 @@ func main() {
 	for {
 		select {
 		case newState := <-kernel.TargetState:
+			if newState.HasHttpAddr() && (serverAddr != newState.GetHttpAddr() || (!serverRunning)) {
+				cancelServer()
+				serverAddr = newState.GetHttpAddr()
+				cancelServer = runHttpServer(webrtcState, serverAddr)
+				serverRunning = true
+			} else if serverRunning {
+				cancelServer()
+				cancelServer = func() {}
+				serverRunning = false
+			}
+
 			err := webrtcState.Reconcile(newState)
 			if err != nil {
 				panic(err)

@@ -292,10 +292,10 @@ func (state *WebrtcState) InTrackAllowed(key NamedTrackKey) bool {
 	return false
 }
 
-func (peer *WebrtcPeer) unsafeClose(key string, state *WebrtcState) {
-	log.Printf("Closing local->%s\n", key)
+func (peer *WebrtcPeer) unsafeClose(peerId string, state *WebrtcState) {
+	log.Printf("Closing local->%s\n", peerId)
 	state.peersMu.Lock()
-	delete(state.peers, key)
+	delete(state.peers, peerId)
 	state.peersMu.Unlock()
 	close(peer.dataOut)
 	if peer.outTracks != nil {
@@ -323,12 +323,17 @@ func (peer *WebrtcPeer) unsafeClose(key string, state *WebrtcState) {
 	}
 	peer.outTracks = nil
 	if peer.inTracks != nil {
-		for _, pipeline := range peer.inTracks {
+		for trackKey, pipeline := range peer.inTracks {
 			err := pipeline.SetState(gst.StateNull)
 			if err != nil {
 				panic(err)
 			}
 			pipeline.Unref()
+			mediaIn := &ipc.MediaChannel{}
+			mediaIn.SetTrack(trackKey.toProto())
+			mediaIn.SetSrcUuid(peerId)
+			mediaIn.SetClose(true)
+			state.MediaIn <- mediaIn
 		}
 	}
 	peer.inTracks = nil
@@ -345,7 +350,7 @@ func (peer *WebrtcPeer) unsafeClose(key string, state *WebrtcState) {
 			}
 		}
 	}
-	log.Printf("Closed local->%s\n", key)
+	log.Printf("Closed local->%s\n", peerId)
 	go func() {
 		deletion := ipc.WebrtcOffer{}
 		deletion.SetSrcUuid(state.SrcUUID)
@@ -353,7 +358,7 @@ func (peer *WebrtcPeer) unsafeClose(key string, state *WebrtcState) {
 		if err != nil {
 			panic(err)
 		}
-		_, err = client.R().SetBody(body).Delete(key)
+		_, err = client.R().SetBody(body).Delete(peerId)
 		if err != nil {
 			return
 		}
@@ -706,6 +711,7 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 		mediaIn := &ipc.MediaChannel{}
 		mediaIn.SetTrack(trackKey.toProto())
 		mediaIn.SetSrcUuid(peerId)
+		mediaIn.SetClose(false)
 		state.MediaIn <- mediaIn
 
 		buf := make([]byte, 1500)

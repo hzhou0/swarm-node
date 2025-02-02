@@ -52,14 +52,16 @@ class DataTransmission(_message.Message):
     def __init__(self, channel: _Optional[_Union[DataChannel, _Mapping]] = ..., payload: _Optional[bytes] = ...) -> None: ...
 
 class MediaChannel(_message.Message):
-    __slots__ = ("src_uuid", "dest_uuid", "track")
+    __slots__ = ("src_uuid", "dest_uuid", "track", "close")
     SRC_UUID_FIELD_NUMBER: _ClassVar[int]
     DEST_UUID_FIELD_NUMBER: _ClassVar[int]
     TRACK_FIELD_NUMBER: _ClassVar[int]
+    CLOSE_FIELD_NUMBER: _ClassVar[int]
     src_uuid: str
     dest_uuid: str
     track: NamedTrack
-    def __init__(self, src_uuid: _Optional[str] = ..., dest_uuid: _Optional[str] = ..., track: _Optional[_Union[NamedTrack, _Mapping]] = ...) -> None: ...
+    close: bool
+    def __init__(self, src_uuid: _Optional[str] = ..., dest_uuid: _Optional[str] = ..., track: _Optional[_Union[NamedTrack, _Mapping]] = ..., close: bool = ...) -> None: ...
 
 class Event(_message.Message):
     __slots__ = ("data", "media", "achievedState")
@@ -89,18 +91,20 @@ class WebrtcConfig(_message.Message):
     def __init__(self, ice_servers: _Optional[_Iterable[_Union[WebrtcConfig.IceServer, _Mapping]]] = ...) -> None: ...
 
 class State(_message.Message):
-    __slots__ = ("data", "media", "wantedTracks", "config", "reconnectAttempts")
+    __slots__ = ("data", "media", "wantedTracks", "config", "reconnectAttempts", "httpAddr")
     DATA_FIELD_NUMBER: _ClassVar[int]
     MEDIA_FIELD_NUMBER: _ClassVar[int]
     WANTEDTRACKS_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
     RECONNECTATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    HTTPADDR_FIELD_NUMBER: _ClassVar[int]
     data: _containers.RepeatedCompositeFieldContainer[DataChannel]
     media: _containers.RepeatedCompositeFieldContainer[MediaChannel]
     wantedTracks: _containers.RepeatedCompositeFieldContainer[NamedTrack]
     config: WebrtcConfig
     reconnectAttempts: int
-    def __init__(self, data: _Optional[_Iterable[_Union[DataChannel, _Mapping]]] = ..., media: _Optional[_Iterable[_Union[MediaChannel, _Mapping]]] = ..., wantedTracks: _Optional[_Iterable[_Union[NamedTrack, _Mapping]]] = ..., config: _Optional[_Union[WebrtcConfig, _Mapping]] = ..., reconnectAttempts: _Optional[int] = ...) -> None: ...
+    httpAddr: str
+    def __init__(self, data: _Optional[_Iterable[_Union[DataChannel, _Mapping]]] = ..., media: _Optional[_Iterable[_Union[MediaChannel, _Mapping]]] = ..., wantedTracks: _Optional[_Iterable[_Union[NamedTrack, _Mapping]]] = ..., config: _Optional[_Union[WebrtcConfig, _Mapping]] = ..., reconnectAttempts: _Optional[int] = ..., httpAddr: _Optional[str] = ...) -> None: ...
 
 class Mutation(_message.Message):
     __slots__ = ("data", "setState")

@@ -44,6 +44,7 @@ message MediaChannel {
   string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
   // When sent from the kernel, this will be fulfilled on a best-effort basis. The dest can reject any track it doesn't want.
   NamedTrack track = 3;
+  bool close = 4; // Channel is closed
 }
 
 message Event {
@@ -68,6 +69,7 @@ message State {
   repeated NamedTrack wantedTracks = 3;
   WebrtcConfig config = 4;
   uint32 reconnectAttempts = 5;
+  string httpAddr = 6;
 }
 
 message Mutation {
