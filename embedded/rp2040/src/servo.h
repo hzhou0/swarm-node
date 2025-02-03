@@ -11,7 +11,7 @@ typedef struct PWM {
 typedef PWM Servo;
 
 #define SERVO_PERIOD_HZ 50
-#define SERVO_CLK_DIV 250
+#define SERVO_CLK_DIV 100
 
 static inline PWM pwm(uint pin, float freqHz) {
   PWM pwm;
