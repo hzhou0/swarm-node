@@ -268,24 +268,25 @@ int main() {
       // current_dir *= -1;
       // if (current_dir == -1) {
       //   servo_set(servo1, 0);
+      //   servo_set(servo2, 0);
       //   log_error("0 DEG");
       // }
       // else if (current_dir == 1) {
+      //   servo_set(servo1, 180);
       //   servo_set(servo1, 180);
       //   log_error("180 DEG");
       // }
 
       in_sweep = true;
-      if (current_dir == 1) {
-        sweep_start_deg = 0;
-        sweep_end_deg = SERVO_RANGE_DEG;
-      }
-      else if (current_dir == -1) {
-        sweep_start_deg = SERVO_RANGE_DEG;
-        sweep_end_deg = 0;
-      }
+      servo1_sweep_start_deg = (servo1_dir == 1) ? 30: 150;
+      servo2_sweep_start_deg = (servo2_dir == 1) ? 30: 150;
+      servo1_sweep_end_deg = (servo1_dir == 1) ? 150: 30;
+      servo2_sweep_end_deg = (servo2_dir == 1) ? 150: 30;
 
-      servo_set(servo1, sweep_start_deg);
+      servo1_sweep_angle_deg = servo1_sweep_start_deg;
+      servo2_sweep_angle_deg = servo2_sweep_start_deg;
+      servo_set(servo1, servo1_sweep_angle_deg);
+      servo_set(servo2, servo2_sweep_angle_deg);
       sweep_update_time = delayed_by_ms(get_absolute_time(), 3*SWEEP_INCREMENT_INTERVAL_MS);
     }
 
