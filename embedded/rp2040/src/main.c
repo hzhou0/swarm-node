@@ -237,6 +237,8 @@ int main() {
 
     if (in_sweep && time_reached(sweep_update_time)) {
       if (servo1_sweep_angle_deg == servo1_sweep_end_deg) {
+        // Servo 1 has reached the end, so reverse it.
+        servo1_dir *= -1;
         if (servo2_sweep_angle_deg == servo2_sweep_end_deg) {
           // If both servos have reached the end, the sweep is done.
           in_sweep = false;
@@ -244,8 +246,6 @@ int main() {
           servo2_dir *= -1;
         }
         else {
-          // Servo 1 has reached the end, so reverse it.
-          servo1_dir *= -1;
           uint8_t tmp_angle = servo1_sweep_start_deg;
           servo1_sweep_start_deg = servo1_sweep_end_deg;
           servo1_sweep_end_deg = tmp_angle;
