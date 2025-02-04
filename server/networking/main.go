@@ -232,7 +232,7 @@ func main() {
 	serverRunning := false
 
 	achievedState := make(chan *ipc.State)
-	kernel, err := NewKernel(webrtcState.DataOut, webrtcState.DataIn, webrtcState.MediaIn, achievedState)
+	kernel, err := NewKernel(webrtcState.DataOut, webrtcState.DataIn, webrtcState.MediaIn, achievedState, true)
 	defer kernel.Close()
 	if err != nil {
 		panic(err)

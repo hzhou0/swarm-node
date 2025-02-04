@@ -7,7 +7,9 @@ import signal
 import sys
 import threading
 from queue import SimpleQueue
+from typing import Generic, TypeVar
 
+import msgspec.msgpack
 from cobs import cobs
 from google.protobuf import message
 
@@ -23,44 +25,11 @@ def is_valid_fd(fd: int):
         return False
 
 
-class SwarmNet:
-    EVENT_R_FD = 3
-    STATE_W_FD = 4
-    eventQueue: SimpleQueue[Event] = queue.SimpleQueue()
-
-    @classmethod
-    def receive_event(cls) -> Event | None:
-        try:
-            return cls.eventQueue.get_nowait()
-        except queue.Empty:
-            return None
-
-    @classmethod
-    def send_data(cls, data: DataTransmission):
-        try:
-            m = Mutation()
-            m.data.CopyFrom(data)
-            binstr: bytes = b"\0" + cobs.encode(m.SerializeToString()) + b"\0"
-            logging.debug(f"sending data {binstr}")
-            os.write(cls.STATE_W_FD, binstr)
-        except BlockingIOError as e:
-            logging.exception(e)
-
-    @classmethod
-    def set_state(cls, state: State):
-        try:
-            m = Mutation()
-            m.setState.CopyFrom(state)
-            binstr: bytes = b"\0" + cobs.encode(m.SerializeToString()) + b"\0"
-            logging.debug(f"sending state {binstr}")
-            os.write(cls.STATE_W_FD, binstr)
-        except BlockingIOError as e:
-            logging.exception(e)
-
-
 def poll_pipe():
     sel = selectors.DefaultSelector()
     sel.register(SwarmNet.EVENT_R_FD, selectors.EVENT_READ)
+    data_decoder = msgspec.msgpack.Decoder(T, strict=True)
+    events: list[Event] = []
     while True:
         try:
             sel.select()
@@ -82,46 +51,95 @@ def poll_pipe():
                         try:
                             event = Event()
                             event.ParseFromString(cobs.decode(msg))
+                            events.append(event)
                             logging.debug(f"parsed event {event}")
-                            SwarmNet.eventQueue.put(event)
                         except message.DecodeError as e:
                             logging.exception(e)
                             continue
         except Exception as e:
             logging.exception(e)
+        for ev in events:
+            if ev.HasField("data"):
+                try:
+                    data = data_decoder.decode(ev.data.payload)
+                    SwarmNet.data_queue.put((ev.data.channel.src_uuid, data))
+                except msgspec.DecodeError as e:
+                    logging.exception(e)
+            if ev.HasField("achievedState"):
+                SwarmNet._achieved_state = ev.achievedState
 
 
-once = True
-
-event_r_thread = threading.Thread(target=poll_pipe, daemon=True)
+T = TypeVar("T")
 
 
-def swarm_net_init():
-    global once
-    if once:
-        if not is_valid_fd(SwarmNet.EVENT_R_FD):
+# Singleton
+class SwarmNet(Generic[T]):
+    EVENT_R_FD = 3
+    STATE_W_FD = 4
+    data_queue: SimpleQueue[tuple[str, T]] = queue.SimpleQueue()
+    event_r_thread = threading.Thread(target=poll_pipe, daemon=True)
+    _achieved_state: None | State = None
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(SwarmNet, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self) -> None:
+        if not is_valid_fd(self.EVENT_R_FD):
             print("File Handle 3 (eventR) not present")
             raise RuntimeError("File Handle 3 (eventR) not present")
-        if not is_valid_fd(SwarmNet.STATE_W_FD):
+        if not is_valid_fd(self.STATE_W_FD):
             print("File Handle 4 (stateW) not present")
             raise RuntimeError("File Handle 4 (stateW) not present")
         fcntl.fcntl(
-            SwarmNet.STATE_W_FD,
+            self.STATE_W_FD,
             fcntl.F_SETFL,
-            fcntl.fcntl(SwarmNet.STATE_W_FD, fcntl.F_GETFL) & ~os.O_NONBLOCK,
+            fcntl.fcntl(self.STATE_W_FD, fcntl.F_GETFL) & ~os.O_NONBLOCK,
         )
 
         log_level = os.getenv("LOG_LEVEL", "WARNING").upper()
         logging.basicConfig(level=getattr(logging, log_level, logging.WARNING))
-        event_r_thread.start()
+        self.event_r_thread.start()
 
         def signal_handler(sig, frame):
             print("gracefully terminated")
-            os.close(SwarmNet.EVENT_R_FD)
-            os.close(SwarmNet.STATE_W_FD)
+            os.close(self.EVENT_R_FD)
+            os.close(self.STATE_W_FD)
             sys.exit(0)
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
-        once = False
-    return SwarmNet
+
+    def achieved_state(self):
+        ret = self._achieved_state
+        if ret:
+            self._achieved_state = None
+        return ret
+
+    def recv_data(self):
+        try:
+            return self.data_queue.get_nowait()
+        except queue.Empty:
+            return None
+
+    def send_data(self, data: DataTransmission):
+        try:
+            m = Mutation()
+            m.data.CopyFrom(data)
+            binstr: bytes = b"\0" + cobs.encode(m.SerializeToString()) + b"\0"
+            logging.debug(f"sending data {binstr}")
+            os.write(self.STATE_W_FD, binstr)
+        except BlockingIOError as e:
+            logging.exception(e)
+
+    def set_state(self, state: State):
+        try:
+            m = Mutation()
+            m.setState.CopyFrom(state)
+            binstr: bytes = b"\0" + cobs.encode(m.SerializeToString()) + b"\0"
+            logging.debug(f"sending state {binstr}")
+            os.write(self.STATE_W_FD, binstr)
+        except BlockingIOError as e:
+            logging.exception(e)

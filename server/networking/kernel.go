@@ -34,7 +34,7 @@ type Kernel struct {
 	achievedState <-chan *ipc.State
 }
 
-func NewKernel(dataOut chan<- *ipc.DataTransmission, dataIn <-chan *ipc.DataTransmission, mediaIn <-chan *ipc.MediaChannel, achievedState <-chan *ipc.State) (Kernel, error) {
+func NewKernel(dataOut chan<- *ipc.DataTransmission, dataIn <-chan *ipc.DataTransmission, mediaIn <-chan *ipc.MediaChannel, achievedState <-chan *ipc.State, panicOnExit bool) (Kernel, error) {
 	k := Kernel{
 		dataOut:       dataOut,
 		dataIn:        dataIn,
@@ -122,6 +122,9 @@ func NewKernel(dataOut chan<- *ipc.DataTransmission, dataIn <-chan *ipc.DataTran
 		default:
 			log.Printf("Kernel exited on its own, err: %v\n", err)
 			k.cmdCancel()
+			if panicOnExit {
+				panic(err)
+			}
 		}
 	}()
 	go k.streamMutations()
