@@ -195,6 +195,25 @@ int main() {
   absolute_time_t next_update_time = get_absolute_time();
   uint16_t loop_counter = 0;
   MainLoopPerf perf = {0, 0};
+
+  uint32_t servo_loop_counter = 1;
+  int8_t current_dir = 1;
+  Servo servo1 = servo_init(15);
+  Servo servo2 = servo_init(18);
+
+  bool in_sweep = false;
+  uint8_t servo1_sweep_angle_deg = 0;
+  uint8_t servo2_sweep_angle_deg = 0;
+  int8_t servo1_dir = 1;
+  int8_t servo2_dir = 1;
+  uint8_t servo1_sweep_start_deg = 0;
+  uint8_t servo1_sweep_end_deg = SERVO_RANGE_DEG;
+  uint8_t servo2_sweep_start_deg = 0;
+  uint8_t servo2_sweep_end_deg = SERVO_RANGE_DEG;
+  const uint8_t SWEEP_INCREMENT_DEG = 30;
+  const uint16_t SWEEP_INCREMENT_INTERVAL_MS = 750;
+  absolute_time_t sweep_update_time = get_absolute_time();
+  
   while (true) {
     process_commands(&state, imu);
 
@@ -214,6 +233,61 @@ int main() {
       next_update_time = delayed_by_ms(get_absolute_time(), emit_state_interval_ms);
     } else if (emit_loop_perf) {
       perf.idle_loops_per_10000++;
+    }
+
+    if (in_sweep && time_reached(sweep_update_time)) {
+      if (servo1_sweep_angle_deg == servo1_sweep_end_deg) {
+        // Servo 1 has reached the end, so reverse it.
+        servo1_dir *= -1;
+        if (servo2_sweep_angle_deg == servo2_sweep_end_deg) {
+          // If both servos have reached the end, the sweep is done.
+          in_sweep = false;
+          // Reverse the direction of Servo 2 for the next time it is used.
+          servo2_dir *= -1;
+        }
+        else {
+          uint8_t tmp_angle = servo1_sweep_start_deg;
+          servo1_sweep_start_deg = servo1_sweep_end_deg;
+          servo1_sweep_end_deg = tmp_angle;
+          // Update and move Servo 2.
+          servo2_sweep_angle_deg += SWEEP_INCREMENT_DEG * servo2_dir;
+          servo_set(servo2, servo2_sweep_angle_deg);
+        }
+      }
+      else {
+        servo1_sweep_angle_deg += SWEEP_INCREMENT_DEG * servo1_dir;
+        servo_set(servo1, servo1_sweep_angle_deg);
+      }
+
+      sweep_update_time = delayed_by_ms(get_absolute_time(), SWEEP_INCREMENT_INTERVAL_MS);
+    }
+
+    if ((++servo_loop_counter % 2000000 == 0) && (!in_sweep)) {
+      servo_loop_counter = 1;
+
+      // current_dir *= -1;
+      // if (current_dir == -1) {
+      //   servo_set(servo1, 0);
+      //   servo_set(servo2, 0);
+      //   log_error("0 DEG");
+      // }
+      // else if (current_dir == 1) {
+      //   servo_set(servo1, 180);
+      //   servo_set(servo1, 180);
+      //   log_error("180 DEG");
+      // }
+
+      in_sweep = true;
+      servo1_sweep_start_deg = (servo1_dir == 1) ? 30: 150;
+      servo2_sweep_start_deg = (servo2_dir == 1) ? 30: 150;
+      servo1_sweep_end_deg = (servo1_dir == 1) ? 150: 30;
+      servo2_sweep_end_deg = (servo2_dir == 1) ? 150: 30;
+
+      servo1_sweep_angle_deg = servo1_sweep_start_deg;
+      servo2_sweep_angle_deg = servo2_sweep_start_deg;
+      servo_set(servo1, servo1_sweep_angle_deg);
+      servo_set(servo2, servo2_sweep_angle_deg);
+      sweep_update_time = delayed_by_ms(get_absolute_time(), 3*SWEEP_INCREMENT_INTERVAL_MS);
     }
 
     if (emit_loop_perf && ++loop_counter >= 10000) {

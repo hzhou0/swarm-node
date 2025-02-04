@@ -10,14 +10,17 @@ typedef struct PWM {
 } PWM;
 typedef PWM Servo;
 
+#define SERVO_PERIOD_HZ 50
+#define SERVO_CLK_DIV 100
+
 static inline PWM pwm(uint pin, float freqHz) {
   PWM pwm;
   gpio_set_function(pin, GPIO_FUNC_PWM);
   pwm.slice = pwm_gpio_to_slice_num(pin);
   pwm.channel = pwm_gpio_to_channel(pin);
   const uint32_t core_clk_hz = clock_get_hz(clk_sys);
-  pwm_set_clkdiv(pwm.slice, (float)core_clk_hz / freqHz / (float)(UINT16_MAX + 1));
-  pwm_set_wrap(pwm.slice, UINT16_MAX);
+  pwm_set_clkdiv(pwm.slice, SERVO_CLK_DIV);
+  pwm_set_wrap(pwm.slice, (core_clk_hz / SERVO_CLK_DIV) / SERVO_PERIOD_HZ);
   pwm_set_chan_level(pwm.slice, pwm.channel, 0);
   pwm_set_enabled(pwm.slice, true);
   return pwm;
@@ -32,12 +35,15 @@ inline static void pwm_set(PWM x, uint16_t dutyCycle) { pwm_set_chan_level(x.sli
 
 static inline Servo servo_init(uint pin) { return pwm(pin, SERVO_HZ_MAX); }
 
-static inline void servo_set(Servo x, uint deg) {
-  const uint SERVO_PERIOD_FULL_NS = 1000 * 1000 / SERVO_HZ_MAX;
-  const uint MIN_SERVO_DUTY = ((UINT16_MAX + 1) * SERVO_PERIOD_MIN_NS / SERVO_PERIOD_FULL_NS);
-  const uint MAX_SERVO_DUTY = ((UINT16_MAX + 1) * SERVO_PERIOD_MAX_NS / SERVO_PERIOD_FULL_NS);
-  uint dutyCycle = deg * (MAX_SERVO_DUTY - MIN_SERVO_DUTY) / SERVO_MAX_ANGLE;
-  pwm_set_chan_level(x.slice, x.channel, dutyCycle);
+#define SERVO_0_DEG_DUTY_CYCLE_S 0.0007
+#define SERVO_180_DEG_DUTY_CYCLE_S 0.0023
+#define SERVO_RANGE_DEG 180
+
+static inline void servo_set(Servo x, uint16_t deg) {
+  const uint32_t core_clk_hz = clock_get_hz(clk_sys);
+  float duty_cycle = ( (((float) deg) / SERVO_RANGE_DEG) * (SERVO_180_DEG_DUTY_CYCLE_S - SERVO_0_DEG_DUTY_CYCLE_S) ) + SERVO_0_DEG_DUTY_CYCLE_S;
+  uint16_t duty_cycle_ticks = (uint16_t) (duty_cycle * (((float) core_clk_hz) / SERVO_CLK_DIV));
+  pwm_set_chan_level(x.slice, x.channel, duty_cycle_ticks);
 }
 
 static inline void servo_idle(Servo x) { pwm_set_chan_level(x.slice, x.channel, 0); }
