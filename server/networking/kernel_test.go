@@ -20,7 +20,7 @@ func setup() (chan *ipc.DataTransmission, chan *ipc.DataTransmission, chan *ipc.
 	if err != nil {
 		panic(err)
 	}
-	err = os.Setenv("SWARM_NODE_KERNEL_VENV", "/home/henry/Desktop/swarm-node/server/networking/python_sdk/.venv")
+	err = os.Setenv("SWARM_NODE_KERNEL_VENV", "/home/henry/Desktop/swarm-node/server/networking/test_kernel/.venv")
 	if err != nil {
 		panic(err)
 	}
@@ -93,5 +93,65 @@ func Test_KernelDataSendRecvLoadTest(t *testing.T) {
 	}
 	diff := time.Now().Sub(start)
 	log.Printf("%f bytes/second \n", float64(j*len(encoded))/diff.Seconds())
+	defer kernel.Close()
+}
+
+func Test_KernelMediaSendRecv(t *testing.T) {
+	DataOut, DataIn, MediaIn, achievedState := setup()
+	kernel, err := NewKernel(DataOut, DataIn, MediaIn, achievedState)
+	if assert.Nil(t, err) {
+		time.Sleep(time.Second)
+		assert.Nil(t, kernel.cmdCtx.Err())
+	}
+
+	// Send a MediaChannel event
+	media := ipc.MediaChannel_builder{
+		SrcUuid: proto.String("testMediaSrc"),
+		Track: ipc.NamedTrack_builder{
+			TrackId:  proto.String("track1"),
+			StreamId: proto.String("stream1"),
+			MimeType: proto.String("video/webm"),
+		}.Build(),
+	}.Build()
+	MediaIn <- media
+
+	// Check the State mutation response
+	select {
+	case state := <-kernel.TargetState:
+		assert.Equal(t, 1, len(state.GetMedia()))
+		mediaResp := state.GetMedia()[0]
+		assert.Equal(t, "testMediaSrc", mediaResp.GetDestUuid())
+		assert.Equal(t, "track1", mediaResp.GetTrack().GetTrackId())
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for media state mutation")
+	}
+
+	defer kernel.Close()
+}
+
+func Test_KernelStateSendRecv(t *testing.T) {
+	DataOut, DataIn, MediaIn, achievedState := setup()
+	kernel, err := NewKernel(DataOut, DataIn, MediaIn, achievedState)
+	if assert.Nil(t, err) {
+		time.Sleep(time.Second)
+		assert.Nil(t, kernel.cmdCtx.Err())
+	}
+
+	// Send a State via achievedState
+	state := ipc.State_builder{
+		ReconnectAttempts: proto.Uint32(5),
+		HttpAddr:          proto.String(":8080"),
+	}.Build()
+	achievedState <- state
+
+	// Check the modified State mutation
+	select {
+	case modifiedState := <-kernel.TargetState:
+		assert.Equal(t, uint32(6), modifiedState.GetReconnectAttempts(), "Reconnect counter increment failed")
+		assert.Equal(t, ":8080", modifiedState.GetHttpAddr(), "State preservation failed")
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for state mutation")
+	}
+
 	defer kernel.Close()
 }

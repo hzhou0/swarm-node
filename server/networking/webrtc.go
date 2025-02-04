@@ -314,7 +314,6 @@ func (peer *WebrtcPeer) unsafeClose(peerId string, state *WebrtcState) {
 					if err != nil {
 						panic(err)
 					}
-					ot.pipeline.Unref()
 					delete(state.outTrackStates, outTrack)
 				}
 			}
@@ -328,7 +327,6 @@ func (peer *WebrtcPeer) unsafeClose(peerId string, state *WebrtcState) {
 			if err != nil {
 				panic(err)
 			}
-			pipeline.Unref()
 			mediaIn := &ipc.MediaChannel{}
 			mediaIn.SetTrack(trackKey.toProto())
 			mediaIn.SetSrcUuid(peerId)
@@ -836,33 +834,61 @@ func (state *WebrtcState) Reconcile(stateMsg *ipc.State) error {
 		}
 		peeringOffers[peer] = po
 	}
+
+	var peersToCreate []UUID
+	var peersToModify []UUID
+	var peersToClose []UUID
 	state.peersMu.RLock()
-	var badPeers []UUID
-	for uuid, target := range peeringOffers {
-		if peer, peerExists := state.peers[uuid]; peerExists {
+	for uuid, peer := range state.peers {
+		if target, offerExists := peeringOffers[uuid]; offerExists {
 			hasData := peer.dataOut != nil
 			peer.Lock()
 			if target.dataChannel != hasData || !setCmpNamedTrackKeys(target.outTracks, peer.outTracks) {
-				badPeers = append(badPeers, uuid)
+				peersToModify = append(peersToModify, uuid)
 			}
 			peer.Unlock()
 		} else {
-			badPeers = append(badPeers, uuid)
+			peersToClose = append(peersToClose, uuid)
+		}
+	}
+	for uuid, _ := range peeringOffers {
+		if _, peerExists := state.peers[uuid]; !peerExists {
+			peersToCreate = append(peersToCreate, uuid)
 		}
 	}
 	state.peersMu.RUnlock()
 
 	var wg sync.WaitGroup
-	for _, badPeer := range badPeers {
+	for _, modPeer := range peersToModify {
 		wg.Add(1)
-		pf := peeringOffers[badPeer]
+		pf := peeringOffers[modPeer]
+		pf.peerId = modPeer
 		go func() {
 			defer wg.Done()
-			state.UnPeer(badPeer)
+			state.UnPeer(modPeer)
+			_, err := state.Peer(pf, 0)
+			if err != nil {
+				log.Printf("Failed to re-peer %s\n", err)
+			}
+		}()
+	}
+	for _, createPeer := range peersToCreate {
+		wg.Add(1)
+		pf := peeringOffers[createPeer]
+		pf.peerId = createPeer
+		go func() {
+			defer wg.Done()
 			_, err := state.Peer(pf, 0)
 			if err != nil {
 				log.Printf("Failed to peer %s\n", err)
 			}
+		}()
+	}
+	for _, closePeer := range peersToClose {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			state.UnPeer(closePeer)
 		}()
 	}
 	wg.Wait()

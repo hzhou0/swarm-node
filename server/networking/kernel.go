@@ -53,7 +53,7 @@ func NewKernel(dataOut chan<- *ipc.DataTransmission, dataIn <-chan *ipc.DataTran
 	}
 	switch k.envVar {
 	case "test":
-		k.entrypoint = "../networking/python_sdk/test_kernel.py"
+		k.entrypoint = "../networking/test_kernel/test_kernel.py"
 	case "december":
 		k.entrypoint = "december/main.py"
 	case "skymap-sens-arr":
@@ -84,7 +84,7 @@ func NewKernel(dataOut chan<- *ipc.DataTransmission, dataIn <-chan *ipc.DataTran
 	k.mutationR = mutationR
 
 	k.cmdCtx, k.cmdCancel = context.WithCancel(context.Background())
-	k.cmd = exec.CommandContext(k.cmdCtx, "bash", "-c", "source "+activateScript+" && python3 "+k.entrypoint)
+	k.cmd = exec.CommandContext(k.cmdCtx, "bash", "-c", "source "+activateScript+" && python "+k.entrypoint)
 	k.cmd.WaitDelay = 1 * time.Second
 	k.cmd.Stderr = os.Stderr
 	k.cmd.Stdout = os.Stdout

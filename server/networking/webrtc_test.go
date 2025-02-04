@@ -6,6 +6,7 @@ import (
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/proto"
 	"log"
 	"networking/ipc"
 	"os"
@@ -145,9 +146,7 @@ func TestWebrtcState_PutPeer_DataChannels(t *testing.T) {
 	trans.SetPayload([]byte("test payload 1wafdf54yrhtfg"))
 	trans.SetChannel(&dChan)
 	wst1.DataOut <- &trans
-
 	recv := <-wst2.DataIn
-
 	assert.Equal(t, recv.GetPayload(), trans.GetPayload())
 	assert.Equal(t, recv.GetChannel().GetSrcUuid(), maps.Keys(wst2.peers)[0])
 	assert.False(t, recv.GetChannel().HasDestUuid())
@@ -216,4 +215,67 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 	assert.Equal(t, receivedTrack.GetTrack().GetStreamId(), outputTrackKey.streamId)
 	assert.Equal(t, receivedTrack.GetSrcUuid(), wst2.SrcUUID)
 	assert.FileExists(t, NamedTrackKeyFromProto(receivedTrack.GetTrack()).shmPath(receivedTrack.GetSrcUuid()))
+}
+
+func TestWebrtcState_Reconcile(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	servAddr := "127.0.0.1:8083"
+	wst1 := NewWebrtcState(WebrtcStateConfig{
+		webrtcConfig: webrtc.Configuration{
+			ICEServers: []webrtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+		},
+		reconnectAttempts: 0,
+		allowedInTracks: []NamedTrackKey{
+			NewNamedTrackKey("rgbd", "realsenseD455", "video/h264"),
+			NewNamedTrackKey("rgbd", "randomSensor", "video/h264"),
+		},
+	})
+	runHttpServer(wst1, servAddr)
+
+	wst := NewWebrtcState(webrtcConfig)
+	defer wst.Close()
+	outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", "video/h264")
+	// Create desired state with one peer
+	desiredState := ipc.State_builder{
+		Data: []*ipc.DataChannel{
+			ipc.DataChannel_builder{DestUuid: proto.String("http://" + servAddr + "/api/webrtc")}.Build(),
+		},
+		Media: []*ipc.MediaChannel{
+			ipc.MediaChannel_builder{
+				DestUuid: proto.String("http://" + servAddr + "/api/webrtc"),
+				Track:    outputTrackKey.toProto(),
+			}.Build(),
+		},
+	}.Build()
+	gst.Init(nil)
+	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath("")))
+	assert.Nil(t, err)
+	assert.Nil(t, pipeline.Start())
+
+	// Reconcile and verify peer creation
+	err = wst.Reconcile(desiredState)
+	assert.Nil(t, err)
+	wst.peersMu.RLock()
+	assert.Len(t, wst.peers, 1, "Should create 1 peer")
+	wst.peersMu.RUnlock()
+
+	// Update desired state to remove peer media
+	desiredState.SetMedia(nil)
+	err = wst.Reconcile(desiredState)
+	assert.Nil(t, err)
+	wst.peersMu.RLock()
+	assert.Len(t, wst.peers, 1, "Should modify peer")
+	assert.Empty(t, maps.Values(wst.peers)[0].outTracks)
+	wst.peersMu.RUnlock()
+
+	desiredState.SetData(nil)
+	err = wst.Reconcile(desiredState)
+	assert.Nil(t, err)
+	wst.peersMu.RLock()
+	assert.Empty(t, wst.peers, "Should modify peer")
+	wst.peersMu.RUnlock()
 }

@@ -212,6 +212,7 @@ func drainChannel[T any](ch <-chan T) {
 		}
 	}
 }
+
 func main() {
 	webrtcConfig := WebrtcStateConfig{
 		webrtcConfig: webrtc.Configuration{
@@ -225,12 +226,14 @@ func main() {
 		allowedInTracks:   []NamedTrackKey{},
 	}
 	webrtcState := NewWebrtcState(webrtcConfig)
+	defer webrtcState.Close()
 	cancelServer := func() {}
 	serverAddr := ""
 	serverRunning := false
 
 	achievedState := make(chan *ipc.State)
 	kernel, err := NewKernel(webrtcState.DataOut, webrtcState.DataIn, webrtcState.MediaIn, achievedState)
+	defer kernel.Close()
 	if err != nil {
 		panic(err)
 	}
@@ -264,6 +267,9 @@ func main() {
 				panic(err)
 			}
 			achievedState <- stateMsg
+		case <-kernel.cmdDone:
+			log.Println("Kernel exited, exiting.")
+			return
 		}
 	}
 }
