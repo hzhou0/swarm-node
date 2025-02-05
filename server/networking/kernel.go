@@ -251,16 +251,21 @@ func getMutations(mutationR *os.File) ([]*ipc.Mutation, error) {
 			}
 		}
 		if begin != -1 && end != -1 {
-			msg := cobsEncoder.Decode(mutationBuf[begin+1 : end])
-			end = -1
-			begin = -1
-			var mutation ipc.Mutation
-			err := proto.Unmarshal(msg, &mutation)
-			if err != nil {
-				log.Printf("Failed to parse: %x %s\n", msg, err)
-				continue
+			if end-begin < 2 {
+				begin = end
+				end = -1
+			} else {
+				msg := cobsEncoder.Decode(mutationBuf[begin+1 : end])
+				end = -1
+				begin = -1
+				var mutation ipc.Mutation
+				err := proto.Unmarshal(msg, &mutation)
+				if err != nil {
+					log.Printf("Failed to parse: %x %s\n", msg, err)
+					continue
+				}
+				mutations = append(mutations, &mutation)
 			}
-			mutations = append(mutations, &mutation)
 		}
 	}
 	return mutations, nil

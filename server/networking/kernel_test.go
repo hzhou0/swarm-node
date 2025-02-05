@@ -96,6 +96,8 @@ func Test_KernelDataSendRecvLoadTest(t *testing.T) {
 		case DataIn <- &trans:
 			j++
 		case <-DataOut:
+		case <-kernel.cmdCtx.Done():
+			assert.FailNow(t, "Kernel crashed")
 		}
 	}
 	for len(DataOut) != 0 {
