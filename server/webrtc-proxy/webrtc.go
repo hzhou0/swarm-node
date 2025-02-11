@@ -241,7 +241,7 @@ func NewWebrtcState(config WebrtcStateConfig, ServerMediaSocketDir string, Clien
 		ClientMediaSocketDir: ClientMediaSocketDir,
 		peers:                make(map[UUID]*WebrtcPeer),
 		outTrackStates:       make(map[NamedTrackKey]*OutTrack),
-		BackgroundChange:     make(chan struct{}, 10),
+		BackgroundChange:     make(chan struct{}, 1),
 		DataOut:              make(chan *pb.DataTransmission, 100),
 		DataIn:               make(chan *pb.DataTransmission, 100),
 		MediaIn:              make(chan *pb.MediaChannel, 10),
@@ -252,7 +252,7 @@ func NewWebrtcState(config WebrtcStateConfig, ServerMediaSocketDir string, Clien
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-r.Ctx.Done():
 				return
 			case dataOut := <-r.DataOut:
 				r.peersMu.RLock()
@@ -480,7 +480,11 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (ans *webrtc.Sess
 					log.Printf("reconnection failed -->%s %v\n", offer.peerId, err)
 				}
 			} else {
-				state.BackgroundChange <- struct{}{}
+				state.configMu.RUnlock()
+				select {
+				case state.BackgroundChange <- struct{}{}:
+				default:
+				}
 			}
 		}
 	})
@@ -899,7 +903,7 @@ func (state *WebrtcState) Reconcile(stateMsg *pb.State) error {
 			peersToClose = append(peersToClose, uuid)
 		}
 	}
-	for uuid, _ := range peeringOffers {
+	for uuid := range peeringOffers {
 		if _, peerExists := state.peers[uuid]; !peerExists {
 			peersToCreate = append(peersToCreate, uuid)
 		}

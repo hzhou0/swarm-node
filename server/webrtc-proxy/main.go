@@ -33,7 +33,7 @@ import (
 
 type WebrtcHttpServer struct {
 	webrtcState *WebrtcState
-	handler     http.Handler
+	engine      *gin.Engine
 	server      *http.Server
 	Error       chan error
 	sync.Mutex
@@ -50,7 +50,7 @@ func (s *WebrtcHttpServer) SetAddr(addr string) {
 	defer s.Unlock()
 	s.server = &http.Server{
 		Addr:    addr,
-		Handler: s.handler,
+		Handler: s.engine.Handler(),
 	}
 	go func() {
 		if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -71,6 +71,7 @@ func (s *WebrtcHttpServer) Close() {
 			log.Printf("Error shutting down server %v\n", err)
 		}
 		s.server = nil
+		log.Println("Server closed")
 	}
 }
 
@@ -240,8 +241,8 @@ func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpServer {
 
 	errChan := make(chan error, 1)
 	return &WebrtcHttpServer{
-		handler: s.Handler(),
-		Error:   errChan,
+		engine: s,
+		Error:  errChan,
 	}
 }
 
@@ -318,6 +319,8 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 	achievedState := make(chan *pb.State)
 
 	errChan := make(chan error)
+	httpServer := NewWebrtcHttpServer(webrtcState)
+	defer httpServer.Close()
 	go func() {
 		for {
 			select {
@@ -371,8 +374,6 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 			}
 		}
 	}()
-	httpServer := NewWebrtcHttpServer(webrtcState)
-	defer httpServer.Close()
 	for {
 		select {
 		case err := <-errChan:
@@ -398,15 +399,6 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 			}
 			achievedState <- stateMsg
 		case <-webrtcState.BackgroundChange:
-			drainChannel(webrtcState.BackgroundChange)
-			stateMsg, err := webrtcState.ToProto(httpServer)
-			if err != nil {
-				log.Printf("Error converting state to proto: %v", err)
-				return err
-			}
-			achievedState <- stateMsg
-		case <-webrtcState.BackgroundChange:
-			drainChannel(webrtcState.BackgroundChange)
 			stateMsg, err := webrtcState.ToProto(httpServer)
 			if err != nil {
 				log.Printf("Error converting state to proto: %v", err)
@@ -463,7 +455,12 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 		if err != nil {
 			panic(err)
 		}
-		defer pipeline.SetState(gst.StateNull)
+		defer func(pipeline *gst.Pipeline, state gst.State) {
+			err := pipeline.SetState(state)
+			if err != nil {
+				panic(err)
+			}
+		}(pipeline, gst.StateNull)
 
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
@@ -486,7 +483,12 @@ func RemoveContents(dir string) error {
 	if err != nil {
 		return err
 	}
-	defer d.Close()
+	defer func(d *os.File) {
+		err := d.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(d)
 	names, err := d.Readdirnames(-1)
 	if err != nil {
 		return err
@@ -553,10 +555,24 @@ func main() {
 	defer wg.Wait()
 	select {
 	case <-sigChan:
-		grpcServer.GracefulStop()
+		log.Println("Received SIGTERM, shutting down")
+		stopGracefully := make(chan struct{})
+		go func() {
+			grpcServer.GracefulStop()
+			close(stopGracefully)
+		}()
+
+		select {
+		case <-stopGracefully:
+			log.Println("Graceful shutdown completed")
+		case <-time.After(1 * time.Second):
+			log.Println("Graceful shutdown timed out, forcing stop")
+			grpcServer.Stop()
+		}
 		stopServer()
 		return
 	case <-serverCtx.Done():
+		log.Println("Server context done, shutting down")
 		return
 	}
 }
