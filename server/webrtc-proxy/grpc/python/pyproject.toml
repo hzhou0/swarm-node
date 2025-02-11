@@ -1,0 +1,18 @@
+[project]
+name = "webrtc_proxy"
+version = "0.0.1"
+requires-python = ">=3.11"
+dependencies = [
+    "protobuf~=5.29.3",
+    "pycairo~=1.27.0",
+    "PyGObject~=3.50.0",
+    "gstreamer-python",
+    "grpcio>=1.70.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+gstreamer-python = { git = "https://github.com/jackersson/gstreamer-python.git", rev = "c8d4e04e1cdeb3b284641b981afcf304f50480db" }

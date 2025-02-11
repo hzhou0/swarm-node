@@ -1,0 +1,562 @@
+//go:build linux
+
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/gin-contrib/gzip"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-gst/go-gst/gst"
+	"github.com/pion/webrtc/v4"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/local"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/protobuf/proto"
+	"io"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"path"
+	"path/filepath"
+	"slices"
+	"sync"
+	"syscall"
+	"time"
+	"webrtc-proxy/grpc/go"
+)
+
+type WebrtcHttpServer struct {
+	webrtcState *WebrtcState
+	handler     http.Handler
+	server      *http.Server
+	Error       chan error
+	sync.Mutex
+}
+
+func (s *WebrtcHttpServer) SetAddr(addr string) {
+	s.Lock()
+	if s.server != nil && s.server.Addr == addr {
+		return
+	}
+	s.Unlock()
+	s.Close()
+	s.Lock()
+	defer s.Unlock()
+	s.server = &http.Server{
+		Addr:    addr,
+		Handler: s.handler,
+	}
+	go func() {
+		if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("Error serving: %v\n", err)
+			s.Close()
+			s.Error <- err
+		}
+	}()
+}
+
+func (s *WebrtcHttpServer) Close() {
+	s.Lock()
+	defer s.Unlock()
+	if s.server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		if err := s.server.Shutdown(ctx); err != nil {
+			log.Printf("Error shutting down server %v\n", err)
+		}
+		s.server = nil
+	}
+}
+
+func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpServer {
+	s := gin.Default()
+	s.Use(gzip.Gzip(gzip.DefaultCompression))
+	err := s.SetTrustedProxies([]string{"127.0.0.1"})
+	if err != nil {
+		panic(err)
+	}
+	s.NoRoute(func(c *gin.Context) {
+		c.String(http.StatusNotFound, "Not Found")
+	})
+	s.NoMethod(func(c *gin.Context) {
+		c.String(http.StatusMethodNotAllowed, "Method Not Allowed")
+	})
+
+	api := s.Group("/api")
+	cloudflareDomain := os.Getenv("CF_TEAM_DOMAIN")
+	cloudflareAUD := os.Getenv("CF_TEAM_AUD")
+	if cloudflareDomain != "" && cloudflareAUD != "" {
+		log.Println("Expecting /api requests to have cloudflare headers")
+		api.Use(func(c *gin.Context) {
+			// Extract the token from the header
+			accessJWT := c.GetHeader("Cf-Access-Jwt-Assertion")
+			if accessJWT == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "No token on the request"})
+				c.Abort()
+			}
+
+			// Verify the token
+			ctx := c.Request.Context()
+			certsURL := fmt.Sprintf("%s/cdn-cgi/access/certs", cloudflareDomain)
+			config := &oidc.Config{
+				ClientID: cloudflareAUD,
+			}
+			keySet := oidc.NewRemoteKeySet(ctx, certsURL)
+			verifier := oidc.NewVerifier(cloudflareDomain, keySet, config)
+			_, err := verifier.Verify(ctx, accessJWT)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Invalid token: %s", err.Error())})
+				c.Abort()
+			}
+			c.Next()
+		})
+	} else {
+		log.Println("Warning: API unprotected.")
+	}
+
+	api.PUT("/webrtc", func(c *gin.Context) {
+		offer := pb.WebrtcOffer{}
+		err := c.MustBindWith(&offer, binding.ProtoBuf)
+		if err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
+		if !offer.HasSrcUuid() {
+			c.String(http.StatusBadRequest, "Missing src uuid")
+			return
+		}
+		if !offer.HasLocalTracksSet() {
+			c.String(http.StatusBadRequest, "Missing local tracks set")
+			return
+		}
+		if !offer.HasRemoteTracksSet() {
+			c.String(http.StatusBadRequest, "Missing remote tracks set")
+			return
+		}
+		if offer.HasSdp() && offer.HasType() && offer.HasLocalTracksSet() &&
+			offer.HasRemoteTracksSet() && offer.GetLocalTracksSet() && offer.GetRemoteTracksSet() {
+			// Process Step 3 Request
+			// Validate Local/Incoming Tracks
+			lTracks := offer.GetLocalTracks()
+			for _, lTrack := range lTracks {
+				k := NamedTrackKeyFromProto(lTrack)
+				if !webrtcState.InTrackAllowed(k) {
+					c.String(http.StatusNotAcceptable, "Incoming track %v not allowed", lTrack.GetTrackId())
+					return
+				}
+			}
+			// Validate Outgoing/Remote Tracks
+			broadcasts := webrtcState.BroadcastOutTracks()
+			rTracks := offer.GetRemoteTracks()
+			for _, oTrack := range rTracks {
+				k := NamedTrackKeyFromProto(oTrack)
+				if !slices.Contains(broadcasts, k) {
+					c.String(http.StatusNotAcceptable, "Requested track %v not available", oTrack.GetTrackId())
+					return
+				}
+			}
+			pOffer := PeeringOffer{
+				peerId:      offer.GetSrcUuid(),
+				sdp:         &webrtc.SessionDescription{Type: webrtc.NewSDPType(offer.GetType()), SDP: offer.GetSdp()},
+				outTracks:   Map(rTracks, NamedTrackKeyFromProto),
+				inTracks:    Map(lTracks, NamedTrackKeyFromProto),
+				dataChannel: offer.GetDatachannel(),
+			}
+			webrtcState.UnPeer(pOffer.peerId)
+			answerSdp, err := webrtcState.Peer(pOffer, 0)
+			if err != nil {
+				c.String(http.StatusInternalServerError, "Peering failed %v", err)
+				return
+			}
+			answer := pb.WebrtcOffer{}
+			c.Request.URL.Fragment = ""
+			c.Request.URL.RawQuery = ""
+			c.Request.URL.Host = c.Request.Host
+			c.Request.URL.Scheme = "http"
+			answer.SetSrcUuid(c.Request.URL.String())
+			answer.SetLocalTracks(rTracks)
+			answer.SetLocalTracksSet(true)
+			answer.SetRemoteTracks(lTracks)
+			answer.SetRemoteTracksSet(true)
+			answer.SetSdp(answerSdp.SDP)
+			answer.SetType(answerSdp.Type.String())
+			c.Header("Content-Type", "application/x-protobuf")
+			c.ProtoBuf(http.StatusOK, &answer)
+			return
+		}
+		if offer.HasLocalTracksSet() {
+			// Process Step 1 Request
+			var allowedRemote []*pb.NamedTrack
+			answer := pb.WebrtcOffer{}
+			c.Request.URL.Fragment = ""
+			c.Request.URL.RawQuery = ""
+			c.Request.URL.Host = c.Request.Host
+			c.Request.URL.Scheme = "http"
+			answer.SetSrcUuid(c.Request.URL.String())
+			for _, track := range offer.GetLocalTracks() {
+				ntk := NamedTrackKeyFromProto(track)
+				if webrtcState.InTrackAllowed(ntk) {
+					allowedRemote = append(allowedRemote, track)
+				}
+			}
+			answer.SetRemoteTracks(allowedRemote)
+			answer.SetRemoteTracksSet(true)
+			var localTracks []*pb.NamedTrack
+			for _, v := range webrtcState.BroadcastOutTracks() {
+				tr := pb.NamedTrack{}
+				tr.SetStreamId(v.streamId)
+				tr.SetTrackId(v.trackId)
+				tr.SetMimeType(v.mimeType)
+				localTracks = append(localTracks, &tr)
+			}
+			answer.SetLocalTracks(localTracks)
+			answer.SetLocalTracksSet(true)
+			c.Header("Content-Type", "application/x-protobuf")
+			c.ProtoBuf(http.StatusOK, &answer)
+			return
+		}
+	})
+	api.DELETE("/webrtc", func(c *gin.Context) {
+		offer := pb.WebrtcOffer{}
+		err := c.MustBindWith(&offer, binding.ProtoBuf)
+		if err != nil {
+			c.String(http.StatusBadRequest, err.Error())
+			return
+		}
+		if !offer.HasSrcUuid() {
+			c.String(http.StatusBadRequest, "No source UUID")
+			return
+		}
+		webrtcState.UnPeer(offer.GetSrcUuid())
+		c.String(http.StatusNoContent, "")
+		return
+	})
+
+	errChan := make(chan error, 1)
+	return &WebrtcHttpServer{
+		handler: s.Handler(),
+		Error:   errChan,
+	}
+}
+
+func drainChannel[T any](ch <-chan T) T {
+	for {
+		var val T
+		var ok bool
+		select {
+		case val, ok = <-ch:
+			if !ok {
+				return val // Stop when the channel is closed
+			}
+		default:
+			return val // Stop when the channel is empty
+		}
+	}
+}
+
+type webrtcProxyServer struct {
+	pb.UnimplementedWebrtcProxyServer
+	defaultConfig WebrtcStateConfig
+	sync.Mutex
+	connIds map[string]struct{}
+}
+
+func newWebrtcProxyServer() *webrtcProxyServer {
+	webrtcConfig := WebrtcStateConfig{
+		webrtcConfig: webrtc.Configuration{
+			ICEServers: []webrtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+		},
+		reconnectAttempts: 0,
+		allowedInTracks:   []NamedTrackKey{},
+	}
+	return &webrtcProxyServer{defaultConfig: webrtcConfig, connIds: map[string]struct{}{}}
+}
+
+func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
+	s.Lock()
+	i := 4
+	connUUID := NewUUID(i)
+	for _, exists := s.connIds[connUUID]; exists; i++ {
+		connUUID = NewUUID(i)
+	}
+	s.Unlock()
+	defer func() {
+		s.Lock()
+		delete(s.connIds, connUUID)
+		s.Unlock()
+	}()
+	runtimeDir := os.Getenv("RUNTIME_DIRECTORY")
+	if runtimeDir == "" {
+		return fmt.Errorf("RUNTIME_DIRECTORY is not set")
+	}
+	webrtcState, err := NewWebrtcState(s.defaultConfig, path.Join(runtimeDir, "server-media", connUUID), path.Join(runtimeDir, "client-media", connUUID))
+	if err != nil {
+		return err
+	}
+	defer webrtcState.Close()
+	ev := pb.Event_builder{
+		MediaSocketDirs: pb.MediaSocketDirs_builder{
+			ServerDir: proto.String(webrtcState.ServerMediaSocketDir),
+			ClientDir: proto.String(webrtcState.ClientMediaSocketDir),
+		}.Build(),
+	}.Build()
+	if err = stream.Send(ev); err != nil {
+		return err
+	}
+
+	setState := make(chan *pb.State)
+	achievedState := make(chan *pb.State)
+
+	errChan := make(chan error)
+	go func() {
+		for {
+			select {
+			case <-stream.Context().Done():
+				return
+			default:
+			}
+
+			mutation, err := stream.Recv()
+			if err == io.EOF {
+				errChan <- nil
+				return
+			}
+			if err != nil {
+				errChan <- err
+				return
+			}
+			switch mutation.WhichMutation() {
+			case pb.Mutation_Data_case:
+				webrtcState.DataOut <- mutation.GetData()
+			case pb.Mutation_SetState_case:
+				setState <- mutation.GetSetState()
+			case pb.Mutation_Mutation_not_set_case:
+			default:
+				errChan <- fmt.Errorf("unknown mutation type: %v", mutation.WhichMutation())
+				return
+			}
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case <-stream.Context().Done():
+				return
+			default:
+			}
+
+			ev := pb.Event{}
+			select {
+			case data := <-webrtcState.DataIn:
+				ev.SetData(data)
+			case media := <-webrtcState.MediaIn:
+				ev.SetMedia(media)
+			case state := <-achievedState:
+				ev.SetAchievedState(state)
+			}
+			err := stream.Send(&ev)
+			if err != nil {
+				errChan <- err
+				return
+			}
+		}
+	}()
+	httpServer := NewWebrtcHttpServer(webrtcState)
+	defer httpServer.Close()
+	for {
+		select {
+		case err := <-errChan:
+			return err
+		case newState := <-setState:
+			if latestState := drainChannel(setState); latestState != nil {
+				newState = latestState
+			}
+			if newState.HasHttpAddr() {
+				httpServer.SetAddr(newState.GetHttpAddr())
+			} else {
+				httpServer.Close()
+			}
+			err := webrtcState.Reconcile(newState)
+			if err != nil {
+				log.Printf("Error reconciling state: %v", err)
+				return err
+			}
+			stateMsg, err := webrtcState.ToProto(httpServer)
+			if err != nil {
+				log.Printf("Error converting state to proto: %v", err)
+				return err
+			}
+			achievedState <- stateMsg
+		case <-webrtcState.BackgroundChange:
+			drainChannel(webrtcState.BackgroundChange)
+			stateMsg, err := webrtcState.ToProto(httpServer)
+			if err != nil {
+				log.Printf("Error converting state to proto: %v", err)
+				return err
+			}
+			achievedState <- stateMsg
+		case <-webrtcState.BackgroundChange:
+			drainChannel(webrtcState.BackgroundChange)
+			stateMsg, err := webrtcState.ToProto(httpServer)
+			if err != nil {
+				log.Printf("Error converting state to proto: %v", err)
+				return err
+			}
+			achievedState <- stateMsg
+		case <-httpServer.Error:
+			stateMsg, err := webrtcState.ToProto(httpServer)
+			if err != nil {
+				log.Printf("Error converting state to proto: %v", err)
+				return err
+			}
+			achievedState <- stateMsg
+		}
+	}
+}
+
+func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	if os.Getenv("DEBUG_SEND_VIDEO") != "" {
+		log.Println("DEBUG_SEND_VIDEO is set, setting up WebRTC state to stream test video")
+		config := WebrtcStateConfig{
+			webrtcConfig: webrtc.Configuration{
+				ICEServers: []webrtc.ICEServer{
+					{
+						URLs: []string{"stun:stun.l.google.com:19302"},
+					},
+				},
+			},
+			reconnectAttempts: 0,
+			allowedInTracks:   []NamedTrackKey{},
+		}
+
+		debugState, err := NewWebrtcState(config, path.Join(runtimeDir, "debug-server-media"), path.Join(runtimeDir, "debug-client-media"))
+		if err != nil {
+			panic(err)
+		}
+		defer debugState.Close()
+
+		outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", "video/h264")
+		pf := PeeringOffer{
+			peerId:      "http://localhost:8080/api/webrtc",
+			sdp:         nil,
+			outTracks:   []NamedTrackKey{outputTrackKey},
+			inTracks:    nil,
+			dataChannel: false,
+		}
+		pipelineStr := fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath(debugState.ClientMediaSocketDir, ""))
+		pipeline, err := gst.NewPipelineFromString(pipelineStr)
+		if err != nil {
+			panic(err)
+		}
+		err = pipeline.Start()
+		if err != nil {
+			panic(err)
+		}
+		defer pipeline.SetState(gst.StateNull)
+
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_, err := debugState.Peer(pf, 0)
+				if err != nil {
+					log.Printf("Debug State err: %v", err)
+				}
+			}
+		}
+	}
+}
+
+func RemoveContents(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func main() {
+	log.SetFlags(log.Lshortfile)
+	runtimeDir := os.Getenv("RUNTIME_DIRECTORY")
+	if runtimeDir == "" {
+		log.Fatal("RUNTIME_DIRECTORY is not set")
+	}
+
+	// Clear runtime directory
+	err := RemoveContents(runtimeDir)
+	if err != nil {
+		log.Panicf("Failed to clear runtime directory: %v", err)
+	}
+
+	// Remove any existing socket file before starting the server
+	udsPath := filepath.Join(runtimeDir, "swarmnode.sock")
+	if _, err := os.Stat(udsPath); err == nil {
+		if err := os.Remove(udsPath); err != nil {
+			log.Panicf("Failed to remove existing socket file: %v", err)
+		}
+	}
+	listener, err := net.Listen("unix", udsPath)
+	if err != nil {
+		log.Panicf("Failed to listen on UDS: %v", err)
+	}
+	log.Printf("Serving gRPC on UDS: %s", udsPath)
+
+	// Signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	var wg sync.WaitGroup
+	serverCtx, stopServer := context.WithCancel(context.Background())
+	wg.Add(1)
+	go debugTools(runtimeDir, serverCtx, &wg)
+
+	grpcServer := grpc.NewServer([]grpc.ServerOption{
+		grpc.Creds(local.NewCredentials()),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    2 * time.Minute, // Ping the client after 2 minutes of inactivity
+			Timeout: 20 * time.Second,
+		}),
+	}...)
+	pb.RegisterWebrtcProxyServer(grpcServer, newWebrtcProxyServer())
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Panicf("Failed to serve gRPC on UDS: %v", err)
+		}
+	}()
+
+	defer wg.Wait()
+	select {
+	case <-sigChan:
+		grpcServer.GracefulStop()
+		stopServer()
+		return
+	case <-serverCtx.Done():
+		return
+	}
+}

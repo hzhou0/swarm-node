@@ -1,0 +1,94 @@
+edition = "2023";
+package networking;
+option go_package = "github.com/hzhou0/swarm-node/server/networking;pb";
+
+
+message NamedTrack {
+  string track_id = 1;
+  string stream_id = 2;
+  string mime_type = 3;
+}
+
+// uuid can be any string that uniquely identifies the sender/receiver. No specific format required.
+// Define the transmitter (T) as the side with a dest_uuid (in either Data or Media Transmission) that refers to the broadcaster (B).
+// In the case that both sides have specified dest_uuid that refer to each other, the side that initiates first is T.
+// Offer negotiations is as follows:
+// 1. T -> T's Media -> B (Request)
+// 2. B -> Wanted T's Media, B's Media -> T (Response)
+// 3. T -> Wanted B's Media, Wanted T's Media, SDP offer, type -> B (Request)
+// 4. B -> Wanted B's Media, Wanted T's Media, SDP answer, type -> T (Response)
+// 5. Connection Established. T -> Wanted T's Media -> B; B -> Wanted B's Media -> T
+message WebrtcOffer {
+  string src_uuid = 1; // Must uniquely identify the source (T or B) for the duration of the negotiation.
+  string sdp = 2;
+  string type = 3;
+  repeated NamedTrack local_tracks = 4;
+  bool local_tracks_set = 5; // Required: it's impossible to tell if no tracks exists or if tracks are unknown, hence these flags.
+  repeated NamedTrack remote_tracks = 6;
+  bool remote_tracks_set = 7; // Required
+  bool datachannel = 8;
+}
+
+message DataChannel {
+  string src_uuid = 1; // Leave unset when sending; always present when receiving
+  string dest_uuid = 2; // Set when sending; unset when receiving
+} // Data channel is always required if present
+
+message DataTransmission {
+  DataChannel channel = 1;
+  bytes payload = 2;
+}
+
+message MediaChannel {
+  string src_uuid = 1; // Leave unset when sending; always present when receiving
+  string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
+  // When sent from the kernel, this will be fulfilled on a best-effort basis. The dest can reject any track it doesn't want.
+  NamedTrack track = 3;
+  bool close = 4; // Channel is closed
+}
+
+message MediaSocketDirs {
+  string serverDir = 1;
+  string clientDir = 2;
+}
+
+message Event {
+  oneof event{
+    DataTransmission data = 1;
+    MediaChannel media = 2;
+    State achievedState = 3;
+    MediaSocketDirs mediaSocketDirs = 4; // Always the first event at the start of a client-proxy session. Only sent once.
+  }
+}
+
+message WebrtcConfig {
+  message IceServer {
+    repeated string urls = 1;
+    string username = 2;
+    string credential = 3;
+    string credentialType = 4;
+  }
+  repeated IceServer ice_servers = 1;
+}
+
+message State {
+  repeated DataChannel data = 1;
+  repeated MediaChannel media = 2;
+  repeated NamedTrack wantedTracks = 3;
+  WebrtcConfig config = 4;
+  uint32 reconnectAttempts = 5;
+  string httpAddr = 6;
+}
+
+message Mutation {
+  oneof mutation{
+    DataTransmission data = 1;
+    State setState = 2;
+  }
+}
+
+
+service WebrtcProxy {
+  // Streams all fields in `Mutation` and returns all fields in `Event`
+  rpc Connect(stream Mutation) returns (stream Event);
+}

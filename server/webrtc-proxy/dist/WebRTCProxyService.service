@@ -1,0 +1,28 @@
+[Unit]
+Description=WebRTC Proxy Service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/webrtc-proxy
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Graceful reload configuration
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Proper kill mode for a basic Go program
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Security and runtime configurations
+DynamicUser=yes
+RuntimeDirectory=webrtc-proxy
+RuntimeDirectoryMode=0750
+SupplementaryGroups=webrtc
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
