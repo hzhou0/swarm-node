@@ -15,14 +15,10 @@ from webrtc_proxy import (
 async def video_processor(media_chan: pb.MediaChannel, server_dir: str):
     shm_path = media_shm_path(media_chan.track, server_dir, media_chan.src_uuid)
     media_reader = webrtc_proxy_media_reader(shm_path, media_chan.track.mime_type)
-    with media_reader as pipeline:
+    async with media_reader as pipeline:
         while True:
-            # gst_buffer = pipeline.pop()
-            raise RuntimeError()
-            gst_buffer = True
-            if gst_buffer is None:
-                await asyncio.sleep(0.01)
-                continue
+            frame = await pipeline.queue.get()
+            pass
 
 
 async def main(

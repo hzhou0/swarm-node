@@ -8,9 +8,10 @@ from typing import Literal
 
 import gi
 import grpc
-from gstreamer import GstVideoSource, GstVideoSink
 
 import webrtc_proxy.networking_pb2 as pb
+from webrtc_proxy.async_gst import gst_video_source
+from webrtc_proxy.gst_tools import GstVideoSink
 
 # Path manipulation for this one import: grpc generated code uses relative file imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -26,14 +27,19 @@ from gi.repository import Gst, GstVideo
 Gst.init(None)
 
 
-def webrtc_proxy_media_reader(shm_path: str, mime_type: str) -> GstVideoSource:
+def webrtc_proxy_media_reader(shm_path: str, mime_type: str):
     pipeline_tmpls = {
-        "video/h264": f"shmsrc socket-path={shm_path} is-live=true ! queue ! h264parse ! avdec_h264 ! appsink emit-signals=True sync=false",
+        "video/h264": [
+            f"shmsrc socket-path={shm_path} is-live=true",
+            "queue",
+            "h264parse",
+            "avdec_h264",
+        ],
     }
     mime_type = mime_type.lower()
     if mime_type not in pipeline_tmpls:
         raise ValueError(f"Unsupported MIME type: {mime_type}")
-    return GstVideoSource(pipeline_tmpls[mime_type])
+    return gst_video_source(pipeline_tmpls[mime_type])
 
 
 def webrtc_proxy_media_writer(
