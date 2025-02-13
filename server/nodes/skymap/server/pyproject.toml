@@ -20,3 +20,8 @@ dependencies = [
 [tool.uv.sources]
 webrtc-proxy = { path = "../../../webrtc-proxy/grpc/python", editable = true }
 swarmnode-skymap-common = { path = "../common", editable = true }
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+]

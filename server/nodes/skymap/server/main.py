@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 
+import cv2
 import uvloop
 
 from webrtc_proxy import (
@@ -17,8 +18,10 @@ async def video_processor(media_chan: pb.MediaChannel, server_dir: str):
     media_reader = webrtc_proxy_media_reader(shm_path, media_chan.track.mime_type)
     async with media_reader as pipeline:
         while True:
-            frame = await pipeline.queue.get()
-            pass
+            frame = await pipeline.get()
+            # Display the frame
+            cv2.imshow("Video Frame", cv2.cvtColor(frame, cv2.COLOR_YUV420P2BGR))
+            cv2.waitKey(1)
 
 
 async def main(
@@ -36,9 +39,7 @@ async def main(
     target_state = pb.State(
         httpAddr=":8080",
         wantedTracks=[
-            pb.NamedTrack(
-                track_id="rgbd", stream_id="realsenseD455", mime_type="video/h264"
-            )
+            pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h264")
         ],
     )
     await mutation_q.put(pb.Mutation(setState=target_state))

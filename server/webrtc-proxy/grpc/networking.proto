@@ -69,6 +69,25 @@ message WebrtcConfig {
     string credentialType = 4;
   }
   repeated IceServer ice_servers = 1;
+  message CloudflareZeroTrust {
+    string client_id = 1;
+    string client_secret = 2;
+  }
+  oneof auth {
+    CloudflareZeroTrust cloudflare = 2;
+  }
+}
+
+message HttpServer {
+  message CloudflareTunnel {
+    string team_domain = 1;
+    string team_aud = 2;
+  }
+  string address = 1; // Acceptable to https://pkg.go.dev/net#Dial
+  oneof auth {
+    bool none = 2;
+    CloudflareTunnel cloudflare = 3;
+  }
 }
 
 message State {
@@ -77,7 +96,7 @@ message State {
   repeated NamedTrack wantedTracks = 3;
   WebrtcConfig config = 4;
   uint32 reconnectAttempts = 5;
-  string httpAddr = 6;
+  HttpServer httpServerConfig = 6;
 }
 
 message Mutation {

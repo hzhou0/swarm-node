@@ -11,10 +11,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-gst/go-gst/gst"
+	"github.com/go-resty/resty/v2"
 	"github.com/pion/webrtc/v4"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/local"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"io"
 	"log"
@@ -31,69 +33,53 @@ import (
 	"webrtc-proxy/grpc/go"
 )
 
-type WebrtcHttpServer struct {
-	webrtcState *WebrtcState
-	engine      *gin.Engine
-	server      *http.Server
-	Error       chan error
-	sync.Mutex
+type WebrtcHttpInterfaceState struct {
+	webrtcState  *WebrtcState
+	engine       *gin.Engine
+	server       *http.Server
+	serverMu     sync.Mutex
+	serverConfig *pb.HttpServer
+	Error        chan error
 }
 
-func (s *WebrtcHttpServer) SetAddr(addr string) {
-	s.Lock()
-	if s.server != nil && s.server.Addr == addr {
-		return
+func (s *WebrtcHttpInterfaceState) Configure(config *pb.HttpServer) error {
+	s.serverMu.Lock()
+	if proto.Equal(s.serverConfig, config) {
+		return nil
 	}
-	s.Unlock()
+	s.serverMu.Unlock()
 	s.Close()
-	s.Lock()
-	defer s.Unlock()
-	s.server = &http.Server{
-		Addr:    addr,
-		Handler: s.engine.Handler(),
-	}
-	go func() {
-		if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("Error serving: %v\n", err)
-			s.Close()
-			s.Error <- err
-		}
-	}()
-}
+	s.serverMu.Lock()
+	defer s.serverMu.Unlock()
 
-func (s *WebrtcHttpServer) Close() {
-	s.Lock()
-	defer s.Unlock()
-	if s.server != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-		if err := s.server.Shutdown(ctx); err != nil {
-			log.Printf("Error shutting down server %v\n", err)
-		}
-		s.server = nil
-		log.Println("Server closed")
-	}
-}
-
-func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpServer {
-	s := gin.Default()
-	s.Use(gzip.Gzip(gzip.DefaultCompression))
-	err := s.SetTrustedProxies([]string{"127.0.0.1"})
+	g := gin.Default()
+	g.Use(gzip.Gzip(gzip.DefaultCompression))
+	err := g.SetTrustedProxies([]string{"127.0.0.1"})
 	if err != nil {
-		panic(err)
+		return err
 	}
-	s.NoRoute(func(c *gin.Context) {
+	g.NoRoute(func(c *gin.Context) {
 		c.String(http.StatusNotFound, "Not Found")
 	})
-	s.NoMethod(func(c *gin.Context) {
+	g.NoMethod(func(c *gin.Context) {
 		c.String(http.StatusMethodNotAllowed, "Method Not Allowed")
 	})
 
-	api := s.Group("/api")
-	cloudflareDomain := os.Getenv("CF_TEAM_DOMAIN")
-	cloudflareAUD := os.Getenv("CF_TEAM_AUD")
-	if cloudflareDomain != "" && cloudflareAUD != "" {
+	api := g.Group("/api")
+	switch config.WhichAuth() {
+	case pb.HttpServer_Auth_not_set_case:
+		return fmt.Errorf("auth not set")
+	case pb.HttpServer_None_case:
+	case pb.HttpServer_Cloudflare_case:
 		log.Println("Expecting /api requests to have cloudflare headers")
+		if config.GetCloudflare().HasTeamDomain() {
+			return fmt.Errorf("cloudflare team domain is not set")
+		}
+		if config.GetCloudflare().HasTeamAud() {
+			return fmt.Errorf("cloudflare team aud is not set")
+		}
+		cloudflareDomain := config.GetCloudflare().GetTeamDomain()
+		cloudflareAUD := config.GetCloudflare().GetTeamAud()
 		api.Use(func(c *gin.Context) {
 			// Extract the token from the header
 			accessJWT := c.GetHeader("Cf-Access-Jwt-Assertion")
@@ -117,9 +103,20 @@ func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpServer {
 			}
 			c.Next()
 		})
-	} else {
-		log.Println("Warning: API unprotected.")
+
 	}
+
+	// Debug endpoint to check server state.
+	api.GET("/debug", func(c *gin.Context) {
+		s.serverMu.Lock()
+		httpData, err := protojson.Marshal(s.serverConfig)
+		if err != nil {
+			c.String(500, "Error converting to JSON: %v\n", err)
+			return
+		}
+		s.serverMu.Unlock()
+		c.JSON(http.StatusOK, httpData)
+	})
 
 	api.PUT("/webrtc", func(c *gin.Context) {
 		offer := pb.WebrtcOffer{}
@@ -147,13 +144,13 @@ func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpServer {
 			lTracks := offer.GetLocalTracks()
 			for _, lTrack := range lTracks {
 				k := NamedTrackKeyFromProto(lTrack)
-				if !webrtcState.InTrackAllowed(k) {
+				if !s.webrtcState.InTrackAllowed(k) {
 					c.String(http.StatusNotAcceptable, "Incoming track %v not allowed", lTrack.GetTrackId())
 					return
 				}
 			}
 			// Validate Outgoing/Remote Tracks
-			broadcasts := webrtcState.BroadcastOutTracks()
+			broadcasts := s.webrtcState.BroadcastOutTracks()
 			rTracks := offer.GetRemoteTracks()
 			for _, oTrack := range rTracks {
 				k := NamedTrackKeyFromProto(oTrack)
@@ -169,8 +166,8 @@ func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpServer {
 				inTracks:    Map(lTracks, NamedTrackKeyFromProto),
 				dataChannel: offer.GetDatachannel(),
 			}
-			webrtcState.UnPeer(pOffer.peerId)
-			answerSdp, err := webrtcState.Peer(pOffer, 0)
+			s.webrtcState.UnPeer(pOffer.peerId)
+			answerSdp, err := s.webrtcState.Peer(pOffer, 0)
 			if err != nil {
 				c.String(http.StatusInternalServerError, "Peering failed %v", err)
 				return
@@ -202,14 +199,14 @@ func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpServer {
 			answer.SetSrcUuid(c.Request.URL.String())
 			for _, track := range offer.GetLocalTracks() {
 				ntk := NamedTrackKeyFromProto(track)
-				if webrtcState.InTrackAllowed(ntk) {
+				if s.webrtcState.InTrackAllowed(ntk) {
 					allowedRemote = append(allowedRemote, track)
 				}
 			}
 			answer.SetRemoteTracks(allowedRemote)
 			answer.SetRemoteTracksSet(true)
 			var localTracks []*pb.NamedTrack
-			for _, v := range webrtcState.BroadcastOutTracks() {
+			for _, v := range s.webrtcState.BroadcastOutTracks() {
 				tr := pb.NamedTrack{}
 				tr.SetStreamId(v.streamId)
 				tr.SetTrackId(v.trackId)
@@ -234,15 +231,49 @@ func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpServer {
 			c.String(http.StatusBadRequest, "No source UUID")
 			return
 		}
-		webrtcState.UnPeer(offer.GetSrcUuid())
+		s.webrtcState.UnPeer(offer.GetSrcUuid())
 		c.String(http.StatusNoContent, "")
 		return
 	})
 
+	if !config.HasAddress() {
+		return fmt.Errorf("address not set")
+	}
+	s.server = &http.Server{
+		Addr:    config.GetAddress(),
+		Handler: g.Handler(),
+	}
+	s.serverConfig = config
+	go func() {
+		if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("Error serving: %v\n", err)
+			s.Close()
+			s.Error <- err
+		}
+	}()
+	return nil
+
+}
+
+func (s *WebrtcHttpInterfaceState) Close() {
+	s.serverMu.Lock()
+	defer s.serverMu.Unlock()
+	if s.server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		if err := s.server.Shutdown(ctx); err != nil {
+			log.Printf("Error shutting down server %v\n", err)
+		}
+		s.server = nil
+		log.Println("Server closed")
+	}
+}
+
+func NewWebrtcHttpServer(webrtcState *WebrtcState) *WebrtcHttpInterfaceState {
 	errChan := make(chan error, 1)
-	return &WebrtcHttpServer{
-		engine: s,
-		Error:  errChan,
+	return &WebrtcHttpInterfaceState{
+		webrtcState: webrtcState,
+		Error:       errChan,
 	}
 }
 
@@ -277,6 +308,7 @@ func newWebrtcProxyServer() *webrtcProxyServer {
 				},
 			},
 		},
+		client:            resty.New(),
 		reconnectAttempts: 0,
 		allowedInTracks:   []NamedTrackKey{},
 	}
@@ -382,8 +414,13 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 			if latestState := drainChannel(setState); latestState != nil {
 				newState = latestState
 			}
-			if newState.HasHttpAddr() {
-				httpServer.SetAddr(newState.GetHttpAddr())
+			if newState.HasHttpServerConfig() {
+				err := httpServer.Configure(newState.GetHttpServerConfig())
+				if err != nil {
+					go func() {
+						httpServer.Error <- err
+					}()
+				}
 			} else {
 				httpServer.Close()
 			}

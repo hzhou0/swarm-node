@@ -26,8 +26,6 @@ import (
 
 type UUID = string
 
-var client = resty.New()
-
 func NewUUID(len ...int) UUID {
 	id, err := gonanoid.New(len...)
 	if err != nil {
@@ -154,7 +152,9 @@ func (po *PeeringOffer) Prenegotiate(state *WebrtcState) error {
 		return err
 	}
 
-	resp, err := client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(po.peerId)
+	state.configMu.RLock()
+	resp, err := state.config.client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(po.peerId)
+	state.configMu.RUnlock()
 	if err != nil {
 		return err
 	}
@@ -191,6 +191,8 @@ func (po *PeeringOffer) Prenegotiate(state *WebrtcState) error {
 
 type WebrtcStateConfig struct {
 	webrtcConfig      webrtc.Configuration
+	client            *resty.Client
+	cloudflareZT      *pb.WebrtcConfig_CloudflareZeroTrust
 	reconnectAttempts uint
 	allowedInTracks   []NamedTrackKey
 }
@@ -397,7 +399,9 @@ func (peer *WebrtcPeer) unsafeClose(peerId string, state *WebrtcState) {
 			if err != nil {
 				panic(err)
 			}
-			_, err = client.R().SetBody(body).Delete(peerId)
+			state.configMu.RLock()
+			_, err = state.config.client.R().SetBody(body).Delete(peerId)
+			state.configMu.RUnlock()
 			if err != nil {
 				log.Printf("HTTP  unpeer %s: %v\n", peerId, err)
 			}
@@ -649,7 +653,9 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (ans *webrtc.Sess
 		}
 		// Set the remote SessionDescription when received
 		var resp *resty.Response
-		resp, err = client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(offer.peerId)
+		state.configMu.RLock()
+		resp, err = state.config.client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(offer.peerId)
+		state.configMu.RUnlock()
 		if err != nil {
 			return nil, err
 		}
@@ -865,6 +871,21 @@ func (state *WebrtcState) Reconcile(stateMsg *pb.State) error {
 				}
 			}),
 		}
+		switch stateMsg.GetConfig().WhichAuth() {
+		case pb.WebrtcConfig_Auth_not_set_case:
+			state.config.client = resty.New()
+			state.config.cloudflareZT = nil
+		case pb.WebrtcConfig_Cloudflare_case:
+			cf := stateMsg.GetConfig().GetCloudflare()
+			if !cf.HasClientSecret() || !cf.HasClientId() {
+				return errors.New("cloudflare auth requires client secret and client id")
+			}
+			state.config.client = resty.New().SetHeaders(map[string]string{
+				"CF-Access-Client-Id":     cf.GetClientId(),
+				"CF-Access-Client-Secret": cf.GetClientSecret(),
+			})
+			state.config.cloudflareZT = cf
+		}
 	}
 	state.config.allowedInTracks = Map(stateMsg.GetWantedTracks(), NamedTrackKeyFromProto)
 	state.configMu.RUnlock()
@@ -947,7 +968,7 @@ func (state *WebrtcState) Reconcile(stateMsg *pb.State) error {
 	return nil
 }
 
-func (state *WebrtcState) ToProto(httpServer *WebrtcHttpServer) (*pb.State, error) {
+func (state *WebrtcState) ToProto(httpServer *WebrtcHttpInterfaceState) (*pb.State, error) {
 	if err := state.Ctx.Err(); err != nil {
 		return nil, fmt.Errorf("webrtc closed %w", err)
 	}
@@ -985,17 +1006,15 @@ func (state *WebrtcState) ToProto(httpServer *WebrtcHttpServer) (*pb.State, erro
 		Data:              dataChannels,
 		Media:             mediaChannels,
 		WantedTracks:      Map(state.config.allowedInTracks, NamedTrackKey.toProto),
-		Config:            pb.WebrtcConfig_builder{IceServers: iceServers}.Build(),
+		Config:            pb.WebrtcConfig_builder{IceServers: iceServers, Cloudflare: state.config.cloudflareZT}.Build(),
 		ReconnectAttempts: proto.Uint32(uint32(state.config.reconnectAttempts)),
-		HttpAddr:          nil,
+		HttpServerConfig:  nil,
 	}
 	state.configMu.RUnlock()
 
-	httpServer.Lock()
-	if httpServer.server != nil {
-		msg.HttpAddr = proto.String(httpServer.server.Addr)
-	}
-	httpServer.Unlock()
+	httpServer.serverMu.Lock()
+	msg.HttpServerConfig = httpServer.serverConfig
+	httpServer.serverMu.Unlock()
 
 	return msg.Build(), nil
 }

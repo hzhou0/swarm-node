@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/go-gst/go-gst/gst"
+	"github.com/go-resty/resty/v2"
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
@@ -25,12 +26,20 @@ var webrtcConfig = WebrtcStateConfig{
 			},
 		},
 	},
+	client:            resty.New(),
 	reconnectAttempts: 0,
 	allowedInTracks:   []NamedTrackKey{},
 }
 
 func generateSocketDirs() (string, string, string, string) {
 	return "/tmp/swarmnode/client" + NewUUID(), "/tmp/swarmnode/server" + NewUUID(), "/tmp/swarmnode/client2" + NewUUID(), "/tmp/swarmnode/server2" + NewUUID()
+}
+
+func buildHTTPServerConfig(addr string) *pb.HttpServer {
+	return pb.HttpServer_builder{
+		Address: proto.String(addr),
+		None:    proto.Bool(true),
+	}.Build()
 }
 
 func TestNewWebrtcState(t *testing.T) {
@@ -102,7 +111,10 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 	defer wst1.Close()
 	servAddr := "127.0.0.1:8080"
 	httpServ := NewWebrtcHttpServer(wst1)
-	httpServ.SetAddr(servAddr)
+	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
+	if err != nil {
+		panic(err)
+	}
 
 	wst2, err := NewWebrtcState(webrtcConfig, serverSocketDir2, clientSocketDir2)
 	assert.Nil(t, err)
@@ -125,7 +137,7 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 	assert.Equal(t, wst1.peers[wst2.SrcUUID].role, WebrtcPeerRoleB)
 	assert.Equal(t, wst2.peers[pf.peerId].role, WebrtcPeerRoleT)
 	wst2.UnPeer("http://" + servAddr + "/api/webrtc")
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	assert.Len(t, maps.Keys(wst1.peers), 0)
 	pf2 := PeeringOffer{
 		peerId:      "http://" + servAddr + "/api/webrtc",
@@ -151,7 +163,10 @@ func TestWebrtcState_PutPeer_DataChannels(t *testing.T) {
 	assert.Nil(t, err)
 	defer wst1.Close()
 	httpServ := NewWebrtcHttpServer(wst1)
-	httpServ.SetAddr(servAddr)
+	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
+	if err != nil {
+		panic(err)
+	}
 
 	wst2, err := NewWebrtcState(webrtcConfig, serverSocketDir2, clientSocketDir2)
 	assert.Nil(t, err)
@@ -217,7 +232,10 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 	assert.Nil(t, err)
 	defer wst1.Close()
 	httpServ := NewWebrtcHttpServer(wst1)
-	httpServ.SetAddr(servAddr)
+	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
+	if err != nil {
+		panic(err)
+	}
 
 	wst2, err := NewWebrtcState(webrtcConfig, serverSocketDir2, clientSocketDir2)
 	assert.Nil(t, err)
@@ -243,8 +261,7 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 	assert.Equal(t, strings.ToUpper(receivedTrack.GetTrack().GetMimeType()), strings.ToUpper(outputTrackKey.mimeType))
 	assert.Equal(t, receivedTrack.GetTrack().GetStreamId(), outputTrackKey.streamId)
 	assert.Equal(t, receivedTrack.GetSrcUuid(), wst2.SrcUUID)
-	//assert.FileExists(t, NamedTrackKeyFromProto(receivedTrack.GetTrack()).shmPath(serverSocketDir, receivedTrack.GetSrcUuid()))
-	select {}
+	assert.FileExists(t, NamedTrackKeyFromProto(receivedTrack.GetTrack()).shmPath(serverSocketDir, receivedTrack.GetSrcUuid()))
 }
 
 func TestWebrtcState_Reconcile(t *testing.T) {
@@ -268,7 +285,10 @@ func TestWebrtcState_Reconcile(t *testing.T) {
 	assert.Nil(t, err)
 	defer wst1.Close()
 	httpServ := NewWebrtcHttpServer(wst1)
-	httpServ.SetAddr(servAddr)
+	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
+	if err != nil {
+		panic(err)
+	}
 
 	wst2, err := NewWebrtcState(webrtcConfig, serverSocketDir2, clientSocketDir2)
 	assert.Nil(t, err)

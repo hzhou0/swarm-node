@@ -1193,6 +1193,7 @@ func (*event_MediaSocketDirs) isEvent_Event() {}
 type WebrtcConfig struct {
 	state                 protoimpl.MessageState     `protogen:"opaque.v1"`
 	xxx_hidden_IceServers *[]*WebrtcConfig_IceServer `protobuf:"bytes,1,rep,name=ice_servers,json=iceServers"`
+	xxx_hidden_Auth       isWebrtcConfig_Auth        `protobuf_oneof:"auth"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -1231,14 +1232,74 @@ func (x *WebrtcConfig) GetIceServers() []*WebrtcConfig_IceServer {
 	return nil
 }
 
+func (x *WebrtcConfig) GetCloudflare() *WebrtcConfig_CloudflareZeroTrust {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Auth.(*webrtcConfig_Cloudflare); ok {
+			return x.Cloudflare
+		}
+	}
+	return nil
+}
+
 func (x *WebrtcConfig) SetIceServers(v []*WebrtcConfig_IceServer) {
 	x.xxx_hidden_IceServers = &v
+}
+
+func (x *WebrtcConfig) SetCloudflare(v *WebrtcConfig_CloudflareZeroTrust) {
+	if v == nil {
+		x.xxx_hidden_Auth = nil
+		return
+	}
+	x.xxx_hidden_Auth = &webrtcConfig_Cloudflare{v}
+}
+
+func (x *WebrtcConfig) HasAuth() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Auth != nil
+}
+
+func (x *WebrtcConfig) HasCloudflare() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Auth.(*webrtcConfig_Cloudflare)
+	return ok
+}
+
+func (x *WebrtcConfig) ClearAuth() {
+	x.xxx_hidden_Auth = nil
+}
+
+func (x *WebrtcConfig) ClearCloudflare() {
+	if _, ok := x.xxx_hidden_Auth.(*webrtcConfig_Cloudflare); ok {
+		x.xxx_hidden_Auth = nil
+	}
+}
+
+const WebrtcConfig_Auth_not_set_case case_WebrtcConfig_Auth = 0
+const WebrtcConfig_Cloudflare_case case_WebrtcConfig_Auth = 2
+
+func (x *WebrtcConfig) WhichAuth() case_WebrtcConfig_Auth {
+	if x == nil {
+		return WebrtcConfig_Auth_not_set_case
+	}
+	switch x.xxx_hidden_Auth.(type) {
+	case *webrtcConfig_Cloudflare:
+		return WebrtcConfig_Cloudflare_case
+	default:
+		return WebrtcConfig_Auth_not_set_case
+	}
 }
 
 type WebrtcConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	IceServers []*WebrtcConfig_IceServer
+	// Fields of oneof xxx_hidden_Auth:
+	Cloudflare *WebrtcConfig_CloudflareZeroTrust
+	// -- end of xxx_hidden_Auth
 }
 
 func (b0 WebrtcConfig_builder) Build() *WebrtcConfig {
@@ -1246,8 +1307,233 @@ func (b0 WebrtcConfig_builder) Build() *WebrtcConfig {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_IceServers = &b.IceServers
+	if b.Cloudflare != nil {
+		x.xxx_hidden_Auth = &webrtcConfig_Cloudflare{b.Cloudflare}
+	}
 	return m0
 }
+
+type case_WebrtcConfig_Auth protoreflect.FieldNumber
+
+func (x case_WebrtcConfig_Auth) String() string {
+	md := file_networking_proto_msgTypes[7].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isWebrtcConfig_Auth interface {
+	isWebrtcConfig_Auth()
+}
+
+type webrtcConfig_Cloudflare struct {
+	Cloudflare *WebrtcConfig_CloudflareZeroTrust `protobuf:"bytes,2,opt,name=cloudflare,oneof"`
+}
+
+func (*webrtcConfig_Cloudflare) isWebrtcConfig_Auth() {}
+
+type HttpServer struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Address     *string                `protobuf:"bytes,1,opt,name=address"`
+	xxx_hidden_Auth        isHttpServer_Auth      `protobuf_oneof:"auth"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *HttpServer) Reset() {
+	*x = HttpServer{}
+	mi := &file_networking_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HttpServer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HttpServer) ProtoMessage() {}
+
+func (x *HttpServer) ProtoReflect() protoreflect.Message {
+	mi := &file_networking_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HttpServer) GetAddress() string {
+	if x != nil {
+		if x.xxx_hidden_Address != nil {
+			return *x.xxx_hidden_Address
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HttpServer) GetNone() bool {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Auth.(*httpServer_None); ok {
+			return x.None
+		}
+	}
+	return false
+}
+
+func (x *HttpServer) GetCloudflare() *HttpServer_CloudflareTunnel {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Auth.(*httpServer_Cloudflare); ok {
+			return x.Cloudflare
+		}
+	}
+	return nil
+}
+
+func (x *HttpServer) SetAddress(v string) {
+	x.xxx_hidden_Address = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *HttpServer) SetNone(v bool) {
+	x.xxx_hidden_Auth = &httpServer_None{v}
+}
+
+func (x *HttpServer) SetCloudflare(v *HttpServer_CloudflareTunnel) {
+	if v == nil {
+		x.xxx_hidden_Auth = nil
+		return
+	}
+	x.xxx_hidden_Auth = &httpServer_Cloudflare{v}
+}
+
+func (x *HttpServer) HasAddress() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *HttpServer) HasAuth() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Auth != nil
+}
+
+func (x *HttpServer) HasNone() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Auth.(*httpServer_None)
+	return ok
+}
+
+func (x *HttpServer) HasCloudflare() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Auth.(*httpServer_Cloudflare)
+	return ok
+}
+
+func (x *HttpServer) ClearAddress() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Address = nil
+}
+
+func (x *HttpServer) ClearAuth() {
+	x.xxx_hidden_Auth = nil
+}
+
+func (x *HttpServer) ClearNone() {
+	if _, ok := x.xxx_hidden_Auth.(*httpServer_None); ok {
+		x.xxx_hidden_Auth = nil
+	}
+}
+
+func (x *HttpServer) ClearCloudflare() {
+	if _, ok := x.xxx_hidden_Auth.(*httpServer_Cloudflare); ok {
+		x.xxx_hidden_Auth = nil
+	}
+}
+
+const HttpServer_Auth_not_set_case case_HttpServer_Auth = 0
+const HttpServer_None_case case_HttpServer_Auth = 2
+const HttpServer_Cloudflare_case case_HttpServer_Auth = 3
+
+func (x *HttpServer) WhichAuth() case_HttpServer_Auth {
+	if x == nil {
+		return HttpServer_Auth_not_set_case
+	}
+	switch x.xxx_hidden_Auth.(type) {
+	case *httpServer_None:
+		return HttpServer_None_case
+	case *httpServer_Cloudflare:
+		return HttpServer_Cloudflare_case
+	default:
+		return HttpServer_Auth_not_set_case
+	}
+}
+
+type HttpServer_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Address *string
+	// Fields of oneof xxx_hidden_Auth:
+	None       *bool
+	Cloudflare *HttpServer_CloudflareTunnel
+	// -- end of xxx_hidden_Auth
+}
+
+func (b0 HttpServer_builder) Build() *HttpServer {
+	m0 := &HttpServer{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Address != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Address = b.Address
+	}
+	if b.None != nil {
+		x.xxx_hidden_Auth = &httpServer_None{*b.None}
+	}
+	if b.Cloudflare != nil {
+		x.xxx_hidden_Auth = &httpServer_Cloudflare{b.Cloudflare}
+	}
+	return m0
+}
+
+type case_HttpServer_Auth protoreflect.FieldNumber
+
+func (x case_HttpServer_Auth) String() string {
+	md := file_networking_proto_msgTypes[8].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isHttpServer_Auth interface {
+	isHttpServer_Auth()
+}
+
+type httpServer_None struct {
+	None bool `protobuf:"varint,2,opt,name=none,oneof"`
+}
+
+type httpServer_Cloudflare struct {
+	Cloudflare *HttpServer_CloudflareTunnel `protobuf:"bytes,3,opt,name=cloudflare,oneof"`
+}
+
+func (*httpServer_None) isHttpServer_Auth() {}
+
+func (*httpServer_Cloudflare) isHttpServer_Auth() {}
 
 type State struct {
 	state                        protoimpl.MessageState `protogen:"opaque.v1"`
@@ -1256,7 +1542,7 @@ type State struct {
 	xxx_hidden_WantedTracks      *[]*NamedTrack         `protobuf:"bytes,3,rep,name=wantedTracks"`
 	xxx_hidden_Config            *WebrtcConfig          `protobuf:"bytes,4,opt,name=config"`
 	xxx_hidden_ReconnectAttempts uint32                 `protobuf:"varint,5,opt,name=reconnectAttempts"`
-	xxx_hidden_HttpAddr          *string                `protobuf:"bytes,6,opt,name=httpAddr"`
+	xxx_hidden_HttpServerConfig  *HttpServer            `protobuf:"bytes,6,opt,name=httpServerConfig"`
 	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
 	XXX_presence                 [1]uint32
 	unknownFields                protoimpl.UnknownFields
@@ -1265,7 +1551,7 @@ type State struct {
 
 func (x *State) Reset() {
 	*x = State{}
-	mi := &file_networking_proto_msgTypes[8]
+	mi := &file_networking_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1277,7 +1563,7 @@ func (x *State) String() string {
 func (*State) ProtoMessage() {}
 
 func (x *State) ProtoReflect() protoreflect.Message {
-	mi := &file_networking_proto_msgTypes[8]
+	mi := &file_networking_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1329,14 +1615,11 @@ func (x *State) GetReconnectAttempts() uint32 {
 	return 0
 }
 
-func (x *State) GetHttpAddr() string {
+func (x *State) GetHttpServerConfig() *HttpServer {
 	if x != nil {
-		if x.xxx_hidden_HttpAddr != nil {
-			return *x.xxx_hidden_HttpAddr
-		}
-		return ""
+		return x.xxx_hidden_HttpServerConfig
 	}
-	return ""
+	return nil
 }
 
 func (x *State) SetData(v []*DataChannel) {
@@ -1360,9 +1643,8 @@ func (x *State) SetReconnectAttempts(v uint32) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
 }
 
-func (x *State) SetHttpAddr(v string) {
-	x.xxx_hidden_HttpAddr = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
+func (x *State) SetHttpServerConfig(v *HttpServer) {
+	x.xxx_hidden_HttpServerConfig = v
 }
 
 func (x *State) HasConfig() bool {
@@ -1379,11 +1661,11 @@ func (x *State) HasReconnectAttempts() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
-func (x *State) HasHttpAddr() bool {
+func (x *State) HasHttpServerConfig() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+	return x.xxx_hidden_HttpServerConfig != nil
 }
 
 func (x *State) ClearConfig() {
@@ -1395,9 +1677,8 @@ func (x *State) ClearReconnectAttempts() {
 	x.xxx_hidden_ReconnectAttempts = 0
 }
 
-func (x *State) ClearHttpAddr() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
-	x.xxx_hidden_HttpAddr = nil
+func (x *State) ClearHttpServerConfig() {
+	x.xxx_hidden_HttpServerConfig = nil
 }
 
 type State_builder struct {
@@ -1408,7 +1689,7 @@ type State_builder struct {
 	WantedTracks      []*NamedTrack
 	Config            *WebrtcConfig
 	ReconnectAttempts *uint32
-	HttpAddr          *string
+	HttpServerConfig  *HttpServer
 }
 
 func (b0 State_builder) Build() *State {
@@ -1423,10 +1704,7 @@ func (b0 State_builder) Build() *State {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_ReconnectAttempts = *b.ReconnectAttempts
 	}
-	if b.HttpAddr != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
-		x.xxx_hidden_HttpAddr = b.HttpAddr
-	}
+	x.xxx_hidden_HttpServerConfig = b.HttpServerConfig
 	return m0
 }
 
@@ -1439,7 +1717,7 @@ type Mutation struct {
 
 func (x *Mutation) Reset() {
 	*x = Mutation{}
-	mi := &file_networking_proto_msgTypes[9]
+	mi := &file_networking_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1451,7 +1729,7 @@ func (x *Mutation) String() string {
 func (*Mutation) ProtoMessage() {}
 
 func (x *Mutation) ProtoReflect() protoreflect.Message {
-	mi := &file_networking_proto_msgTypes[9]
+	mi := &file_networking_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1578,7 +1856,7 @@ func (b0 Mutation_builder) Build() *Mutation {
 type case_Mutation_Mutation protoreflect.FieldNumber
 
 func (x case_Mutation_Mutation) String() string {
-	md := file_networking_proto_msgTypes[9].Descriptor()
+	md := file_networking_proto_msgTypes[10].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1615,7 +1893,7 @@ type WebrtcConfig_IceServer struct {
 
 func (x *WebrtcConfig_IceServer) Reset() {
 	*x = WebrtcConfig_IceServer{}
-	mi := &file_networking_proto_msgTypes[10]
+	mi := &file_networking_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1627,7 +1905,7 @@ func (x *WebrtcConfig_IceServer) String() string {
 func (*WebrtcConfig_IceServer) ProtoMessage() {}
 
 func (x *WebrtcConfig_IceServer) ProtoReflect() protoreflect.Message {
-	mi := &file_networking_proto_msgTypes[10]
+	mi := &file_networking_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1759,6 +2037,228 @@ func (b0 WebrtcConfig_IceServer_builder) Build() *WebrtcConfig_IceServer {
 	return m0
 }
 
+type WebrtcConfig_CloudflareZeroTrust struct {
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ClientId     *string                `protobuf:"bytes,1,opt,name=client_id,json=clientId"`
+	xxx_hidden_ClientSecret *string                `protobuf:"bytes,2,opt,name=client_secret,json=clientSecret"`
+	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
+	XXX_presence            [1]uint32
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) Reset() {
+	*x = WebrtcConfig_CloudflareZeroTrust{}
+	mi := &file_networking_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WebrtcConfig_CloudflareZeroTrust) ProtoMessage() {}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) ProtoReflect() protoreflect.Message {
+	mi := &file_networking_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) GetClientId() string {
+	if x != nil {
+		if x.xxx_hidden_ClientId != nil {
+			return *x.xxx_hidden_ClientId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) GetClientSecret() string {
+	if x != nil {
+		if x.xxx_hidden_ClientSecret != nil {
+			return *x.xxx_hidden_ClientSecret
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) SetClientId(v string) {
+	x.xxx_hidden_ClientId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) SetClientSecret(v string) {
+	x.xxx_hidden_ClientSecret = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) HasClientId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) HasClientSecret() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) ClearClientId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_ClientId = nil
+}
+
+func (x *WebrtcConfig_CloudflareZeroTrust) ClearClientSecret() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ClientSecret = nil
+}
+
+type WebrtcConfig_CloudflareZeroTrust_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	ClientId     *string
+	ClientSecret *string
+}
+
+func (b0 WebrtcConfig_CloudflareZeroTrust_builder) Build() *WebrtcConfig_CloudflareZeroTrust {
+	m0 := &WebrtcConfig_CloudflareZeroTrust{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ClientId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_ClientId = b.ClientId
+	}
+	if b.ClientSecret != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_ClientSecret = b.ClientSecret
+	}
+	return m0
+}
+
+type HttpServer_CloudflareTunnel struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_TeamDomain  *string                `protobuf:"bytes,1,opt,name=team_domain,json=teamDomain"`
+	xxx_hidden_TeamAud     *string                `protobuf:"bytes,2,opt,name=team_aud,json=teamAud"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *HttpServer_CloudflareTunnel) Reset() {
+	*x = HttpServer_CloudflareTunnel{}
+	mi := &file_networking_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HttpServer_CloudflareTunnel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HttpServer_CloudflareTunnel) ProtoMessage() {}
+
+func (x *HttpServer_CloudflareTunnel) ProtoReflect() protoreflect.Message {
+	mi := &file_networking_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HttpServer_CloudflareTunnel) GetTeamDomain() string {
+	if x != nil {
+		if x.xxx_hidden_TeamDomain != nil {
+			return *x.xxx_hidden_TeamDomain
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HttpServer_CloudflareTunnel) GetTeamAud() string {
+	if x != nil {
+		if x.xxx_hidden_TeamAud != nil {
+			return *x.xxx_hidden_TeamAud
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HttpServer_CloudflareTunnel) SetTeamDomain(v string) {
+	x.xxx_hidden_TeamDomain = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *HttpServer_CloudflareTunnel) SetTeamAud(v string) {
+	x.xxx_hidden_TeamAud = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *HttpServer_CloudflareTunnel) HasTeamDomain() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *HttpServer_CloudflareTunnel) HasTeamAud() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *HttpServer_CloudflareTunnel) ClearTeamDomain() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_TeamDomain = nil
+}
+
+func (x *HttpServer_CloudflareTunnel) ClearTeamAud() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_TeamAud = nil
+}
+
+type HttpServer_CloudflareTunnel_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	TeamDomain *string
+	TeamAud    *string
+}
+
+func (b0 HttpServer_CloudflareTunnel_builder) Build() *HttpServer_CloudflareTunnel {
+	m0 := &HttpServer_CloudflareTunnel{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.TeamDomain != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_TeamDomain = b.TeamDomain
+	}
+	if b.TeamAud != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_TeamAud = b.TeamAud
+	}
+	return m0
+}
+
 var File_networking_proto protoreflect.FileDescriptor
 
 var file_networking_proto_rawDesc = string([]byte{
@@ -1830,12 +2330,17 @@ var file_networking_proto_rawDesc = string([]byte{
 	0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x4d, 0x65, 0x64, 0x69, 0x61, 0x53, 0x6f, 0x63,
 	0x6b, 0x65, 0x74, 0x44, 0x69, 0x72, 0x73, 0x48, 0x00, 0x52, 0x0f, 0x6d, 0x65, 0x64, 0x69, 0x61,
 	0x53, 0x6f, 0x63, 0x6b, 0x65, 0x74, 0x44, 0x69, 0x72, 0x73, 0x42, 0x07, 0x0a, 0x05, 0x65, 0x76,
-	0x65, 0x6e, 0x74, 0x22, 0xd9, 0x01, 0x0a, 0x0c, 0x57, 0x65, 0x62, 0x72, 0x74, 0x63, 0x43, 0x6f,
+	0x65, 0x6e, 0x74, 0x22, 0x8a, 0x03, 0x0a, 0x0c, 0x57, 0x65, 0x62, 0x72, 0x74, 0x63, 0x43, 0x6f,
 	0x6e, 0x66, 0x69, 0x67, 0x12, 0x43, 0x0a, 0x0b, 0x69, 0x63, 0x65, 0x5f, 0x73, 0x65, 0x72, 0x76,
 	0x65, 0x72, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x6e, 0x65, 0x74, 0x77,
 	0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x57, 0x65, 0x62, 0x72, 0x74, 0x63, 0x43, 0x6f, 0x6e,
 	0x66, 0x69, 0x67, 0x2e, 0x49, 0x63, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x52, 0x0a, 0x69,
-	0x63, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x1a, 0x83, 0x01, 0x0a, 0x09, 0x49, 0x63,
+	0x63, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12, 0x4e, 0x0a, 0x0a, 0x63, 0x6c, 0x6f,
+	0x75, 0x64, 0x66, 0x6c, 0x61, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x2c, 0x2e,
+	0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x57, 0x65, 0x62, 0x72, 0x74,
+	0x63, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x43, 0x6c, 0x6f, 0x75, 0x64, 0x66, 0x6c, 0x61,
+	0x72, 0x65, 0x5a, 0x65, 0x72, 0x6f, 0x54, 0x72, 0x75, 0x73, 0x74, 0x48, 0x00, 0x52, 0x0a, 0x63,
+	0x6c, 0x6f, 0x75, 0x64, 0x66, 0x6c, 0x61, 0x72, 0x65, 0x1a, 0x83, 0x01, 0x0a, 0x09, 0x49, 0x63,
 	0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x75, 0x72, 0x6c, 0x73, 0x18,
 	0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x75, 0x72, 0x6c, 0x73, 0x12, 0x1a, 0x0a, 0x08, 0x75,
 	0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x75,
@@ -1843,57 +2348,82 @@ var file_networking_proto_rawDesc = string([]byte{
 	0x6e, 0x74, 0x69, 0x61, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x63, 0x72, 0x65,
 	0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x12, 0x26, 0x0a, 0x0e, 0x63, 0x72, 0x65, 0x64, 0x65,
 	0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54, 0x79, 0x70, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x0e, 0x63, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54, 0x79, 0x70, 0x65, 0x22,
-	0x9c, 0x02, 0x0a, 0x05, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x2b, 0x0a, 0x04, 0x64, 0x61, 0x74,
-	0x61, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72,
-	0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c,
-	0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x2e, 0x0a, 0x05, 0x6d, 0x65, 0x64, 0x69, 0x61, 0x18,
-	0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69,
-	0x6e, 0x67, 0x2e, 0x4d, 0x65, 0x64, 0x69, 0x61, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x52,
-	0x05, 0x6d, 0x65, 0x64, 0x69, 0x61, 0x12, 0x3a, 0x0a, 0x0c, 0x77, 0x61, 0x6e, 0x74, 0x65, 0x64,
-	0x54, 0x72, 0x61, 0x63, 0x6b, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x6e,
-	0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x4e, 0x61, 0x6d, 0x65, 0x64, 0x54,
-	0x72, 0x61, 0x63, 0x6b, 0x52, 0x0c, 0x77, 0x61, 0x6e, 0x74, 0x65, 0x64, 0x54, 0x72, 0x61, 0x63,
-	0x6b, 0x73, 0x12, 0x30, 0x0a, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x04, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x18, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e,
-	0x57, 0x65, 0x62, 0x72, 0x74, 0x63, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x06, 0x63, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x12, 0x2c, 0x0a, 0x11, 0x72, 0x65, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63,
-	0x74, 0x41, 0x74, 0x74, 0x65, 0x6d, 0x70, 0x74, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0d, 0x52,
-	0x11, 0x72, 0x65, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x41, 0x74, 0x74, 0x65, 0x6d, 0x70,
-	0x74, 0x73, 0x12, 0x1a, 0x0a, 0x08, 0x68, 0x74, 0x74, 0x70, 0x41, 0x64, 0x64, 0x72, 0x18, 0x06,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x68, 0x74, 0x74, 0x70, 0x41, 0x64, 0x64, 0x72, 0x22, 0x7b,
-	0x0a, 0x08, 0x4d, 0x75, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x32, 0x0a, 0x04, 0x64, 0x61,
-	0x74, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1c, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f,
-	0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x6d,
-	0x69, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x48, 0x00, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x2f,
-	0x0a, 0x08, 0x73, 0x65, 0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x11, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x53, 0x74,
-	0x61, 0x74, 0x65, 0x48, 0x00, 0x52, 0x08, 0x73, 0x65, 0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x42,
-	0x0a, 0x0a, 0x08, 0x6d, 0x75, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x32, 0x45, 0x0a, 0x0b, 0x57,
-	0x65, 0x62, 0x72, 0x74, 0x63, 0x50, 0x72, 0x6f, 0x78, 0x79, 0x12, 0x36, 0x0a, 0x07, 0x43, 0x6f,
-	0x6e, 0x6e, 0x65, 0x63, 0x74, 0x12, 0x14, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69,
-	0x6e, 0x67, 0x2e, 0x4d, 0x75, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x1a, 0x11, 0x2e, 0x6e, 0x65,
-	0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x28, 0x01,
-	0x30, 0x01, 0x42, 0x33, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
-	0x2f, 0x68, 0x7a, 0x68, 0x6f, 0x75, 0x30, 0x2f, 0x73, 0x77, 0x61, 0x72, 0x6d, 0x2d, 0x6e, 0x6f,
-	0x64, 0x65, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72,
-	0x6b, 0x69, 0x6e, 0x67, 0x3b, 0x70, 0x62, 0x62, 0x08, 0x65, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e,
-	0x73, 0x70, 0xe8, 0x07,
+	0x0e, 0x63, 0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x54, 0x79, 0x70, 0x65, 0x1a,
+	0x57, 0x0a, 0x13, 0x43, 0x6c, 0x6f, 0x75, 0x64, 0x66, 0x6c, 0x61, 0x72, 0x65, 0x5a, 0x65, 0x72,
+	0x6f, 0x54, 0x72, 0x75, 0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74,
+	0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x63, 0x6c, 0x69, 0x65, 0x6e,
+	0x74, 0x49, 0x64, 0x12, 0x23, 0x0a, 0x0d, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x5f, 0x73, 0x65,
+	0x63, 0x72, 0x65, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x53, 0x65, 0x63, 0x72, 0x65, 0x74, 0x42, 0x06, 0x0a, 0x04, 0x61, 0x75, 0x74, 0x68,
+	0x22, 0xdf, 0x01, 0x0a, 0x0a, 0x48, 0x74, 0x74, 0x70, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12,
+	0x18, 0x0a, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x14, 0x0a, 0x04, 0x6e, 0x6f, 0x6e,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x48, 0x00, 0x52, 0x04, 0x6e, 0x6f, 0x6e, 0x65, 0x12,
+	0x49, 0x0a, 0x0a, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x66, 0x6c, 0x61, 0x72, 0x65, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67,
+	0x2e, 0x48, 0x74, 0x74, 0x70, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x43, 0x6c, 0x6f, 0x75,
+	0x64, 0x66, 0x6c, 0x61, 0x72, 0x65, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x48, 0x00, 0x52, 0x0a,
+	0x63, 0x6c, 0x6f, 0x75, 0x64, 0x66, 0x6c, 0x61, 0x72, 0x65, 0x1a, 0x4e, 0x0a, 0x10, 0x43, 0x6c,
+	0x6f, 0x75, 0x64, 0x66, 0x6c, 0x61, 0x72, 0x65, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x12, 0x1f,
+	0x0a, 0x0b, 0x74, 0x65, 0x61, 0x6d, 0x5f, 0x64, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0a, 0x74, 0x65, 0x61, 0x6d, 0x44, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x12,
+	0x19, 0x0a, 0x08, 0x74, 0x65, 0x61, 0x6d, 0x5f, 0x61, 0x75, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x07, 0x74, 0x65, 0x61, 0x6d, 0x41, 0x75, 0x64, 0x42, 0x06, 0x0a, 0x04, 0x61, 0x75,
+	0x74, 0x68, 0x22, 0xc4, 0x02, 0x0a, 0x05, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x2b, 0x0a, 0x04,
+	0x64, 0x61, 0x74, 0x61, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x6e, 0x65, 0x74,
+	0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x43, 0x68, 0x61, 0x6e,
+	0x6e, 0x65, 0x6c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x2e, 0x0a, 0x05, 0x6d, 0x65, 0x64,
+	0x69, 0x61, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f,
+	0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x4d, 0x65, 0x64, 0x69, 0x61, 0x43, 0x68, 0x61, 0x6e, 0x6e,
+	0x65, 0x6c, 0x52, 0x05, 0x6d, 0x65, 0x64, 0x69, 0x61, 0x12, 0x3a, 0x0a, 0x0c, 0x77, 0x61, 0x6e,
+	0x74, 0x65, 0x64, 0x54, 0x72, 0x61, 0x63, 0x6b, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x16, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x4e, 0x61, 0x6d,
+	0x65, 0x64, 0x54, 0x72, 0x61, 0x63, 0x6b, 0x52, 0x0c, 0x77, 0x61, 0x6e, 0x74, 0x65, 0x64, 0x54,
+	0x72, 0x61, 0x63, 0x6b, 0x73, 0x12, 0x30, 0x0a, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18,
+	0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69,
+	0x6e, 0x67, 0x2e, 0x57, 0x65, 0x62, 0x72, 0x74, 0x63, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52,
+	0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x2c, 0x0a, 0x11, 0x72, 0x65, 0x63, 0x6f, 0x6e,
+	0x6e, 0x65, 0x63, 0x74, 0x41, 0x74, 0x74, 0x65, 0x6d, 0x70, 0x74, 0x73, 0x18, 0x05, 0x20, 0x01,
+	0x28, 0x0d, 0x52, 0x11, 0x72, 0x65, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x41, 0x74, 0x74,
+	0x65, 0x6d, 0x70, 0x74, 0x73, 0x12, 0x42, 0x0a, 0x10, 0x68, 0x74, 0x74, 0x70, 0x53, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x16, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x48, 0x74, 0x74,
+	0x70, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x52, 0x10, 0x68, 0x74, 0x74, 0x70, 0x53, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x22, 0x7b, 0x0a, 0x08, 0x4d, 0x75, 0x74,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x32, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x1c, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67,
+	0x2e, 0x44, 0x61, 0x74, 0x61, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6f,
+	0x6e, 0x48, 0x00, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x2f, 0x0a, 0x08, 0x73, 0x65, 0x74,
+	0x53, 0x74, 0x61, 0x74, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x6e, 0x65,
+	0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x48, 0x00,
+	0x52, 0x08, 0x73, 0x65, 0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x42, 0x0a, 0x0a, 0x08, 0x6d, 0x75,
+	0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x32, 0x45, 0x0a, 0x0b, 0x57, 0x65, 0x62, 0x72, 0x74, 0x63,
+	0x50, 0x72, 0x6f, 0x78, 0x79, 0x12, 0x36, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74,
+	0x12, 0x14, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x2e, 0x4d, 0x75,
+	0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x1a, 0x11, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b,
+	0x69, 0x6e, 0x67, 0x2e, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x28, 0x01, 0x30, 0x01, 0x42, 0x33, 0x5a,
+	0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x68, 0x7a, 0x68, 0x6f,
+	0x75, 0x30, 0x2f, 0x73, 0x77, 0x61, 0x72, 0x6d, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x73, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x2f, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x69, 0x6e, 0x67, 0x3b,
+	0x70, 0x62, 0x62, 0x08, 0x65, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x70, 0xe8, 0x07,
 })
 
-var file_networking_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_networking_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_networking_proto_goTypes = []any{
-	(*NamedTrack)(nil),             // 0: networking.NamedTrack
-	(*WebrtcOffer)(nil),            // 1: networking.WebrtcOffer
-	(*DataChannel)(nil),            // 2: networking.DataChannel
-	(*DataTransmission)(nil),       // 3: networking.DataTransmission
-	(*MediaChannel)(nil),           // 4: networking.MediaChannel
-	(*MediaSocketDirs)(nil),        // 5: networking.MediaSocketDirs
-	(*Event)(nil),                  // 6: networking.Event
-	(*WebrtcConfig)(nil),           // 7: networking.WebrtcConfig
-	(*State)(nil),                  // 8: networking.State
-	(*Mutation)(nil),               // 9: networking.Mutation
-	(*WebrtcConfig_IceServer)(nil), // 10: networking.WebrtcConfig.IceServer
+	(*NamedTrack)(nil),                       // 0: networking.NamedTrack
+	(*WebrtcOffer)(nil),                      // 1: networking.WebrtcOffer
+	(*DataChannel)(nil),                      // 2: networking.DataChannel
+	(*DataTransmission)(nil),                 // 3: networking.DataTransmission
+	(*MediaChannel)(nil),                     // 4: networking.MediaChannel
+	(*MediaSocketDirs)(nil),                  // 5: networking.MediaSocketDirs
+	(*Event)(nil),                            // 6: networking.Event
+	(*WebrtcConfig)(nil),                     // 7: networking.WebrtcConfig
+	(*HttpServer)(nil),                       // 8: networking.HttpServer
+	(*State)(nil),                            // 9: networking.State
+	(*Mutation)(nil),                         // 10: networking.Mutation
+	(*WebrtcConfig_IceServer)(nil),           // 11: networking.WebrtcConfig.IceServer
+	(*WebrtcConfig_CloudflareZeroTrust)(nil), // 12: networking.WebrtcConfig.CloudflareZeroTrust
+	(*HttpServer_CloudflareTunnel)(nil),      // 13: networking.HttpServer.CloudflareTunnel
 }
 var file_networking_proto_depIdxs = []int32{
 	0,  // 0: networking.WebrtcOffer.local_tracks:type_name -> networking.NamedTrack
@@ -1902,22 +2432,25 @@ var file_networking_proto_depIdxs = []int32{
 	0,  // 3: networking.MediaChannel.track:type_name -> networking.NamedTrack
 	3,  // 4: networking.Event.data:type_name -> networking.DataTransmission
 	4,  // 5: networking.Event.media:type_name -> networking.MediaChannel
-	8,  // 6: networking.Event.achievedState:type_name -> networking.State
+	9,  // 6: networking.Event.achievedState:type_name -> networking.State
 	5,  // 7: networking.Event.mediaSocketDirs:type_name -> networking.MediaSocketDirs
-	10, // 8: networking.WebrtcConfig.ice_servers:type_name -> networking.WebrtcConfig.IceServer
-	2,  // 9: networking.State.data:type_name -> networking.DataChannel
-	4,  // 10: networking.State.media:type_name -> networking.MediaChannel
-	0,  // 11: networking.State.wantedTracks:type_name -> networking.NamedTrack
-	7,  // 12: networking.State.config:type_name -> networking.WebrtcConfig
-	3,  // 13: networking.Mutation.data:type_name -> networking.DataTransmission
-	8,  // 14: networking.Mutation.setState:type_name -> networking.State
-	9,  // 15: networking.WebrtcProxy.Connect:input_type -> networking.Mutation
-	6,  // 16: networking.WebrtcProxy.Connect:output_type -> networking.Event
-	16, // [16:17] is the sub-list for method output_type
-	15, // [15:16] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	11, // 8: networking.WebrtcConfig.ice_servers:type_name -> networking.WebrtcConfig.IceServer
+	12, // 9: networking.WebrtcConfig.cloudflare:type_name -> networking.WebrtcConfig.CloudflareZeroTrust
+	13, // 10: networking.HttpServer.cloudflare:type_name -> networking.HttpServer.CloudflareTunnel
+	2,  // 11: networking.State.data:type_name -> networking.DataChannel
+	4,  // 12: networking.State.media:type_name -> networking.MediaChannel
+	0,  // 13: networking.State.wantedTracks:type_name -> networking.NamedTrack
+	7,  // 14: networking.State.config:type_name -> networking.WebrtcConfig
+	8,  // 15: networking.State.httpServerConfig:type_name -> networking.HttpServer
+	3,  // 16: networking.Mutation.data:type_name -> networking.DataTransmission
+	9,  // 17: networking.Mutation.setState:type_name -> networking.State
+	10, // 18: networking.WebrtcProxy.Connect:input_type -> networking.Mutation
+	6,  // 19: networking.WebrtcProxy.Connect:output_type -> networking.Event
+	19, // [19:20] is the sub-list for method output_type
+	18, // [18:19] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_networking_proto_init() }
@@ -1931,7 +2464,14 @@ func file_networking_proto_init() {
 		(*event_AchievedState)(nil),
 		(*event_MediaSocketDirs)(nil),
 	}
-	file_networking_proto_msgTypes[9].OneofWrappers = []any{
+	file_networking_proto_msgTypes[7].OneofWrappers = []any{
+		(*webrtcConfig_Cloudflare)(nil),
+	}
+	file_networking_proto_msgTypes[8].OneofWrappers = []any{
+		(*httpServer_None)(nil),
+		(*httpServer_Cloudflare)(nil),
+	}
+	file_networking_proto_msgTypes[10].OneofWrappers = []any{
 		(*mutation_Data)(nil),
 		(*mutation_SetState)(nil),
 	}
@@ -1941,7 +2481,7 @@ func file_networking_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_networking_proto_rawDesc), len(file_networking_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

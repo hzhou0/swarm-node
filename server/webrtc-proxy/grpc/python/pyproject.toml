@@ -7,8 +7,15 @@ dependencies = [
     "pycairo~=1.27.0",
     "PyGObject~=3.50.0",
     "grpcio>=1.70.0",
+    "numpy"
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "types-protobuf>=5.29.1.20250208",
+]

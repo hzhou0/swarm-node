@@ -29,19 +29,37 @@ def init_gobject():
 
 @dataclasses.dataclass(slots=True)
 class GstVideoSource:
-    queue: asyncio.Queue[np.ndarray] = dataclasses.field(default_factory=asyncio.Queue)
+    _queue: asyncio.Queue[np.ndarray] = dataclasses.field(default_factory=asyncio.Queue)
     counter: int = 0
     height: int = 0
     width: int = 0
-    channels: int = 0
     fps: Fraction = Fraction(0, 1)
     video_frmt: GstVideo.VideoFormat = GstVideo.VideoFormat.UNKNOWN
     initialized: asyncio.Event = dataclasses.field(default_factory=asyncio.Event)
+    _error: Exception | None = None
+
+    def set_error(self, error: Exception):
+        self._error = error
+
+    async def get(self):
+        if self._error is not None:
+            raise self._error
+        return await self._queue.get()
+
+
+class UnsupportedFormatError(Exception):
+    """Raised when an unsupported video format is encountered."""
+
+    pass
 
 
 def gst_buffer_to_numpy(
     buffer: Gst.Buffer, height: int, width: int, fmt: GstVideo.VideoFormat
 ) -> np.ndarray:
+    """Converts a Gst.Buffer to a numpy array.
+    :raise: UnsupportedFormatError if the format is unsupported.
+    :raise: RuntimeError if the buffer cannot be mapped.
+    """
     success, map_info = buffer.map(Gst.MapFlags.READ)
     if not success:
         raise RuntimeError("Failed to map Gst.Buffer")
@@ -49,69 +67,60 @@ def gst_buffer_to_numpy(
     try:
         # Extract the raw data
         data = map_info.data
-        if fmt == GstVideo.VideoFormat.RGB or fmt == GstVideo.VideoFormat.BGR:
+        if fmt in [
+            GstVideo.VideoFormat.RGB,
+            GstVideo.VideoFormat.BGR,
+            GstVideo.VideoFormat.GBR,
+        ]:
             # RGB has 3 channels
             array = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 3))
         elif fmt == GstVideo.VideoFormat.GRAY8:
             # Grayscale has 1 channel
             array = np.frombuffer(data, dtype=np.uint8).reshape((height, width))
-        elif fmt == GstVideo.VideoFormat.I420:
-            # I420 is a planar YUV format: Y plane, U plane, V plane
-            array = np.frombuffer(data, dtype=np.uint8).reshape(
-                (height + height // 2, width)
-            )
+        elif fmt in [
+            GstVideo.VideoFormat.I420,
+            GstVideo.VideoFormat.NV12,
+            GstVideo.VideoFormat.YV12,
+            GstVideo.VideoFormat.NV21,
+        ]:
+            array = np.frombuffer(data, dtype=np.uint8).reshape((height + height // 2, width))
         else:
-            raise ValueError(f"Unsupported format: {format}")
+            raise UnsupportedFormatError(f"Unsupported format: {fmt}")
         return array
     finally:
         # Unmap the buffer to release its memory
         buffer.unmap(map_info)
 
 
-async def _on_buffer(sink: GstApp.AppSink, vs: GstVideoSource) -> Gst.FlowReturn:
-    """Callback on 'new-sample' signal"""
-    # Emit 'pull-sample' signal
-    # https://lazka.github.io/pgi-docs/GstApp-1.0/classes/AppSink.html#GstApp.AppSink.signals.pull_sample
-
-    sample: Gst.Sample = sink.pull_sample()
-    if not isinstance(sample, Gst.Sample):
-        logging.error(
-            "Error : Not expected buffer type: %s != %s", type(sample), Gst.Sample
-        )
-        return Gst.FlowReturn.ERROR
-
-    vs.counter += 1
-    if not vs.initialized.is_set():
-        caps: Gst.Caps = sample.get_caps()
-        structure: Gst.Structure = caps.get_structure(0)
-        val_set, vs.height = structure.get_int("height")
-        assert val_set, "height not set"
-        val_set, vs.width = structure.get_int("width")
-        assert val_set, "width not set"
-        val_set, num, denom = structure.get_fraction("framerate")
-        assert val_set, "framerate not set"
-        vs.fps = Fraction(num, denom)
-        frmt_str = structure.get_string("format")
-        assert frmt_str is not None, "format not set"
-        vs.video_frmt = GstVideo.VideoFormat.from_string(frmt_str)
-        format_info: GstVideo.VideoFormatInfo = GstVideo.VideoFormat.get_info(
-            vs.video_frmt
-        )
-        vs.channels = format_info.n_components
-        assert val_set, "format not set"
-        vs.initialized.set()
-    buffer: Gst.Buffer = sample.get_buffer()
-    frame = gst_buffer_to_numpy(buffer, vs.height, vs.width, vs.video_frmt)
-    await vs.queue.put(frame)
-    return Gst.FlowReturn.OK
-
-
 def on_buffer(
     sink: GstApp.AppSink, vs: GstVideoSource, loop: asyncio.AbstractEventLoop
 ) -> Gst.FlowReturn:
-    """Callback on 'new-sample' signal"""
     try:
-        return asyncio.run_coroutine_threadsafe(_on_buffer(sink, vs), loop).result()
+        sample: Gst.Sample = sink.pull_sample()
+        if not isinstance(sample, Gst.Sample):
+            logging.error("Error : Not expected buffer type: %s != %s", type(sample), Gst.Sample)
+            return Gst.FlowReturn.ERROR
+
+        vs.counter += 1
+        if not vs.initialized.is_set():
+            caps: Gst.Caps = sample.get_caps()
+            structure: Gst.Structure = caps.get_structure(0)
+            val_set, vs.height = structure.get_int("height")
+            assert val_set, "height not set"
+            val_set, vs.width = structure.get_int("width")
+            assert val_set, "width not set"
+            val_set, num, denom = structure.get_fraction("framerate")
+            assert val_set, "framerate not set"
+            vs.fps = Fraction(num, denom)
+            frmt_str = structure.get_string("format")
+            assert frmt_str is not None, "format not set"
+            vs.video_frmt = GstVideo.VideoFormat.from_string(frmt_str)
+            assert val_set, "format not set"
+            vs.initialized.set()
+        buffer: Gst.Buffer = sample.get_buffer()
+        frame = gst_buffer_to_numpy(buffer, vs.height, vs.width, vs.video_frmt)
+        asyncio.run_coroutine_threadsafe(vs._queue.put(frame), loop)
+        return Gst.FlowReturn.OK
     except Exception as e:
         logging.exception(e)
         return Gst.FlowReturn.ERROR
@@ -119,28 +128,116 @@ def on_buffer(
 
 @asynccontextmanager
 async def gst_video_source(pipeline: list[str]) -> AsyncGenerator[GstVideoSource, Any]:
-    app_sink_str = "appsink emit-signals=True drop=true sync=false name=appsink"
+    app_sink_str = "appsink emit-signals=True drop=True sync=False name=appsink"
     pipeline_str = " ! ".join(pipeline + [app_sink_str])
     pipeline: Gst.Pipeline = Gst.parse_launch(pipeline_str)
     app_sink: GstApp.AppSink = pipeline.get_by_name("appsink")
     assert app_sink is not None, "appsink not found in pipeline"
     source = GstVideoSource()
     app_sink.connect("new-sample", on_buffer, source, asyncio.get_event_loop())
-    pipeline.set_state(Gst.State.PLAYING)
     bus: Gst.Bus = pipeline.get_bus()
-    bus.add_signal_watch()
+    loop = asyncio.get_event_loop()
 
     def bus_func(_: Gst.Bus, message: Gst.Message) -> bool:
         if message.type == Gst.MessageType.EOS:
-            raise RuntimeError("EOS")
+            loop.call_soon_threadsafe(source.set_error, RuntimeError("EOS"))
+            return False
         elif message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
-            raise RuntimeError(f"Error: {err}, {debug}")
+            loop.call_soon_threadsafe(source.set_error, RuntimeError(f"GST: {err}, {debug}"))
+            return False
         return True
 
     bus.add_watch(Gst.MessageType.ERROR | Gst.MessageType.EOS, bus_func)
+    pipeline.set_state(Gst.State.PLAYING)
     await source.initialized.wait()
     try:
         yield source
+    finally:
+        bus.remove_watch()
+        pipeline.set_state(Gst.State.NULL)
+
+
+@dataclasses.dataclass(slots=True)
+class GstVideoSink:
+    height: int
+    width: int
+    video_frmt: GstVideo.VideoFormat
+    fps: Fraction
+    _queue: asyncio.Queue[np.ndarray] = dataclasses.field(default_factory=asyncio.Queue)
+
+    offset: int = 0
+    pts = 0
+    duration: float = 0
+    _error: Exception | None = None
+
+    def set_error(self, error: Exception):
+        self._error = error
+
+    def __post_init__(self):
+        self.duration = 10**9 / (self.fps.numerator / self.fps.denominator)
+
+    async def put(self, frame: np.ndarray):
+        if self._error is not None:
+            raise self._error
+        await self._queue.put(frame)
+
+    async def stream_buffers(self, src: GstApp.AppSrc):
+        loop = asyncio.get_event_loop()
+        while self._error is None:
+            frame = await self._queue.get()
+            gst_buffer: Gst.Buffer = Gst.Buffer.new_wrapped(frame.tobytes())
+            gst_buffer.dts = Gst.CLOCK_TIME_NONE
+            gst_buffer.duration = self.duration
+            gst_buffer.pts = self.pts
+            gst_buffer.offset = self.offset
+            self.pts += self.duration
+            self.offset += 1
+            while True:
+                result: Gst.FlowReturn = await loop.run_in_executor(
+                    None, src.do_push_buffer, gst_buffer
+                )
+                if result == Gst.FlowReturn.EOS:
+                    raise RuntimeError("EOS")
+                elif result == Gst.FlowReturn.FLUSHING:
+                    await asyncio.sleep(0.01)
+                elif result == Gst.FlowReturn.OK:
+                    break
+        raise self._error
+
+
+@asynccontextmanager
+async def gst_video_sink(
+    pipeline: list[str],
+    width: int,
+    height: int,
+    fps: Fraction,
+    video_frmt: GstVideo.VideoFormat,
+) -> AsyncGenerator[GstVideoSink, Any]:
+    app_src_str = "appsrc emit-signals=False is-live=True name=appsrc block=True format=time"
+    cap_str = f"video/x-raw,format={GstVideo.VideoFormat.to_string(video_frmt)},width={width},height={height},framerate={fps.numerator}/{fps.denominator}"
+    pipeline_str = " ! ".join([app_src_str, cap_str] + pipeline)
+    try:
+        pipeline: Gst.Pipeline = Gst.parse_launch(pipeline_str)
+        app_src: GstApp.AppSrc = pipeline.get_by_name("appsrc")
+        assert app_src is not None, "appsrc not found in pipeline"
+        bus: Gst.Bus = pipeline.get_bus()
+        sink = GstVideoSink(height=height, width=width, fps=fps, video_frmt=video_frmt)
+        loop = asyncio.get_event_loop()
+
+        def bus_func(_: Gst.Bus, message: Gst.Message) -> bool:
+            if message.type == Gst.MessageType.EOS:
+                loop.call_soon_threadsafe(sink.set_error, RuntimeError("EOS"))
+                return False
+            elif message.type == Gst.MessageType.ERROR:
+                err, debug = message.parse_error()
+                loop.call_soon_threadsafe(sink.set_error, RuntimeError(f"GST: {err}, {debug}"))
+                return False
+            return True
+
+        bus.add_watch(Gst.MessageType.ERROR | Gst.MessageType.EOS, bus_func)
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(sink.stream_buffers(app_src))
+            yield sink
     finally:
         pipeline.set_state(Gst.State.NULL)
