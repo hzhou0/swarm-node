@@ -6,12 +6,9 @@ from typing import Protocol, ClassVar
 import numba.core.types.containers
 import numpy as np
 import pyrealsense2 as rs
-from av.video.frame import VideoFrame
-from av.video.reformatter import ColorRange, Colorspace
-from matplotlib import pyplot as plt
 from numba import guvectorize, float64, uint16, uint8, njit, prange
 
-from kernels.skymap.common import rgbd_stream_width, GPSPose
+from swarmnode_skymap_common import GPSPose, rgbd_stream_width
 
 
 class DepthEncoder(Protocol):
@@ -25,10 +22,10 @@ class DepthEncoder(Protocol):
         self.min_depth_meters = min_depth_meters
         self.max_depth_meters = max_depth_meters
 
-    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> VideoFrame:
+    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> np.array:
         ...
 
-    def video_frame_to_rgbd(self, vf: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
+    def video_frame_to_rgbd(self, vf: np.array) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
         ...
 
 
@@ -71,21 +68,22 @@ class HueDepthEncoder(DepthEncoder, Protocol):
         color_scheme_hue = 9
         histogram_equalization_disable = 0
         self.filter_colorizer = rs.colorizer()
-        self.filter_colorizer.set_option(rs.option.histogram_equalization_enabled, histogram_equalization_disable)
+        self.filter_colorizer.set_option(
+            rs.option.histogram_equalization_enabled, histogram_equalization_disable
+        )
         self.filter_colorizer.set_option(rs.option.color_scheme, color_scheme_hue)
         self.filter_colorizer.set_option(rs.option.min_distance, min_depth_meters)
         self.filter_colorizer.set_option(rs.option.max_distance, max_depth_meters)
 
-    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> VideoFrame:
+    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> np.ndarray:
         depth = self.filter_colorizer.process(depth)
         depth_ndarray = np.asanyarray(depth.get_data())
         rgb_ndarray = np.asanyarray(color.get_data())
         pose.write_to_color_frame(rgb_ndarray)
-        return VideoFrame.from_ndarray(np.hstack((rgb_ndarray, depth_ndarray)), self.pixel_format)
+        return np.hstack((rgb_ndarray, depth_ndarray))
 
-    def video_frame_to_rgbd(self, vf: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
-        frame = vf.to_ndarray(format=self.pixel_format)
-        rgb, d = frame[:, :rgbd_stream_width], frame[:, rgbd_stream_width:]
+    def video_frame_to_rgbd(self, vf: np.ndarray) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
+        rgb, d = vf[:, :rgbd_stream_width], vf[:, rgbd_stream_width:]
         d: np.ndarray = rgb_to_depth(d, self.min_depth_meters - 0.01, self.max_depth_meters)
         pose = GPSPose.read_from_color_frame(rgb, clear_macroblocks=True)
         return rgb, d, pose
@@ -121,8 +119,12 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
             else:
                 logging.warning(f"Building yuv<=>depth lookup file: {lookups_file}")
                 start = time.time()
-                self.depth2yuv_lookup = self.build_depth2yuv_lookup(self.w, self.p, self.norm_to_8bit)
-                self.yuv2depth_lookup = self.build_yuv2depth_lookup(self.w, self.p, self.norm_to_8bit)
+                self.depth2yuv_lookup = self.build_depth2yuv_lookup(
+                    self.w, self.p, self.norm_to_8bit
+                )
+                self.yuv2depth_lookup = self.build_yuv2depth_lookup(
+                    self.w, self.p, self.norm_to_8bit
+                )
                 np.savez_compressed(
                     lookups_file,
                     depth2yuv_lookup=self.depth2yuv_lookup,
@@ -182,7 +184,9 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
         nogil=True,
         fastmath=True,
     )
-    def rgbd2yuv420p_averaged(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -> np.ndarray:
+    def rgbd2yuv420p_averaged(
+        rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray
+    ) -> np.ndarray:
         height = rgb.shape[0]
         width = rgb.shape[1] * 2  # stack the frames horizontally: [rgb][d]
         chroma_height = height // 4
@@ -220,7 +224,9 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
         parallel=True,
         nogil=True,
     )
-    def rgbd2yuv420p_sampled(rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray) -> np.ndarray:
+    def rgbd2yuv420p_sampled(
+        rgb: np.ndarray, d: np.ndarray, depth2yuv_lookup: np.ndarray
+    ) -> np.ndarray:
         height = rgb.shape[0]
         width = rgb.shape[1] * 2  # stack the frames horizontally: [rgb][d]
         chroma_height = height // 4
@@ -282,21 +288,15 @@ class TriangleDepthEncoder(DepthEncoder, Protocol):
                     depth[i, j - width // 2] = yuv2depth_lookup[y, u, v]
         return rgb, depth
 
-    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> VideoFrame:
+    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> np.ndarray:
         rgb = np.asanyarray(color.get_data())
         d = np.asanyarray(depth.get_data())
         pose.write_to_color_frame(rgb)
         assert rgb.shape[:2] == d.shape
-        vf = VideoFrame.from_ndarray(self.rgbd2yuv420p_averaged(rgb, d, self.depth2yuv_lookup), self.pixel_format)
-        vf.color_range = ColorRange.JPEG  # Force full range color instead of limited (16-235)
-        vf.colorspace = Colorspace.ITU601
-        return vf
+        return self.rgbd2yuv420p_averaged(rgb, d, self.depth2yuv_lookup)
 
-    def video_frame_to_rgbd(self, vf: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
-        vf.color_range = ColorRange.JPEG  # Force full range color instead of limited (16-235)
-        vf.colorspace = Colorspace.ITU601
-        frame = vf.to_ndarray(format=self.pixel_format)
-        rgb, d = self.yuv420p2rgbd(frame, self.yuv2depth_lookup)
+    def video_frame_to_rgbd(self, vf: np.ndarray) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
+        rgb, d = self.yuv420p2rgbd(vf, self.yuv2depth_lookup)
         pose = GPSPose.read_from_color_frame(rgb, clear_macroblocks=True)
         d[(d < self.min_valid_depth) | (d > self.max_valid_depth)] = 0
         return rgb, d, pose
@@ -398,21 +398,15 @@ class MultiWavelengthDepthEncoder(DepthEncoder, Protocol):
                     depth[i, j - width // 2] = round(phi * p / math.tau)
         return rgb, depth
 
-    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> VideoFrame:
+    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> np.ndarray:
         rgb = np.asanyarray(color.get_data())
         d = np.asanyarray(depth.get_data())
         pose.write_to_color_frame(rgb)
         assert rgb.shape[:2] == d.shape
-        vf = VideoFrame.from_ndarray(self.rgbd2yuv420p(rgb, d, self.max_valid_depth, self.p), self.pixel_format)
-        vf.color_range = ColorRange.JPEG  # Force full range color instead of limited (16-235)
-        vf.colorspace = Colorspace.ITU601
-        return vf
+        return self.rgbd2yuv420p(rgb, d, self.max_valid_depth, self.p)
 
-    def video_frame_to_rgbd(self, vf: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
-        vf.color_range = ColorRange.JPEG  # Force full range color instead of limited (16-235)
-        vf.colorspace = Colorspace.ITU601
-        frame = vf.to_ndarray(format=self.pixel_format)
-        rgb, d = self.yuv420p2rgbd(frame, self.max_valid_depth, self.p)
+    def video_frame_to_rgbd(self, vf: np.ndarray) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
+        rgb, d = self.yuv420p2rgbd(vf, self.max_valid_depth, self.p)
         pose = GPSPose.read_from_color_frame(rgb, clear_macroblocks=True)
         d[(d < self.min_valid_depth) | (d > self.max_valid_depth)] = 0
         return rgb, d, pose
@@ -480,15 +474,21 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
                     phi_upper = (z_upper - 127) * math.tau / period
                     phi_lower = (z_lower - 127) * math.tau / period
 
-                    ret[i, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper - 2 * math.pi / 3)))
+                    ret[i, j] = round(
+                        (period - 1) * 0.5 * (1 + math.cos(phi_upper - 2 * math.pi / 3))
+                    )
                     ret[chroma_y, chroma_x] = round((period - 1) * 0.5 * (1 + math.cos(phi_upper)))
                     ret[chroma_y + chroma_height, chroma_x] = round(
                         (period - 1) * 0.5 * (1 + math.cos(phi_upper + 2 * math.pi / 3))
                     )
 
-                    ret[i + 1, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower - 2 * math.pi / 3)))
+                    ret[i + 1, j + 1] = round(
+                        (period - 1) * 0.5 * (1 + math.cos(phi_lower - 2 * math.pi / 3))
+                    )
                     ret[i, j + 1] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower)))
-                    ret[i + 1, j] = round((period - 1) * 0.5 * (1 + math.cos(phi_lower + 2 * math.pi / 3)))
+                    ret[i + 1, j] = round(
+                        (period - 1) * 0.5 * (1 + math.cos(phi_lower + 2 * math.pi / 3))
+                    )
         return ret
 
     @staticmethod
@@ -533,34 +533,38 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
                     I2 = np.int32(u)
                     I3 = np.int32(v)
                     z_upper = (
-                        round((math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
+                        round(
+                            (math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3)))
+                            / math.tau
+                            * period
+                        )
+                        + 127
                     )
                     I1 = np.int32(x[i + 1, j + 1])
                     I2 = np.int32(x[i, j + 1])
                     I3 = np.int32(x[i + 1, j])
                     z_lower = (
-                        round((math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3))) / math.tau * period) + 127
+                        round(
+                            (math.atan2(math.sqrt(3) * (I1 - I3), (2 * I2 - I1 - I3)))
+                            / math.tau
+                            * period
+                        )
+                        + 127
                     )
                     for k in range(2):
                         for l in range(2):
                             depth[i + k, j + l - width // 2] = (z_upper << 8) + z_lower
         return rgb, depth
 
-    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> VideoFrame:
+    def rgbd_to_video_frame(self, color: rs.frame, depth: rs.frame, pose: GPSPose) -> np.ndarray:
         rgb = np.asanyarray(color.get_data())
         d = np.asanyarray(depth.get_data())
         pose.write_to_color_frame(rgb)
         assert rgb.shape[:2] == d.shape
-        vf = VideoFrame.from_ndarray(self.rgbd2yuv420p(rgb, d), self.pixel_format)
-        vf.color_range = ColorRange.JPEG  # Force full range color instead of limited (16-235)
-        vf.colorspace = Colorspace.ITU601
-        return vf
+        return self.rgbd2yuv420p(rgb, d)
 
-    def video_frame_to_rgbd(self, vf: VideoFrame) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
-        vf.color_range = ColorRange.JPEG  # Force full range color instead of limited (16-235)
-        vf.colorspace = Colorspace.ITU601
-        frame = vf.to_ndarray(format=self.pixel_format)
-        rgb, d = self.yuv420p2rgbd(frame)
+    def video_frame_to_rgbd(self, vf: np.ndarray) -> tuple[np.ndarray, np.ndarray, GPSPose | None]:
+        rgb, d = self.yuv420p2rgbd(vf)
         pose = GPSPose.read_from_color_frame(rgb, clear_macroblocks=True)
         d[(d < self.min_valid_depth) | (d > self.max_valid_depth)] = 0
         return rgb, d, pose
@@ -568,7 +572,7 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
 
 if __name__ == "__main__":
     import time
-    from PIL import Image
+    from matplotlib import pyplot as plt
 
     test_d = np.random.randint(1500, 60000, (360, 640), dtype=np.uint16)
     test_d = test_d.repeat(2, axis=0).repeat(2, axis=1)
@@ -600,7 +604,9 @@ if __name__ == "__main__":
     depth_encoder = MultiWavelengthDepthEncoder(0.0001, 0.15, 6)
     start = time.time()
     for _ in range(iters):
-        yuv_encoded_rgbd = depth_encoder.rgbd2yuv420p(test_rgb, test_d, depth_encoder.max_valid_depth, depth_encoder.p)
+        yuv_encoded_rgbd = depth_encoder.rgbd2yuv420p(
+            test_rgb, test_d, depth_encoder.max_valid_depth, depth_encoder.p
+        )
     print(f"multiwavelength rgbd2yuv420p: {time.time() - start}")
     start = time.time()
     for _ in range(iters):

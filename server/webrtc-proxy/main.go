@@ -496,7 +496,7 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 			inTracks:    nil,
 			dataChannel: false,
 		}
-		pipelineStr := fmt.Sprintf("videotestsrc is-live=true pattern=ball ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! %s ! shmsink wait-for-connection=true socket-path=%s name=sink", encodeStr, outputTrackKey.shmPath(debugState.ClientMediaSocketDir, ""))
+		pipelineStr := fmt.Sprintf("videotestsrc is-live=true pattern=ball ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! %s ! shmsink wait-for-connection=true socket-path=%s", encodeStr, outputTrackKey.shmPath(debugState.ClientMediaSocketDir, ""))
 		pipeline, err := gst.NewPipelineFromString(pipelineStr)
 		if err != nil {
 			panic(err)

@@ -16,22 +16,20 @@ import numpy as np
 import pyrealsense2 as rs
 import pyudev
 import serial
-from av.video.reformatter import ColorRange, Colorspace
 from msgspec import field
 from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
 
-from kernels.skymap.common import (
+from swarmnode_skymap_common import (
     rgbd_stream_width,
     rgbd_stream_height,
     rgbd_stream_framerate,
     GPSPose,
 )
-from kernels.skymap.sensor_array.depth_encoding import (
+from .depth_encoding import (
     DepthEncoder,
     ZhouDepthEncoder,
 )
-from util import root_dir
 
 
 class WTRTK982(msgspec.Struct):
@@ -117,7 +115,9 @@ class WTRTK982(msgspec.Struct):
             return
         try:
             context = pyudev.Context()
-            ch340_serial = list(context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523"))
+            ch340_serial = list(
+                context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523")
+            )
             assert len(ch340_serial) == 1
             assert ch340_serial[0].device_node is not None
             # ch340_serial requires 115200 baud rate
@@ -203,11 +203,17 @@ class RGBDStream:
         self.pipeline.start()
         self.pipeline.stop()
         self.config = rs.config()
-        self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps)
-        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps)
+        self.config.enable_stream(
+            rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps
+        )
+        self.config.enable_stream(
+            rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps
+        )
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)
-        self.intrinsics = self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
+        self.intrinsics = (
+            self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
+        )
 
         # Filters
         self.filter_threshold = rs.threshold_filter(self.min_depth_meters, self.max_depth_meters)
@@ -308,8 +314,6 @@ if __name__ == "__main__":
     )
     correct_bytes = correct_pose.to_bytes()
     print(correct_bytes)
-    print(Colorspace.ITU601)
-    print(ColorRange.JPEG)
     playback = av.open(output_file)
     recovered_data = []
     for frame in playback.decode(video=0):
@@ -325,7 +329,9 @@ if __name__ == "__main__":
         _, src_d, _ = source_data[i]
         _, dest_d, _ = recovered_data[i]
         nonzero_mask = (src_d != 0) & (dest_d != 0)
-        delta = np.abs(src_d.astype(np.float32)[nonzero_mask] - dest_d.astype(np.float32)[nonzero_mask])
+        delta = np.abs(
+            src_d.astype(np.float32)[nonzero_mask] - dest_d.astype(np.float32)[nonzero_mask]
+        )
         max_error = np.max(delta)
         acc_max_error = max(max_error, acc_max_error)
         empty_pixels = np.sum(src_d == 0)
@@ -397,11 +403,13 @@ if __name__ == "__main__":
             src_rgb, src_d, _ = source_data[i]
             src_im1 = o3d.geometry.Image(np.ascontiguousarray(src_rgb))
             src_im2 = o3d.geometry.Image(np.ascontiguousarray(src_d))
-            src_rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(
-                src_im1,
-                src_im2,
-                depth_scale=1 / RGBDStream.depth_units,
-                depth_trunc=RGBDStream.max_depth_meters,
+            src_rgbd_img: o3d.geometry.RGBDImage = (
+                o3d.geometry.RGBDImage.create_from_color_and_depth(
+                    src_im1,
+                    src_im2,
+                    depth_scale=1 / RGBDStream.depth_units,
+                    depth_trunc=RGBDStream.max_depth_meters,
+                )
             )
             im1 = o3d.geometry.Image(np.ascontiguousarray(rgb))
             im2 = o3d.geometry.Image(np.ascontiguousarray(d))

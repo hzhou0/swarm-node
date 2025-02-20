@@ -64,7 +64,18 @@ def webrtc_proxy_media_writer(
     video_format: GstVideo.VideoFormat = GstVideo.VideoFormat.I420,
 ):
     pipeline_tmpls = {
-        "video/h264": f"appsrc emit-signals=True is-live=True ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink socket-path={shm_path}",
+        "video/h264": [
+            "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20",
+            f"shmsink wait-for-connection=true socket-path={shm_path}",
+        ],
+        "video/h265": [
+            "x265enc speed-preset=ultrafast tune=zerolatency key-int-max=20",
+            f"shmsink wait-for-connection=true socket-path={shm_path}",
+        ],
+        "video/vp9": [
+            "vp9enc deadline=1",
+            f"shmsink wait-for-connection=true socket-path={shm_path}",
+        ],
     }
     mime_type = mime_type.lower()
     if mime_type not in pipeline_tmpls:
