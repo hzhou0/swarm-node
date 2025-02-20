@@ -20,7 +20,7 @@ async def video_processor(media_chan: pb.MediaChannel, server_dir: str):
         while True:
             frame = await pipeline.get()
             # Display the frame
-            cv2.imshow("Video Frame", cv2.cvtColor(frame, cv2.COLOR_YUV420P2BGR))
+            cv2.imshow("Video Frame", cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB))
             cv2.waitKey(1)
 
 
@@ -37,9 +37,11 @@ async def main(
     else:
         raise Exception("Expected first event to be mediaSocketDirs")
     target_state = pb.State(
-        httpAddr=":8080",
+        httpServerConfig=pb.HttpServer(address=":8080"),
         wantedTracks=[
-            pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h264")
+            pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h264"),
+            pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265"),
+            pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/vp9"),
         ],
     )
     await mutation_q.put(pb.Mutation(setState=target_state))

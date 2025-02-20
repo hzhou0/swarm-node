@@ -202,6 +202,7 @@ type WebrtcState struct {
 	ServerMediaSocketDir string
 	ClientMediaSocketDir string
 	config               WebrtcStateConfig
+	webrtcApi            *webrtc.API
 	configMu             sync.RWMutex
 	peers                map[UUID]*WebrtcPeer
 	peersMu              sync.RWMutex
@@ -235,9 +236,28 @@ func NewWebrtcState(config WebrtcStateConfig, ServerMediaSocketDir string, Clien
 	if err != nil {
 		return nil, err
 	}
+	mediaEngine := &webrtc.MediaEngine{}
+	if err := mediaEngine.RegisterDefaultCodecs(); err != nil {
+		return nil, err
+	}
+	videoRTCPFeedback := []webrtc.RTCPFeedback{{"goog-remb", ""}, {"ccm", "fir"}, {"nack", ""}, {"nack", "pli"}}
+	if err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:     webrtc.MimeTypeH265,
+			ClockRate:    90000,
+			SDPFmtpLine:  "",
+			Channels:     0,
+			RTCPFeedback: videoRTCPFeedback,
+		},
+		PayloadType: 126, // Use an unused PayloadType; 126 is often unused but configurable
+	}, webrtc.RTPCodecTypeVideo); err != nil {
+		return nil, err
+	}
+
 	ctx, Close := context.WithCancel(context.Background())
 	r := &WebrtcState{
 		config:               config,
+		webrtcApi:            webrtc.NewAPI(webrtc.WithMediaEngine(mediaEngine)),
 		SrcUUID:              NewUUID(),
 		ServerMediaSocketDir: ServerMediaSocketDir,
 		ClientMediaSocketDir: ClientMediaSocketDir,
@@ -499,7 +519,7 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (ans *webrtc.Sess
 		}
 	}()
 	state.configMu.RLock()
-	newPeer.pc, err = webrtc.NewPeerConnection(state.config.webrtcConfig)
+	newPeer.pc, err = state.webrtcApi.NewPeerConnection(state.config.webrtcConfig)
 	state.configMu.RUnlock()
 
 	if offer.sdp != nil {
@@ -723,16 +743,18 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 
 		log.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().MimeType)
 
-		pipelineString := "appsrc format=time is-live=true do-timestamp=true name=src ! application/x-rtp"
+		pipelineString := "appsrc format=time is-live=true name=src ! application/x-rtp"
 		switch strings.ToLower(track.Codec().MimeType) {
 		case "video/vp8":
 			pipelineString += fmt.Sprintf(", payload=%d, encoding-name=VP8-DRAFT-IETF-01 ! rtpvp8depay ! ", track.PayloadType())
 		case "video/opus":
 			pipelineString += fmt.Sprintf(", payload=%d, encoding-name=OPUS ! rtpopusdepay ! ", track.PayloadType())
 		case "video/vp9":
-			pipelineString += " ! rtpvp9depay ! "
+			pipelineString += " ! "
 		case "video/h264":
-			pipelineString += " ! rtph264depay ! video/x-h264,stream-format=byte-stream,alignment=nal !"
+			pipelineString += " ! rtph264depay ! video/x-h264,stream-format=byte-stream,alignment=au ! "
+		case "video/h265":
+			pipelineString += " ! rtph265depay ! video/x-h265,stream-format=byte-stream,alignment=au ! "
 		case "audio/g722":
 			pipelineString += " clock-rate=8000 ! rtpg722depay ! "
 		default:
@@ -792,7 +814,9 @@ func (state *WebrtcState) pipelineForCodec(trackKey NamedTrackKey) *gst.Pipeline
 	case "video/vp9":
 		pipelineStr = pipelineSrc + "vp9parse ! " + pipelineStr
 	case "video/h264":
-		pipelineStr = pipelineSrc + "h264parse ! video/x-h264,stream-format=byte-stream ! " + pipelineStr
+		pipelineStr = pipelineSrc + "h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! " + pipelineStr
+	case "video/h265":
+		pipelineStr = pipelineSrc + "h265parse ! video/x-h265,stream-format=byte-stream,alignment=au ! " + pipelineStr
 	case "audio/opus":
 		pipelineStr = pipelineSrc + "opusenc ! " + pipelineStr
 	case "audio/pcmu":
@@ -831,9 +855,14 @@ func (state *WebrtcState) pipelineForCodec(trackKey NamedTrackKey) *gst.Pipeline
 			}
 			samples := buffer.Map(gst.MapRead).Bytes()
 			defer buffer.Unmap()
+			var mediaSample media.Sample
+			if buffer.Duration() == gst.ClockTimeNone {
+				mediaSample = media.Sample{Data: samples, Timestamp: time.Now()}
+			} else {
+				mediaSample = media.Sample{Data: samples, Duration: *buffer.Duration().AsDuration()}
+			}
 			for _, webrtcTrack := range namedTrackVal.subscribers {
-				sample := media.Sample{Data: samples, Duration: *buffer.Duration().AsDuration()}
-				if err := webrtcTrack.WriteSample(sample); err != nil {
+				if err := webrtcTrack.WriteSample(mediaSample); err != nil {
 					return gst.FlowError
 				}
 			}
@@ -875,8 +904,8 @@ func (state *WebrtcState) Reconcile(stateMsg *pb.State) error {
 		case pb.WebrtcConfig_Auth_not_set_case:
 			state.config.client = resty.New()
 			state.config.cloudflareZT = nil
-		case pb.WebrtcConfig_Cloudflare_case:
-			cf := stateMsg.GetConfig().GetCloudflare()
+		case pb.WebrtcConfig_CloudflareAuth_case:
+			cf := stateMsg.GetConfig().GetCloudflareAuth()
 			if !cf.HasClientSecret() || !cf.HasClientId() {
 				return errors.New("cloudflare auth requires client secret and client id")
 			}
@@ -1006,7 +1035,7 @@ func (state *WebrtcState) ToProto(httpServer *WebrtcHttpInterfaceState) (*pb.Sta
 		Data:              dataChannels,
 		Media:             mediaChannels,
 		WantedTracks:      Map(state.config.allowedInTracks, NamedTrackKey.toProto),
-		Config:            pb.WebrtcConfig_builder{IceServers: iceServers, Cloudflare: state.config.cloudflareZT}.Build(),
+		Config:            pb.WebrtcConfig_builder{IceServers: iceServers, CloudflareAuth: state.config.cloudflareZT}.Build(),
 		ReconnectAttempts: proto.Uint32(uint32(state.config.reconnectAttempts)),
 		HttpServerConfig:  nil,
 	}

@@ -38,7 +38,6 @@ func generateSocketDirs() (string, string, string, string) {
 func buildHTTPServerConfig(addr string) *pb.HttpServer {
 	return pb.HttpServer_builder{
 		Address: proto.String(addr),
-		None:    proto.Bool(true),
 	}.Build()
 }
 

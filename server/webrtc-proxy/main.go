@@ -68,18 +68,17 @@ func (s *WebrtcHttpInterfaceState) Configure(config *pb.HttpServer) error {
 	api := g.Group("/api")
 	switch config.WhichAuth() {
 	case pb.HttpServer_Auth_not_set_case:
-		return fmt.Errorf("auth not set")
-	case pb.HttpServer_None_case:
-	case pb.HttpServer_Cloudflare_case:
+	case pb.HttpServer_CloudflareAuth_case:
 		log.Println("Expecting /api requests to have cloudflare headers")
-		if config.GetCloudflare().HasTeamDomain() {
+		cfAuth := config.GetCloudflareAuth()
+		if cfAuth.HasTeamDomain() {
 			return fmt.Errorf("cloudflare team domain is not set")
 		}
-		if config.GetCloudflare().HasTeamAud() {
+		if cfAuth.HasTeamAud() {
 			return fmt.Errorf("cloudflare team aud is not set")
 		}
-		cloudflareDomain := config.GetCloudflare().GetTeamDomain()
-		cloudflareAUD := config.GetCloudflare().GetTeamAud()
+		cloudflareDomain := cfAuth.GetTeamDomain()
+		cloudflareAUD := cfAuth.GetTeamAud()
 		api.Use(func(c *gin.Context) {
 			// Extract the token from the header
 			accessJWT := c.GetHeader("Cf-Access-Jwt-Assertion")
@@ -455,7 +454,20 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 
 func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	if os.Getenv("DEBUG_SEND_VIDEO") != "" {
+	debugSendVideo := os.Getenv("DEBUG_SEND_VIDEO")
+	if debugSendVideo != "" {
+		var encodeStr string
+		switch debugSendVideo {
+		case "video/h264":
+			encodeStr = "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20"
+		case "video/h265":
+			encodeStr = "x265enc speed-preset=ultrafast tune=zerolatency key-int-max=20"
+		case "video/vp9":
+			encodeStr = "vp9enc deadline=1"
+		default:
+			log.Printf("Unknown debug video type: %s\n", debugSendVideo)
+			return
+		}
 		log.Println("DEBUG_SEND_VIDEO is set, setting up WebRTC state to stream test video")
 		config := WebrtcStateConfig{
 			webrtcConfig: webrtc.Configuration{
@@ -466,6 +478,7 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 				},
 			},
 			reconnectAttempts: 0,
+			client:            resty.New(),
 			allowedInTracks:   []NamedTrackKey{},
 		}
 
@@ -475,7 +488,7 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 		}
 		defer debugState.Close()
 
-		outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", "video/h264")
+		outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", debugSendVideo)
 		pf := PeeringOffer{
 			peerId:      "http://localhost:8080/api/webrtc",
 			sdp:         nil,
@@ -483,7 +496,7 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 			inTracks:    nil,
 			dataChannel: false,
 		}
-		pipelineStr := fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath(debugState.ClientMediaSocketDir, ""))
+		pipelineStr := fmt.Sprintf("videotestsrc is-live=true pattern=ball ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! %s ! shmsink wait-for-connection=true socket-path=%s name=sink", encodeStr, outputTrackKey.shmPath(debugState.ClientMediaSocketDir, ""))
 		pipeline, err := gst.NewPipelineFromString(pipelineStr)
 		if err != nil {
 			panic(err)

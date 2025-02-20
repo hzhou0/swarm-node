@@ -74,7 +74,7 @@ message WebrtcConfig {
     string client_secret = 2;
   }
   oneof auth {
-    CloudflareZeroTrust cloudflare = 2;
+    CloudflareZeroTrust cloudflare_auth = 2;
   }
 }
 
@@ -85,8 +85,7 @@ message HttpServer {
   }
   string address = 1; // Acceptable to https://pkg.go.dev/net#Dial
   oneof auth {
-    bool none = 2;
-    CloudflareTunnel cloudflare = 3;
+    CloudflareTunnel cloudflare_auth = 2;
   }
 }
 

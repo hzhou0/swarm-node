@@ -10,8 +10,7 @@ import gi
 import grpc
 
 import webrtc_proxy.networking_pb2 as pb
-from webrtc_proxy.async_gst import gst_video_source
-from webrtc_proxy.gst_tools import GstVideoSink
+from webrtc_proxy.async_gst import gst_video_source, gst_video_sink
 
 # Path manipulation for this one import: grpc generated code uses relative file imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -35,6 +34,20 @@ def webrtc_proxy_media_reader(shm_path: str, mime_type: str):
             "h264parse",
             "avdec_h264",
         ],
+        "video/h265": [
+            f"shmsrc socket-path={shm_path} is-live=true",
+            "queue",
+            "h265parse",
+            "avdec_h265",
+        ],
+        "video/vp9": [
+            f"shmsrc socket-path={shm_path} is-live=true do-timestamp=true",
+            "application/x-rtp,encoding-name=VP9",
+            "rtpvp9depay",
+            "queue",
+            "vp9parse",
+            "vp9dec",
+        ],
     }
     mime_type = mime_type.lower()
     if mime_type not in pipeline_tmpls:
@@ -49,14 +62,14 @@ def webrtc_proxy_media_writer(
     height: int,
     fps: int,
     video_format: GstVideo.VideoFormat = GstVideo.VideoFormat.I420,
-) -> GstVideoSink:
+):
     pipeline_tmpls = {
         "video/h264": f"appsrc emit-signals=True is-live=True ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink socket-path={shm_path}",
     }
     mime_type = mime_type.lower()
     if mime_type not in pipeline_tmpls:
         raise ValueError(f"Unsupported MIME type: {mime_type}")
-    return GstVideoSink(
+    return gst_video_sink(
         pipeline_tmpls[mime_type],
         width=width,
         height=height,

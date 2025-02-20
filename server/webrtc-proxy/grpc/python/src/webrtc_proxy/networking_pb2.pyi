@@ -20,6 +20,7 @@ class NamedTrack(_message.Message):
     track_id: str
     stream_id: str
     mime_type: str
+
     def __init__(
         self,
         track_id: _Optional[str] = ...,
@@ -54,6 +55,7 @@ class WebrtcOffer(_message.Message):
     remote_tracks: _containers.RepeatedCompositeFieldContainer[NamedTrack]
     remote_tracks_set: bool
     datachannel: bool
+
     def __init__(
         self,
         src_uuid: _Optional[str] = ...,
@@ -80,6 +82,7 @@ class DataTransmission(_message.Message):
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     channel: DataChannel
     payload: bytes
+
     def __init__(
         self,
         channel: _Optional[_Union[DataChannel, _Mapping]] = ...,
@@ -96,6 +99,7 @@ class MediaChannel(_message.Message):
     dest_uuid: str
     track: NamedTrack
     close: bool
+
     def __init__(
         self,
         src_uuid: _Optional[str] = ...,
@@ -110,6 +114,7 @@ class MediaSocketDirs(_message.Message):
     CLIENTDIR_FIELD_NUMBER: _ClassVar[int]
     serverDir: str
     clientDir: str
+
     def __init__(
         self, serverDir: _Optional[str] = ..., clientDir: _Optional[str] = ...
     ) -> None: ...
@@ -124,6 +129,7 @@ class Event(_message.Message):
     media: MediaChannel
     achievedState: State
     mediaSocketDirs: MediaSocketDirs
+
     def __init__(
         self,
         data: _Optional[_Union[DataTransmission, _Mapping]] = ...,
@@ -133,7 +139,7 @@ class Event(_message.Message):
     ) -> None: ...
 
 class WebrtcConfig(_message.Message):
-    __slots__ = ("ice_servers", "cloudflare")
+    __slots__ = ("ice_servers", "cloudflare_auth")
 
     class IceServer(_message.Message):
         __slots__ = ("urls", "username", "credential", "credentialType")
@@ -145,6 +151,7 @@ class WebrtcConfig(_message.Message):
         username: str
         credential: str
         credentialType: str
+
         def __init__(
             self,
             urls: _Optional[_Iterable[str]] = ...,
@@ -164,18 +171,18 @@ class WebrtcConfig(_message.Message):
             self, client_id: _Optional[str] = ..., client_secret: _Optional[str] = ...
         ) -> None: ...
     ICE_SERVERS_FIELD_NUMBER: _ClassVar[int]
-    CLOUDFLARE_FIELD_NUMBER: _ClassVar[int]
+    CLOUDFLARE_AUTH_FIELD_NUMBER: _ClassVar[int]
     ice_servers: _containers.RepeatedCompositeFieldContainer[WebrtcConfig.IceServer]
-    cloudflare: WebrtcConfig.CloudflareZeroTrust
+    cloudflare_auth: WebrtcConfig.CloudflareZeroTrust
 
     def __init__(
         self,
         ice_servers: _Optional[_Iterable[_Union[WebrtcConfig.IceServer, _Mapping]]] = ...,
-        cloudflare: _Optional[_Union[WebrtcConfig.CloudflareZeroTrust, _Mapping]] = ...,
+        cloudflare_auth: _Optional[_Union[WebrtcConfig.CloudflareZeroTrust, _Mapping]] = ...,
     ) -> None: ...
 
 class HttpServer(_message.Message):
-    __slots__ = ("address", "none", "cloudflare")
+    __slots__ = ("address", "cloudflare_auth")
 
     class CloudflareTunnel(_message.Message):
         __slots__ = ("team_domain", "team_aud")
@@ -187,19 +194,15 @@ class HttpServer(_message.Message):
         def __init__(
             self, team_domain: _Optional[str] = ..., team_aud: _Optional[str] = ...
         ) -> None: ...
-
     ADDRESS_FIELD_NUMBER: _ClassVar[int]
-    NONE_FIELD_NUMBER: _ClassVar[int]
-    CLOUDFLARE_FIELD_NUMBER: _ClassVar[int]
+    CLOUDFLARE_AUTH_FIELD_NUMBER: _ClassVar[int]
     address: str
-    none: bool
-    cloudflare: HttpServer.CloudflareTunnel
+    cloudflare_auth: HttpServer.CloudflareTunnel
 
     def __init__(
         self,
         address: _Optional[str] = ...,
-        none: bool = ...,
-        cloudflare: _Optional[_Union[HttpServer.CloudflareTunnel, _Mapping]] = ...,
+        cloudflare_auth: _Optional[_Union[HttpServer.CloudflareTunnel, _Mapping]] = ...,
     ) -> None: ...
 
 class State(_message.Message):
@@ -233,6 +236,7 @@ class Mutation(_message.Message):
     SETSTATE_FIELD_NUMBER: _ClassVar[int]
     data: DataTransmission
     setState: State
+
     def __init__(
         self,
         data: _Optional[_Union[DataTransmission, _Mapping]] = ...,

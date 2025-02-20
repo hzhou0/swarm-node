@@ -12,7 +12,7 @@ import numpy as np
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
 gi.require_version("GstVideo", "1.0")
-from gi.repository import Gst, GstApp, GstVideo, GObject
+from gi.repository import Gst, GstApp, GstVideo, GObject, GLib
 
 Gst.init()
 
@@ -140,17 +140,19 @@ async def gst_video_source(pipeline: list[str]) -> AsyncGenerator[GstVideoSource
 
     def bus_func(_: Gst.Bus, message: Gst.Message) -> bool:
         if message.type == Gst.MessageType.EOS:
+            loop.call_soon_threadsafe(source.initialized.set)
             loop.call_soon_threadsafe(source.set_error, RuntimeError("EOS"))
             return False
         elif message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
+            loop.call_soon_threadsafe(source.initialized.set)
             loop.call_soon_threadsafe(source.set_error, RuntimeError(f"GST: {err}, {debug}"))
             return False
         return True
 
-    bus.add_watch(Gst.MessageType.ERROR | Gst.MessageType.EOS, bus_func)
+    bus.add_watch(GLib.PRIORITY_DEFAULT, bus_func)
     pipeline.set_state(Gst.State.PLAYING)
-    await source.initialized.wait()
+    await asyncio.wait_for(source.initialized.wait(), timeout=5)
     try:
         yield source
     finally:
