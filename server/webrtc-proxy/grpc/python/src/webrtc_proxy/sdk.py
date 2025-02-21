@@ -65,11 +65,11 @@ def webrtc_proxy_media_writer(
 ):
     pipeline_tmpls = {
         "video/h264": [
-            "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20",
+            "x264enc speed-preset=ultrafast tune=zerolatency bitrate=5000 key-int-max=1",
             f"shmsink wait-for-connection=true socket-path={shm_path}",
         ],
         "video/h265": [
-            "x265enc speed-preset=ultrafast tune=zerolatency key-int-max=20",
+            "x265enc speed-preset=ultrafast tune=zerolatency bitrate=7000 key-int-max=1",
             f"shmsink wait-for-connection=true socket-path={shm_path}",
         ],
         "video/vp9": [

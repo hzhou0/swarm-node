@@ -496,7 +496,11 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 			inTracks:    nil,
 			dataChannel: false,
 		}
-		pipelineStr := fmt.Sprintf("videotestsrc is-live=true pattern=ball ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! %s ! shmsink wait-for-connection=true socket-path=%s", encodeStr, outputTrackKey.shmPath(debugState.ClientMediaSocketDir, ""))
+		pipelineStr := fmt.Sprintf(
+			"videotestsrc is-live=true pattern=ball ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! %s ! shmsink wait-for-connection=true socket-path=%s",
+			encodeStr,
+			outputTrackKey.shmPath(debugState.ClientMediaSocketDir, ""),
+		)
 		pipeline, err := gst.NewPipelineFromString(pipelineStr)
 		if err != nil {
 			panic(err)
@@ -522,6 +526,84 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 				_, err := debugState.Peer(pf, 0)
 				if err != nil {
 					log.Printf("Debug State err: %v", err)
+				}
+			}
+		}
+	}
+
+	debugRecvVideo := os.Getenv("DEBUG_RECV_VIDEO")
+	if debugRecvVideo != "" {
+		config := WebrtcStateConfig{
+			webrtcConfig: webrtc.Configuration{
+				ICEServers: []webrtc.ICEServer{
+					{
+						URLs: []string{"stun:stun.l.google.com:19302"},
+					},
+				},
+			},
+			reconnectAttempts: 0,
+			client:            resty.New(),
+			allowedInTracks: []NamedTrackKey{
+				NewNamedTrackKey("rgbd", "realsenseD455", "video/h265"),
+			},
+		}
+
+		debugState, err := NewWebrtcState(config, path.Join(runtimeDir, "debug1-server-media"), path.Join(runtimeDir, "debug1-client-media"))
+		if err != nil {
+			panic(err)
+		}
+		defer debugState.Close()
+		httpServ := NewWebrtcHttpServer(debugState)
+		err = httpServ.Configure(pb.HttpServer_builder{
+			Address: proto.String("127.0.0.1:9090"),
+		}.Build())
+		if err != nil {
+			panic(err)
+		}
+
+		var pipeline *gst.Pipeline
+		defer func() {
+			if pipeline != nil {
+				err := pipeline.SetState(gst.StateNull)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case receivedTrack := <-debugState.MediaIn:
+				incomingTrack := NamedTrackKeyFromProto(receivedTrack.GetTrack())
+				var decodeStr string
+				switch incomingTrack.mimeType {
+				case "video/h264":
+					decodeStr = "queue ! h264parse ! avdec_h264"
+				case "video/h265":
+					decodeStr = "queue ! h265parse ! avdec_h265"
+				default:
+					log.Printf("Unknown debug video type: %s\n", debugSendVideo)
+					return
+				}
+				pipelineStr := fmt.Sprintf(
+					"shmsrc socket-path=%s is-live=true do-timestamp=true ! %s ! autovideosink sync=false",
+					incomingTrack.shmPath(debugState.ServerMediaSocketDir, receivedTrack.GetSrcUuid()),
+					decodeStr,
+				)
+				if pipeline != nil {
+					err := pipeline.SetState(gst.StateNull)
+					if err != nil {
+						panic(err)
+					}
+				}
+				pipeline, err = gst.NewPipelineFromString(pipelineStr)
+				if err != nil {
+					panic(err)
+				}
+				err = pipeline.Start()
+				if err != nil {
+					log.Printf("Error starting pipeline: %v", err)
 				}
 			}
 		}

@@ -5,15 +5,11 @@ import os
 import numpy as np
 import uvloop
 
-from webrtc_proxy import webrtc_proxy_client, pb
-from .sensors import RGBDStream
+from sensors import RGBDStream
+from webrtc_proxy import webrtc_proxy_client, pb, webrtc_proxy_media_writer, media_shm_path
 
 
 class RGBDVideoStreamTrack:
-    """
-    RGBD Depth Video Stream Track
-    """
-
     def __init__(self):
         self.stream: RGBDStream = RGBDStream()
         self.wait_for_frames = True
@@ -53,28 +49,50 @@ async def main(
         server_dir = event.mediaSocketDirs.serverDir
     else:
         raise Exception("Expected first event to be mediaSocketDirs")
+
+    named_track = pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265")
     target_state = pb.State(
         data=[pb.DataChannel(dest_uuid=skymap_server_url)],
-        media=[
-            pb.MediaChannel(
-                dest_uuid=skymap_server_url,
-                track=pb.NamedTrack(
-                    track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265"
-                ),
-            )
-        ],
-        wantedTracks=[],
+        media=[pb.MediaChannel(dest_uuid=skymap_server_url, track=named_track)],
     )
-    await mutation_q.put(pb.Mutation(setState=target_state))
-    while True:
-        event = await event_q.get()
-        event_type = event.WhichOneof("event")
-        if event_type == "data":
-            print(event)
-        elif event_type == "achievedState":
-            print(event.achievedState)
-        else:
-            logging.error(event_type)
+
+    async def media_write_forever():
+        shm_path = media_shm_path(named_track, client_dir)
+        while True:
+            track = RGBDVideoStreamTrack()
+            media_writer = webrtc_proxy_media_writer(
+                shm_path,
+                named_track.mime_type,
+                track.stream.width * 2,
+                track.stream.height,
+                track.stream.framerate,
+            )
+            try:
+                async with media_writer as pipeline:
+                    await mutation_q.put(pb.Mutation(setState=target_state))
+                    while True:
+                        frame = await track.recv()
+                        await pipeline.put(frame)
+            except Exception as e:
+                logging.exception(e)
+            finally:
+                track.stream.destroy()
+
+    async def process_events_forever():
+        while True:
+            event = await event_q.get()
+            event_type = event.WhichOneof("event")
+            if event_type == "data":
+                logging.info(event)
+            elif event_type == "achievedState":
+                logging.info(event.achievedState)
+                if not event.achievedState.media:
+                    logging.error("failed")
+            else:
+                logging.error(event_type)
+
+    tg.create_task(media_write_forever())
+    tg.create_task(process_events_forever())
 
 
 async def setup():

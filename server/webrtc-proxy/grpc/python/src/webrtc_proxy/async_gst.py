@@ -169,15 +169,15 @@ class GstVideoSink:
     _queue: asyncio.Queue[np.ndarray] = dataclasses.field(default_factory=asyncio.Queue)
 
     offset: int = 0
-    pts = 0
-    duration: float = 0
+    pts: int = 0
+    duration: int = 0
     _error: Exception | None = None
 
     def set_error(self, error: Exception):
         self._error = error
 
     def __post_init__(self):
-        self.duration = 10**9 / (self.fps.numerator / self.fps.denominator)
+        self.duration = int(10**9 / (self.fps.numerator / self.fps.denominator))
 
     async def put(self, frame: np.ndarray):
         if self._error is not None:
@@ -185,7 +185,6 @@ class GstVideoSink:
         await self._queue.put(frame)
 
     async def stream_buffers(self, src: GstApp.AppSrc):
-        loop = asyncio.get_event_loop()
         while self._error is None:
             frame = await self._queue.get()
             gst_buffer: Gst.Buffer = Gst.Buffer.new_wrapped(frame.tobytes())
@@ -196,13 +195,11 @@ class GstVideoSink:
             self.pts += self.duration
             self.offset += 1
             while True:
-                result: Gst.FlowReturn = await loop.run_in_executor(
-                    None, src.do_push_buffer, gst_buffer
-                )
+                result: Gst.FlowReturn = GstApp.AppSrc.push_buffer(src, gst_buffer)
                 if result == Gst.FlowReturn.EOS:
                     raise RuntimeError("EOS")
                 elif result == Gst.FlowReturn.FLUSHING:
-                    await asyncio.sleep(0.01)
+                    await asyncio.sleep(0.1)
                 elif result == Gst.FlowReturn.OK:
                     break
         raise self._error
@@ -216,15 +213,17 @@ async def gst_video_sink(
     fps: Fraction,
     video_frmt: GstVideo.VideoFormat,
 ) -> AsyncGenerator[GstVideoSink, Any]:
-    app_src_str = "appsrc emit-signals=False is-live=True name=appsrc block=True format=time"
+    sink = GstVideoSink(height=height, width=width, fps=fps, video_frmt=video_frmt)
+    app_src_str = f"appsrc emit-signals=False is-live=True leaky-type=upstream name=appsrc format=time max-time={5 * sink.duration}"
     cap_str = f"video/x-raw,format={GstVideo.VideoFormat.to_string(video_frmt)},width={width},height={height},framerate={fps.numerator}/{fps.denominator}"
     pipeline_str = " ! ".join([app_src_str, cap_str] + pipeline)
+    stream_task = None
+    gst_pipeline: Gst.Pipeline | None = None
     try:
-        pipeline: Gst.Pipeline = Gst.parse_launch(pipeline_str)
-        app_src: GstApp.AppSrc = pipeline.get_by_name("appsrc")
+        gst_pipeline = Gst.parse_launch(pipeline_str)
+        app_src: GstApp.AppSrc = gst_pipeline.get_by_name("appsrc")
         assert app_src is not None, "appsrc not found in pipeline"
-        bus: Gst.Bus = pipeline.get_bus()
-        sink = GstVideoSink(height=height, width=width, fps=fps, video_frmt=video_frmt)
+        bus: Gst.Bus = gst_pipeline.get_bus()
         loop = asyncio.get_event_loop()
 
         def bus_func(_: Gst.Bus, message: Gst.Message) -> bool:
@@ -237,9 +236,16 @@ async def gst_video_sink(
                 return False
             return True
 
-        bus.add_watch(Gst.MessageType.ERROR | Gst.MessageType.EOS, bus_func)
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(sink.stream_buffers(app_src))
-            yield sink
+        bus.add_watch(GLib.PRIORITY_DEFAULT, bus_func)
+        gst_pipeline.set_state(Gst.State.PLAYING)
+        stream_task = asyncio.create_task(sink.stream_buffers(app_src))
+        yield sink
     finally:
-        pipeline.set_state(Gst.State.NULL)
+        if stream_task is not None and not stream_task.done():
+            stream_task.cancel()
+            try:
+                await stream_task
+            except asyncio.CancelledError:
+                pass
+        if gst_pipeline is not None:
+            gst_pipeline.set_state(Gst.State.NULL)

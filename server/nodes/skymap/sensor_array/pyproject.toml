@@ -14,7 +14,7 @@ dependencies = [
     "pyserial==3.5",
     "numpy~=2.0",
     "opencv-python>=4.10.0.84",
-    "pyrealsense2==2.55.1.6486",
+    "pyrealsense2~=2.55.1",
     "pynmeagps==1.0.43",
     "google-crc32c>=1",
     "numba~=0.60.0",

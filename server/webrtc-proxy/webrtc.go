@@ -8,7 +8,6 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/go-resty/resty/v2"
 	"github.com/matoous/go-nanoid/v2"
-	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 	"google.golang.org/protobuf/proto"
@@ -724,23 +723,6 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 			}
 			return
 		}
-
-		if track.Kind() == webrtc.RTPCodecTypeVideo {
-			// Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
-			go func() {
-				ticker := time.NewTicker(time.Second * 3)
-				for range ticker.C {
-					if peer.pc == nil {
-						return
-					}
-					rtcpSendErr := peer.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(track.SSRC())}})
-					if rtcpSendErr != nil {
-						log.Println(rtcpSendErr)
-					}
-				}
-			}()
-		}
-
 		log.Printf("Track has started, of type %d: %s \n", track.PayloadType(), track.Codec().MimeType)
 
 		pipelineString := "appsrc format=time is-live=true name=src ! application/x-rtp"
@@ -752,9 +734,9 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 		case "video/vp9":
 			pipelineString += " ! "
 		case "video/h264":
-			pipelineString += " ! rtph264depay ! video/x-h264,stream-format=byte-stream,alignment=au ! "
+			pipelineString += " ! rtpjitterbuffer drop-on-latency=true latency=400 ! rtph264depay ! video/x-h264,stream-format=byte-stream,alignment=au ! "
 		case "video/h265":
-			pipelineString += " ! rtph265depay ! video/x-h265,stream-format=byte-stream,alignment=au ! "
+			pipelineString += " ! rtpjitterbuffer drop-on-latency=true latency=400 ! rtph265depay ! video/x-h265,stream-format=byte-stream,alignment=au ! "
 		case "audio/g722":
 			pipelineString += " clock-rate=8000 ! rtpg722depay ! "
 		default:
@@ -765,7 +747,7 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 			}
 			return
 		}
-		sinkString := fmt.Sprintf("shmsink socket-path=%s shm-size=67108864 wait-for-connection=true", trackKey.shmPath(state.ServerMediaSocketDir, peerId))
+		sinkString := fmt.Sprintf("shmsink socket-path=%s wait-for-connection=true", trackKey.shmPath(state.ServerMediaSocketDir, peerId))
 		pipelineString += sinkString
 		pipeline, err := gst.NewPipelineFromString(pipelineString)
 		if err != nil {
@@ -807,16 +789,16 @@ func (peer *WebrtcPeer) registerTrackHandlers(state *WebrtcState, peerId UUID) {
 
 func (state *WebrtcState) pipelineForCodec(trackKey NamedTrackKey) *gst.Pipeline {
 	pipelineStr := "appsink name=appsink"
-	pipelineSrc := fmt.Sprintf("shmsrc socket-path=%s is-live=true ! queue ! ", trackKey.shmPath(state.ClientMediaSocketDir, ""))
+	pipelineSrc := fmt.Sprintf("shmsrc socket-path=%s is-live=true ! ", trackKey.shmPath(state.ClientMediaSocketDir, ""))
 	switch strings.ToLower(trackKey.mimeType) {
 	case "video/vp8":
 		pipelineStr = pipelineSrc + "vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! " + pipelineStr
 	case "video/vp9":
 		pipelineStr = pipelineSrc + "vp9parse ! " + pipelineStr
 	case "video/h264":
-		pipelineStr = pipelineSrc + "h264parse ! video/x-h264,stream-format=byte-stream,alignment=au ! " + pipelineStr
+		pipelineStr = pipelineSrc + "video/x-h264,stream-format=byte-stream,alignment=au ! " + pipelineStr
 	case "video/h265":
-		pipelineStr = pipelineSrc + "h265parse ! video/x-h265,stream-format=byte-stream,alignment=au ! " + pipelineStr
+		pipelineStr = pipelineSrc + "video/x-h265,stream-format=byte-stream,alignment=au ! " + pipelineStr
 	case "audio/opus":
 		pipelineStr = pipelineSrc + "opusenc ! " + pipelineStr
 	case "audio/pcmu":
