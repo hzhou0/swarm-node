@@ -90,14 +90,16 @@ class DataTransmission(_message.Message):
     ) -> None: ...
 
 class MediaChannel(_message.Message):
-    __slots__ = ("src_uuid", "dest_uuid", "track", "close")
+    __slots__ = ("src_uuid", "dest_uuid", "track", "socket_name", "close")
     SRC_UUID_FIELD_NUMBER: _ClassVar[int]
     DEST_UUID_FIELD_NUMBER: _ClassVar[int]
     TRACK_FIELD_NUMBER: _ClassVar[int]
+    SOCKET_NAME_FIELD_NUMBER: _ClassVar[int]
     CLOSE_FIELD_NUMBER: _ClassVar[int]
     src_uuid: str
     dest_uuid: str
     track: NamedTrack
+    socket_name: str
     close: bool
 
     def __init__(
@@ -105,6 +107,7 @@ class MediaChannel(_message.Message):
         src_uuid: _Optional[str] = ...,
         dest_uuid: _Optional[str] = ...,
         track: _Optional[_Union[NamedTrack, _Mapping]] = ...,
+        socket_name: _Optional[str] = ...,
         close: bool = ...,
     ) -> None: ...
 

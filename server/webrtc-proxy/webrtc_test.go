@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -65,7 +66,7 @@ func TestWebrtcState_OutTrack(t *testing.T) {
 	pf := PeeringOffer{
 		peerId:      "",
 		sdp:         nil,
-		outTracks:   []NamedTrackKey{track1, track2},
+		outTracks:   map[NamedTrackKey]SocketFilename{track1: "socket1", track2: "socket2"},
 		inTracks:    nil,
 		dataChannel: true,
 	}
@@ -240,16 +241,17 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 	assert.Nil(t, err)
 	defer wst2.Close()
 	outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", "video/h264")
+	outputTrackKeySocket := "socket1"
 	pf := PeeringOffer{
 		peerId:      "http://" + servAddr + "/api/webrtc",
 		sdp:         nil,
-		outTracks:   []NamedTrackKey{outputTrackKey},
+		outTracks:   map[NamedTrackKey]SocketFilename{outputTrackKey: outputTrackKeySocket},
 		inTracks:    nil,
 		dataChannel: false,
 	}
 
 	gst.Init(nil)
-	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath(clientSocketDir2, "")))
+	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", path.Join(clientSocketDir2, outputTrackKeySocket)))
 	defer pipeline.SetState(gst.StateNull)
 	assert.Nil(t, err)
 	assert.Nil(t, pipeline.Start())
@@ -260,7 +262,7 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 	assert.Equal(t, strings.ToUpper(receivedTrack.GetTrack().GetMimeType()), strings.ToUpper(outputTrackKey.mimeType))
 	assert.Equal(t, receivedTrack.GetTrack().GetStreamId(), outputTrackKey.streamId)
 	assert.Equal(t, receivedTrack.GetSrcUuid(), wst2.SrcUUID)
-	assert.FileExists(t, NamedTrackKeyFromProto(receivedTrack.GetTrack()).shmPath(serverSocketDir, receivedTrack.GetSrcUuid()))
+	assert.FileExists(t, path.Join(wst1.ServerMediaSocketDir, receivedTrack.GetSocketName()))
 }
 
 func TestWebrtcState_Reconcile(t *testing.T) {
@@ -294,19 +296,21 @@ func TestWebrtcState_Reconcile(t *testing.T) {
 	defer wst2.Close()
 	outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", "video/h264")
 	// Create desired state with one peer
+	mediaSocket := "socket1"
 	desiredState := pb.State_builder{
 		Data: []*pb.DataChannel{
 			pb.DataChannel_builder{DestUuid: proto.String("http://" + servAddr + "/api/webrtc")}.Build(),
 		},
 		Media: []*pb.MediaChannel{
 			pb.MediaChannel_builder{
-				DestUuid: proto.String("http://" + servAddr + "/api/webrtc"),
-				Track:    outputTrackKey.toProto(),
+				DestUuid:   proto.String("http://" + servAddr + "/api/webrtc"),
+				Track:      outputTrackKey.toProto(),
+				SocketName: proto.String(mediaSocket),
 			}.Build(),
 		},
 	}.Build()
 	gst.Init(nil)
-	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", outputTrackKey.shmPath(clientSocketDir2, "")))
+	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", path.Join(clientSocketDir2, mediaSocket)))
 	assert.Nil(t, err)
 	defer pipeline.SetState(gst.StateNull)
 	assert.Nil(t, pipeline.Start())
@@ -322,7 +326,7 @@ func TestWebrtcState_Reconcile(t *testing.T) {
 	assert.Equal(t, strings.ToUpper(receivedTrack.GetTrack().GetMimeType()), strings.ToUpper(outputTrackKey.mimeType))
 	assert.Equal(t, receivedTrack.GetTrack().GetStreamId(), outputTrackKey.streamId)
 	assert.Equal(t, receivedTrack.GetSrcUuid(), wst2.SrcUUID)
-	assert.FileExists(t, NamedTrackKeyFromProto(receivedTrack.GetTrack()).shmPath(serverSocketDir, receivedTrack.GetSrcUuid()))
+	assert.FileExists(t, path.Join(wst1.ServerMediaSocketDir, receivedTrack.GetSocketName()))
 
 	// Update desired state to remove peer media
 	desiredState.SetMedia(nil)

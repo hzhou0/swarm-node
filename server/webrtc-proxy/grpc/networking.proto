@@ -44,7 +44,8 @@ message MediaChannel {
   string dest_uuid = 2; // Leave unset when sending to broadcast; unset when receiving
   // When sent from the kernel, this will be fulfilled on a best-effort basis. The dest can reject any track it doesn't want.
   NamedTrack track = 3;
-  bool close = 4; // Channel is closed
+  string socket_name = 4;
+  bool close = 5; // Channel is closed
 }
 
 message MediaSocketDirs {

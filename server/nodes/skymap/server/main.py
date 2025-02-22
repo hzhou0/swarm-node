@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from pathlib import Path
 
 import cv2
 import uvloop
@@ -9,13 +10,12 @@ from webrtc_proxy import (
     webrtc_proxy_client,
     pb,
     webrtc_proxy_media_reader,
-    media_shm_path,
 )
 
 
 async def video_processor(media_chan: pb.MediaChannel, server_dir: str):
-    shm_path = media_shm_path(media_chan.track, server_dir, media_chan.src_uuid)
-    media_reader = webrtc_proxy_media_reader(shm_path, media_chan.track.mime_type)
+    read_socket = Path(server_dir) / media_chan.socket_name
+    media_reader = webrtc_proxy_media_reader(str(read_socket), media_chan.track.mime_type)
     async with media_reader as pipeline:
         while True:
             frame = await pipeline.get()

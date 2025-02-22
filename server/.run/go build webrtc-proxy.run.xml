@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false" name="go build webrtc-proxy" type="GoApplicationRunConfiguration"
+                   factoryName="Go Application" nameIsGenerated="true">
+        <module name="server"/>
+        <working_directory value="$PROJECT_DIR$/webrtc-proxy"/>
+        <envs>
+            <env name="DEBUG_RECV_VIDEO" value="video/h265"/>
+            <env name="RUNTIME_DIRECTORY" value="/tmp/swarmnode"/>
+        </envs>
+        <kind value="PACKAGE"/>
+        <package value="webrtc-proxy"/>
+        <directory value="$PROJECT_DIR$"/>
+        <filePath value="$PROJECT_DIR$/webrtc-proxy/main.go"/>
+        <method v="2"/>
+    </configuration>
+</component>

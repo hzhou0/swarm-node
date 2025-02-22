@@ -26,12 +26,37 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"slices"
 	"sync"
 	"syscall"
 	"time"
 	"webrtc-proxy/grpc/go"
 )
+
+type IDPool struct {
+	sync.Mutex
+	ids map[string]struct{}
+}
+
+func NewIDPool() IDPool {
+	return IDPool{ids: map[string]struct{}{}}
+}
+
+func (p *IDPool) Claim() UUID {
+	p.Lock()
+	i := 4
+	id := NewUUID(i)
+	for _, exists := p.ids[id]; exists; i++ {
+		id = NewUUID(i)
+	}
+	p.Unlock()
+	return id
+}
+
+func (p *IDPool) Release(id UUID) {
+	p.Lock()
+	delete(p.ids, id)
+	p.Unlock()
+}
 
 type WebrtcHttpInterfaceState struct {
 	webrtcState  *WebrtcState
@@ -149,19 +174,24 @@ func (s *WebrtcHttpInterfaceState) Configure(config *pb.HttpServer) error {
 				}
 			}
 			// Validate Outgoing/Remote Tracks
-			broadcasts := s.webrtcState.BroadcastOutTracks()
 			rTracks := offer.GetRemoteTracks()
+
+			s.webrtcState.outTracksMu.RLock()
+			outTracks := make(map[NamedTrackKey]SocketFilename)
 			for _, oTrack := range rTracks {
 				k := NamedTrackKeyFromProto(oTrack)
-				if !slices.Contains(broadcasts, k) {
+				if tr, exists := s.webrtcState.outTrackStates[k]; !exists || !tr.broadcast {
 					c.String(http.StatusNotAcceptable, "Requested track %v not available", oTrack.GetTrackId())
 					return
+				} else {
+					outTracks[k] = tr.socket
 				}
 			}
+			s.webrtcState.outTracksMu.RUnlock()
 			pOffer := PeeringOffer{
 				peerId:      offer.GetSrcUuid(),
 				sdp:         &webrtc.SessionDescription{Type: webrtc.NewSDPType(offer.GetType()), SDP: offer.GetSdp()},
-				outTracks:   Map(rTracks, NamedTrackKeyFromProto),
+				outTracks:   outTracks,
 				inTracks:    Map(lTracks, NamedTrackKeyFromProto),
 				dataChannel: offer.GetDatachannel(),
 			}
@@ -204,15 +234,7 @@ func (s *WebrtcHttpInterfaceState) Configure(config *pb.HttpServer) error {
 			}
 			answer.SetRemoteTracks(allowedRemote)
 			answer.SetRemoteTracksSet(true)
-			var localTracks []*pb.NamedTrack
-			for _, v := range s.webrtcState.BroadcastOutTracks() {
-				tr := pb.NamedTrack{}
-				tr.SetStreamId(v.streamId)
-				tr.SetTrackId(v.trackId)
-				tr.SetMimeType(v.mimeType)
-				localTracks = append(localTracks, &tr)
-			}
-			answer.SetLocalTracks(localTracks)
+			answer.SetLocalTracks(Map(s.webrtcState.BroadcastOutTracks(), NamedTrackKey.toProto))
 			answer.SetLocalTracksSet(true)
 			c.Header("Content-Type", "application/x-protobuf")
 			c.ProtoBuf(http.StatusOK, &answer)
@@ -294,8 +316,7 @@ func drainChannel[T any](ch <-chan T) T {
 type webrtcProxyServer struct {
 	pb.UnimplementedWebrtcProxyServer
 	defaultConfig WebrtcStateConfig
-	sync.Mutex
-	connIds map[string]struct{}
+	idPool        IDPool
 }
 
 func newWebrtcProxyServer() *webrtcProxyServer {
@@ -311,27 +332,17 @@ func newWebrtcProxyServer() *webrtcProxyServer {
 		reconnectAttempts: 0,
 		allowedInTracks:   []NamedTrackKey{},
 	}
-	return &webrtcProxyServer{defaultConfig: webrtcConfig, connIds: map[string]struct{}{}}
+	return &webrtcProxyServer{defaultConfig: webrtcConfig, idPool: NewIDPool()}
 }
 
 func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
-	s.Lock()
-	i := 4
-	connUUID := NewUUID(i)
-	for _, exists := s.connIds[connUUID]; exists; i++ {
-		connUUID = NewUUID(i)
-	}
-	s.Unlock()
-	defer func() {
-		s.Lock()
-		delete(s.connIds, connUUID)
-		s.Unlock()
-	}()
+	connUUID := s.idPool.Claim()
+	defer s.idPool.Release(connUUID)
 	runtimeDir := os.Getenv("RUNTIME_DIRECTORY")
 	if runtimeDir == "" {
 		return fmt.Errorf("RUNTIME_DIRECTORY is not set")
 	}
-	webrtcState, err := NewWebrtcState(s.defaultConfig, path.Join(runtimeDir, "server-media", connUUID), path.Join(runtimeDir, "client-media", connUUID))
+	webrtcState, err := NewWebrtcState(s.defaultConfig, path.Join(runtimeDir, "s", connUUID), path.Join(runtimeDir, "c", connUUID))
 	if err != nil {
 		return err
 	}
@@ -383,12 +394,6 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 	}()
 	go func() {
 		for {
-			select {
-			case <-stream.Context().Done():
-				return
-			default:
-			}
-
 			ev := pb.Event{}
 			select {
 			case data := <-webrtcState.DataIn:
@@ -397,6 +402,8 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 				ev.SetMedia(media)
 			case state := <-achievedState:
 				ev.SetAchievedState(state)
+			case <-stream.Context().Done():
+				return
 			}
 			err := stream.Send(&ev)
 			if err != nil {
@@ -459,9 +466,9 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 		var encodeStr string
 		switch debugSendVideo {
 		case "video/h264":
-			encodeStr = "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20"
+			encodeStr = "x264enc speed-preset=ultrafast tune=zerolatency key-int-max=1"
 		case "video/h265":
-			encodeStr = "x265enc speed-preset=ultrafast tune=zerolatency key-int-max=20"
+			encodeStr = "x265enc speed-preset=ultrafast tune=zerolatency key-int-max=1"
 		case "video/vp9":
 			encodeStr = "vp9enc deadline=1"
 		default:
@@ -489,17 +496,18 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 		defer debugState.Close()
 
 		outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", debugSendVideo)
+		outputTrackKeySocket := "debugSend"
 		pf := PeeringOffer{
 			peerId:      "http://localhost:8080/api/webrtc",
 			sdp:         nil,
-			outTracks:   []NamedTrackKey{outputTrackKey},
+			outTracks:   map[NamedTrackKey]SocketFilename{outputTrackKey: outputTrackKeySocket},
 			inTracks:    nil,
 			dataChannel: false,
 		}
 		pipelineStr := fmt.Sprintf(
-			"videotestsrc is-live=true pattern=ball ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! %s ! shmsink wait-for-connection=true socket-path=%s",
+			"videotestsrc is-live=true pattern=smpte ! video/x-raw,width=1920,height=1080,format=I420,framerate=(fraction)30/1 ! %s ! shmsink shm-size=671088640 wait-for-connection=true socket-path=%s",
 			encodeStr,
-			outputTrackKey.shmPath(debugState.ClientMediaSocketDir, ""),
+			path.Join(debugState.ClientMediaSocketDir, outputTrackKeySocket),
 		)
 		pipeline, err := gst.NewPipelineFromString(pipelineStr)
 		if err != nil {
@@ -509,12 +517,15 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 		if err != nil {
 			panic(err)
 		}
-		defer func(pipeline *gst.Pipeline, state gst.State) {
-			err := pipeline.SetState(state)
+
+		defer func() {
+			log.Println("Stopping debug pipeline")
+			err := pipeline.SetState(gst.StateNull)
 			if err != nil {
-				panic(err)
+				log.Printf("Error stopping pipeline: %v", err)
 			}
-		}(pipeline, gst.StateNull)
+			log.Println("Stopped debug state")
+		}()
 
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
@@ -566,7 +577,7 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 			if pipeline != nil {
 				err := pipeline.SetState(gst.StateNull)
 				if err != nil {
-					panic(err)
+					log.Printf("Error stopping pipeline: %v", err)
 				}
 			}
 		}()
@@ -588,7 +599,7 @@ func debugTools(runtimeDir string, ctx context.Context, wg *sync.WaitGroup) {
 				}
 				pipelineStr := fmt.Sprintf(
 					"shmsrc socket-path=%s is-live=true do-timestamp=true ! %s ! autovideosink sync=false",
-					incomingTrack.shmPath(debugState.ServerMediaSocketDir, receivedTrack.GetSrcUuid()),
+					path.Join(debugState.ServerMediaSocketDir, receivedTrack.GetSocketName()),
 					decodeStr,
 				)
 				if pipeline != nil {
@@ -634,8 +645,28 @@ func RemoveContents(dir string) error {
 	return nil
 }
 
+func increaseUlimit() {
+	var rLimit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Getting Rlimit ", err)
+	}
+	log.Printf("Rlimit Initial: %v", rLimit)
+	rLimit.Cur = rLimit.Max
+	err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		log.Println("Error Setting Rlimit ", err)
+	}
+	err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		fmt.Println("Error Getting Rlimit ", err)
+	}
+	log.Println("Rlimit Final", rLimit)
+}
+
 func main() {
 	log.SetFlags(log.Lshortfile)
+	increaseUlimit()
 	runtimeDir := os.Getenv("RUNTIME_DIRECTORY")
 	if runtimeDir == "" {
 		log.Fatal("RUNTIME_DIRECTORY is not set")

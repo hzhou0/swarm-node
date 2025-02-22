@@ -1,10 +1,10 @@
 import asyncio
+import base64
 import logging
 import os
 import sys
 from fractions import Fraction
 from pathlib import Path
-from typing import Literal
 
 import gi
 import grpc
@@ -29,13 +29,13 @@ Gst.init(None)
 def webrtc_proxy_media_reader(shm_path: str, mime_type: str):
     pipeline_tmpls = {
         "video/h264": [
-            f"shmsrc socket-path={shm_path} is-live=true",
+            f"shmsrc socket-path={shm_path} is-live=true do-timestamp=true",
             "queue",
             "h264parse",
             "avdec_h264",
         ],
         "video/h265": [
-            f"shmsrc socket-path={shm_path} is-live=true",
+            f"shmsrc socket-path={shm_path} is-live=true do-timestamp=true",
             "queue",
             "h265parse",
             "avdec_h265",
@@ -89,20 +89,25 @@ def webrtc_proxy_media_writer(
     )
 
 
-def incoming_shm_path(channel: pb.MediaChannel, server_media_dir: str):
-    # `pb.MediaChannel` is used here to process media channel-related metadata.
-    return media_shm_path(channel.track, server_media_dir, channel.src_uuid)
+class IDPool:
+    def __init__(self):
+        self.ids: set[str] = set()
 
+    def claim(self):
+        i = 2
+        new_id = self.new_uuid(i)
+        while new_id in self.ids:
+            i += 1
+            new_id = self.new_uuid(i)
+        self.ids.add(new_id)
+        return new_id
 
-def media_shm_path(
-    named_track: pb.NamedTrack,
-    media_socket_dir: str,
-    src_uuid: str | Literal["outbound"] = "outbound",
-):
-    track_file = f"gst|{src_uuid}|{named_track.stream_id}|{named_track.track_id}|{named_track.mime_type.lower()}".replace(
-        "/", "_"
-    )
-    return Path(media_socket_dir) / track_file
+    def release(self, new_id):
+        self.ids.discard(new_id)
+
+    @classmethod
+    def new_uuid(cls, i: int):
+        return base64.urlsafe_b64encode(os.urandom(i)).decode("utf-8").rstrip("=")
 
 
 def webrtc_proxy_client(

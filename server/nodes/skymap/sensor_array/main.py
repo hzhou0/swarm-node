@@ -6,7 +6,7 @@ import numpy as np
 import uvloop
 
 from sensors import RGBDStream
-from webrtc_proxy import webrtc_proxy_client, pb, webrtc_proxy_media_writer, media_shm_path
+from webrtc_proxy import webrtc_proxy_client, pb, webrtc_proxy_media_writer
 
 
 class RGBDVideoStreamTrack:
@@ -51,17 +51,21 @@ async def main(
         raise Exception("Expected first event to be mediaSocketDirs")
 
     named_track = pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265")
+    write_socket = named_track.track_id
     target_state = pb.State(
         data=[pb.DataChannel(dest_uuid=skymap_server_url)],
-        media=[pb.MediaChannel(dest_uuid=skymap_server_url, track=named_track)],
+        media=[
+            pb.MediaChannel(
+                dest_uuid=skymap_server_url, track=named_track, socket_name=write_socket
+            )
+        ],
     )
 
     async def media_write_forever():
-        shm_path = media_shm_path(named_track, client_dir)
         while True:
             track = RGBDVideoStreamTrack()
             media_writer = webrtc_proxy_media_writer(
-                shm_path,
+                os.path.join(client_dir, write_socket),
                 named_track.mime_type,
                 track.stream.width * 2,
                 track.stream.height,

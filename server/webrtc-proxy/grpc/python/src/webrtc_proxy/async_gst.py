@@ -63,7 +63,6 @@ def gst_buffer_to_numpy(
     success, map_info = buffer.map(Gst.MapFlags.READ)
     if not success:
         raise RuntimeError("Failed to map Gst.Buffer")
-
     try:
         # Extract the raw data
         data = map_info.data
@@ -158,6 +157,10 @@ async def gst_video_source(pipeline: list[str]) -> AsyncGenerator[GstVideoSource
     finally:
         bus.remove_watch()
         pipeline.set_state(Gst.State.NULL)
+        app_sink.set_state(Gst.State.NULL)
+        while pipeline.get_state(Gst.CLOCK_TIME_NONE)[0] != Gst.StateChangeReturn.SUCCESS:
+            await asyncio.sleep(0.1)
+        logging.debug("Pipeline set to NULL")
 
 
 @dataclasses.dataclass(slots=True)
