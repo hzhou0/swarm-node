@@ -10,10 +10,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"webrtc-proxy/grpc/go"
@@ -29,11 +28,17 @@ var webrtcConfig = WebrtcStateConfig{
 	},
 	client:            resty.New(),
 	reconnectAttempts: 0,
-	allowedInTracks:   []NamedTrackKey{},
+	allowedInTracks:   nil,
 }
 
-func generateSocketDirs() (string, string, string, string) {
-	return "/tmp/swarmnode/client" + NewUUID(), "/tmp/swarmnode/server" + NewUUID(), "/tmp/swarmnode/client2" + NewUUID(), "/tmp/swarmnode/server2" + NewUUID()
+var _port LocalhostPort = 10240
+var portMutex sync.Mutex
+
+func getPort() uint32 {
+	portMutex.Lock()
+	defer portMutex.Unlock()
+	_port++
+	return _port
 }
 
 func buildHTTPServerConfig(addr string) *pb.HttpServer {
@@ -42,20 +47,8 @@ func buildHTTPServerConfig(addr string) *pb.HttpServer {
 	}.Build()
 }
 
-func TestNewWebrtcState(t *testing.T) {
-	serverSocketDir, clientSocketDir, _, _ := generateSocketDirs()
-	baseNum := runtime.NumGoroutine()
-	wst, err := NewWebrtcState(webrtcConfig, serverSocketDir, clientSocketDir)
-	assert.Nil(t, err)
-	assert.Equal(t, runtime.NumGoroutine(), baseNum+1)
-	wst.Close()
-	time.Sleep(1 * time.Millisecond)
-	assert.Equal(t, runtime.NumGoroutine(), baseNum)
-}
-
 func TestWebrtcState_OutTrack(t *testing.T) {
-	serverSocketDir, clientSocketDir, _, _ := generateSocketDirs()
-	wst, err := NewWebrtcState(webrtcConfig, serverSocketDir, clientSocketDir)
+	wst, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst.Close()
 	assert.Len(t, wst.OutTracks(), 0)
@@ -66,7 +59,7 @@ func TestWebrtcState_OutTrack(t *testing.T) {
 	pf := PeeringOffer{
 		peerId:      "",
 		sdp:         nil,
-		outTracks:   map[NamedTrackKey]SocketFilename{track1: "socket1", track2: "socket2"},
+		outTracks:   map[NamedTrackKey]LocalhostPort{track1: getPort(), track2: getPort()},
 		inTracks:    nil,
 		dataChannel: true,
 	}
@@ -78,15 +71,16 @@ func TestWebrtcState_OutTrack(t *testing.T) {
 }
 
 func TestWebrtcState_InTrackAllowed(t *testing.T) {
-	serverSocketDir, clientSocketDir, _, _ := generateSocketDirs()
-	wst, err := NewWebrtcState(webrtcConfig, serverSocketDir, clientSocketDir)
+	wst, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst.Close()
 	track1 := NewNamedTrackKey("track1", "stream1", "video/h264")
 	track2 := NewNamedTrackKey("track2", "stream2", "video/h264")
 	track3 := NewNamedTrackKey("track3", "stream3", "video/vp9")
-	assert.False(t, wst.InTrackAllowed(track1))
-	assert.False(t, wst.InTrackAllowed(track2))
+	allowed, _ := wst.InTrackAllowed(track1)
+	assert.False(t, allowed)
+	allowed, _ = wst.InTrackAllowed(track2)
+	assert.False(t, allowed)
 	webrtcConfig1 := WebrtcStateConfig{
 		webrtcConfig: webrtc.Configuration{
 			ICEServers: []webrtc.ICEServer{
@@ -96,27 +90,29 @@ func TestWebrtcState_InTrackAllowed(t *testing.T) {
 			},
 		},
 		reconnectAttempts: 0,
-		allowedInTracks:   []NamedTrackKey{track1, track2},
+		allowedInTracks:   map[NamedTrackKey]LocalhostPort{track1: getPort(), track2: getPort()},
 	}
 	wst.Reconfigure(webrtcConfig1)
-	assert.True(t, wst.InTrackAllowed(track1))
-	assert.True(t, wst.InTrackAllowed(track2))
-	assert.False(t, wst.InTrackAllowed(track3))
+	allowed, _ = wst.InTrackAllowed(track1)
+	assert.True(t, allowed)
+	allowed, _ = wst.InTrackAllowed(track2)
+	assert.True(t, allowed)
+	allowed, _ = wst.InTrackAllowed(track3)
+	assert.False(t, allowed)
 }
 
 func TestWebrtcState_PutPeer(t *testing.T) {
-	serverSocketDir, clientSocketDir, serverSocketDir2, clientSocketDir2 := generateSocketDirs()
-	wst1, err := NewWebrtcState(webrtcConfig, serverSocketDir, clientSocketDir)
+	wst1, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst1.Close()
 	servAddr := "127.0.0.1:8080"
-	httpServ := NewWebrtcHttpServer(wst1)
+	httpServ := NewWebrtcHttpInterface(wst1)
 	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
 	if err != nil {
 		panic(err)
 	}
 
-	wst2, err := NewWebrtcState(webrtcConfig, serverSocketDir2, clientSocketDir2)
+	wst2, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst2.Close()
 	assert.Len(t, maps.Keys(wst2.peers), 0)
@@ -157,18 +153,17 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 }
 
 func TestWebrtcState_PutPeer_DataChannels(t *testing.T) {
-	serverSocketDir, clientSocketDir, serverSocketDir2, clientSocketDir2 := generateSocketDirs()
 	servAddr := "127.0.0.1:8081"
-	wst1, err := NewWebrtcState(webrtcConfig, serverSocketDir, clientSocketDir)
+	wst1, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst1.Close()
-	httpServ := NewWebrtcHttpServer(wst1)
+	httpServ := NewWebrtcHttpInterface(wst1)
 	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
 	if err != nil {
 		panic(err)
 	}
 
-	wst2, err := NewWebrtcState(webrtcConfig, serverSocketDir2, clientSocketDir2)
+	wst2, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst2.Close()
 	pf := PeeringOffer{
@@ -211,7 +206,6 @@ func removeGlob(pattern string) {
 }
 
 func TestWebrtcState_PutPeer_Media(t *testing.T) {
-	serverSocketDir, clientSocketDir, serverSocketDir2, clientSocketDir2 := generateSocketDirs()
 
 	log.SetFlags(log.Lshortfile)
 	servAddr := "127.0.0.1:8082"
@@ -224,34 +218,34 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 			},
 		},
 		reconnectAttempts: 0,
-		allowedInTracks: []NamedTrackKey{
-			NewNamedTrackKey("rgbd", "realsenseD455", "video/h264"),
-			NewNamedTrackKey("rgbd", "randomSensor", "video/h264"),
+		allowedInTracks: map[NamedTrackKey]LocalhostPort{
+			NewNamedTrackKey("rgbd", "realsenseD455", "video/h264"): getPort(),
+			NewNamedTrackKey("rgbd", "randomSensor", "video/h264"):  getPort(),
 		},
-	}, serverSocketDir, clientSocketDir)
+	})
 	assert.Nil(t, err)
 	defer wst1.Close()
-	httpServ := NewWebrtcHttpServer(wst1)
+	httpServ := NewWebrtcHttpInterface(wst1)
 	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
 	if err != nil {
 		panic(err)
 	}
 
-	wst2, err := NewWebrtcState(webrtcConfig, serverSocketDir2, clientSocketDir2)
+	wst2, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst2.Close()
 	outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", "video/h264")
-	outputTrackKeySocket := "socket1"
+	outPort := getPort()
 	pf := PeeringOffer{
 		peerId:      "http://" + servAddr + "/api/webrtc",
 		sdp:         nil,
-		outTracks:   map[NamedTrackKey]SocketFilename{outputTrackKey: outputTrackKeySocket},
+		outTracks:   map[NamedTrackKey]LocalhostPort{outputTrackKey: outPort},
 		inTracks:    nil,
 		dataChannel: false,
 	}
 
 	gst.Init(nil)
-	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", path.Join(clientSocketDir2, outputTrackKeySocket)))
+	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! rtph264pay ! udpsink host=localhost port=%d name=sink", outPort))
 	defer pipeline.SetState(gst.StateNull)
 	assert.Nil(t, err)
 	assert.Nil(t, pipeline.Start())
@@ -262,11 +256,9 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 	assert.Equal(t, strings.ToUpper(receivedTrack.GetTrack().GetMimeType()), strings.ToUpper(outputTrackKey.mimeType))
 	assert.Equal(t, receivedTrack.GetTrack().GetStreamId(), outputTrackKey.streamId)
 	assert.Equal(t, receivedTrack.GetSrcUuid(), wst2.SrcUUID)
-	assert.FileExists(t, path.Join(wst1.ServerMediaSocketDir, receivedTrack.GetSocketName()))
 }
 
 func TestWebrtcState_Reconcile(t *testing.T) {
-	serverSocketDir, clientSocketDir, serverSocketDir2, clientSocketDir2 := generateSocketDirs()
 	log.SetFlags(log.Lshortfile)
 	servAddr := "127.0.0.1:8083"
 	wst1, err := NewWebrtcState(WebrtcStateConfig{
@@ -278,39 +270,39 @@ func TestWebrtcState_Reconcile(t *testing.T) {
 			},
 		},
 		reconnectAttempts: 0,
-		allowedInTracks: []NamedTrackKey{
-			NewNamedTrackKey("rgbd", "realsenseD455", "video/h264"),
-			NewNamedTrackKey("rgbd", "randomSensor", "video/h264"),
+		allowedInTracks: map[NamedTrackKey]LocalhostPort{
+			NewNamedTrackKey("rgbd", "realsenseD455", "video/h264"): getPort(),
+			NewNamedTrackKey("rgbd", "randomSensor", "video/h264"):  getPort(),
 		},
-	}, serverSocketDir, clientSocketDir)
+	})
 	assert.Nil(t, err)
 	defer wst1.Close()
-	httpServ := NewWebrtcHttpServer(wst1)
+	httpServ := NewWebrtcHttpInterface(wst1)
 	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
 	if err != nil {
 		panic(err)
 	}
 
-	wst2, err := NewWebrtcState(webrtcConfig, serverSocketDir2, clientSocketDir2)
+	wst2, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst2.Close()
 	outputTrackKey := NewNamedTrackKey("rgbd", "realsenseD455", "video/h264")
 	// Create desired state with one peer
-	mediaSocket := "socket1"
+	outPort := getPort()
 	desiredState := pb.State_builder{
 		Data: []*pb.DataChannel{
 			pb.DataChannel_builder{DestUuid: proto.String("http://" + servAddr + "/api/webrtc")}.Build(),
 		},
 		Media: []*pb.MediaChannel{
 			pb.MediaChannel_builder{
-				DestUuid:   proto.String("http://" + servAddr + "/api/webrtc"),
-				Track:      outputTrackKey.toProto(),
-				SocketName: proto.String(mediaSocket),
+				DestUuid:      proto.String("http://" + servAddr + "/api/webrtc"),
+				Track:         outputTrackKey.toProto(),
+				LocalhostPort: proto.Uint32(outPort),
 			}.Build(),
 		},
 	}.Build()
 	gst.Init(nil)
-	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! shmsink wait-for-connection=true socket-path=%s name=sink", path.Join(clientSocketDir2, mediaSocket)))
+	pipeline, err := gst.NewPipelineFromString(fmt.Sprintf("videotestsrc is-live=true ! video/x-raw,width=640,height=360,format=I420,framerate=(fraction)30/1 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! rtph264pay ! udpsink host=localhost port=%d name=sink", outPort))
 	assert.Nil(t, err)
 	defer pipeline.SetState(gst.StateNull)
 	assert.Nil(t, pipeline.Start())
@@ -326,7 +318,6 @@ func TestWebrtcState_Reconcile(t *testing.T) {
 	assert.Equal(t, strings.ToUpper(receivedTrack.GetTrack().GetMimeType()), strings.ToUpper(outputTrackKey.mimeType))
 	assert.Equal(t, receivedTrack.GetTrack().GetStreamId(), outputTrackKey.streamId)
 	assert.Equal(t, receivedTrack.GetSrcUuid(), wst2.SrcUUID)
-	assert.FileExists(t, path.Join(wst1.ServerMediaSocketDir, receivedTrack.GetSocketName()))
 
 	// Update desired state to remove peer media
 	desiredState.SetMedia(nil)

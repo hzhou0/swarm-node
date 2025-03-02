@@ -4,7 +4,7 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 from fractions import Fraction
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Callable, Coroutine
 
 import gi
 import numpy as np
@@ -126,9 +126,12 @@ def on_buffer(
 
 
 @asynccontextmanager
-async def gst_video_source(pipeline: list[str]) -> AsyncGenerator[GstVideoSource, Any]:
+async def gst_video_source(
+    pipeline: list[str],
+) -> AsyncGenerator[tuple[int, Callable[[], Coroutine[Any, Any, GstVideoSource]]], Any]:
+    src_str = "udpsrc address=localhost port=0 retrieve-sender-address=false caps=application/x-rtp name=src"
     app_sink_str = "appsink emit-signals=True drop=True sync=False name=appsink"
-    pipeline_str = " ! ".join(pipeline + [app_sink_str])
+    pipeline_str = " ! ".join([src_str] + pipeline + [app_sink_str])
     pipeline: Gst.Pipeline = Gst.parse_launch(pipeline_str)
     app_sink: GstApp.AppSink = pipeline.get_by_name("appsink")
     assert app_sink is not None, "appsink not found in pipeline"
@@ -150,16 +153,20 @@ async def gst_video_source(pipeline: list[str]) -> AsyncGenerator[GstVideoSource
         return True
 
     bus.add_watch(GLib.PRIORITY_DEFAULT, bus_func)
-    pipeline.set_state(Gst.State.PLAYING)
-    await asyncio.wait_for(source.initialized.wait(), timeout=5)
+    pipeline.set_state(Gst.State.READY)
+    src: Gst.Element = pipeline.get_by_name("src")
+    port: int = src.get_property("port")
+
+    async def pipeline_promise():
+        pipeline.set_state(Gst.State.PLAYING)
+        await source.initialized.wait()
+        return source
+
     try:
-        yield source
+        yield port, pipeline_promise
     finally:
         bus.remove_watch()
         pipeline.set_state(Gst.State.NULL)
-        app_sink.set_state(Gst.State.NULL)
-        while pipeline.get_state(Gst.CLOCK_TIME_NONE)[0] != Gst.StateChangeReturn.SUCCESS:
-            await asyncio.sleep(0.1)
         logging.debug("Pipeline set to NULL")
 
 
@@ -220,6 +227,7 @@ async def gst_video_sink(
     app_src_str = f"appsrc emit-signals=False is-live=True leaky-type=upstream name=appsrc format=time max-time={5 * sink.duration}"
     cap_str = f"video/x-raw,format={GstVideo.VideoFormat.to_string(video_frmt)},width={width},height={height},framerate={fps.numerator}/{fps.denominator}"
     pipeline_str = " ! ".join([app_src_str, cap_str] + pipeline)
+    logging.debug(f"Pipeline: {pipeline_str}")
     stream_task = None
     gst_pipeline: Gst.Pipeline | None = None
     try:

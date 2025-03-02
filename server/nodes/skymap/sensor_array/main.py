@@ -43,37 +43,30 @@ async def main(
 ):
     skymap_server_url = os.environ.get("SKYMAP_SERVER_URL")
     assert skymap_server_url is not None, "Environment variable SKYMAP_SERVER_URL must be set"
-    event = await event_q.get()
-    if event.WhichOneof("event") == "mediaSocketDirs":
-        client_dir = event.mediaSocketDirs.clientDir
-        server_dir = event.mediaSocketDirs.serverDir
-    else:
-        raise Exception("Expected first event to be mediaSocketDirs")
 
     named_track = pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265")
-    write_socket = named_track.track_id
-    target_state = pb.State(
-        data=[pb.DataChannel(dest_uuid=skymap_server_url)],
-        media=[
-            pb.MediaChannel(
-                dest_uuid=skymap_server_url, track=named_track, socket_name=write_socket
-            )
-        ],
-    )
 
     async def media_write_forever():
         while True:
             track = RGBDVideoStreamTrack()
-            media_writer = webrtc_proxy_media_writer(
-                os.path.join(client_dir, write_socket),
+            media_writer, port = webrtc_proxy_media_writer(
                 named_track.mime_type,
                 track.stream.width * 2,
                 track.stream.height,
                 track.stream.framerate,
+                bits_per_sec=7000 * 1000,
             )
+            target_state = pb.State(
+                data=[pb.DataChannel(dest_uuid=skymap_server_url)],
+                media=[
+                    pb.MediaChannel(
+                        dest_uuid=skymap_server_url, track=named_track, localhost_port=port
+                    )
+                ],
+            )
+            await mutation_q.put(pb.Mutation(setState=target_state))
             try:
                 async with media_writer as pipeline:
-                    await mutation_q.put(pb.Mutation(setState=target_state))
                     while True:
                         frame = await track.recv()
                         await pipeline.put(frame)

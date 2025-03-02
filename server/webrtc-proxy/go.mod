@@ -8,6 +8,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.12.0
 	github.com/gin-contrib/gzip v1.2.0
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-gst/go-glib v1.0.0
 	github.com/go-gst/go-gst v1.0.0
 	github.com/go-resty/resty/v2 v2.16.5
 	github.com/matoous/go-nanoid/v2 v2.1.0
@@ -25,7 +26,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gin-contrib/sse v1.0.0 // indirect
-	github.com/go-gst/go-glib v1.4.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect

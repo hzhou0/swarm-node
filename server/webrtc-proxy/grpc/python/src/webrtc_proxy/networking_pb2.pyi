@@ -90,16 +90,16 @@ class DataTransmission(_message.Message):
     ) -> None: ...
 
 class MediaChannel(_message.Message):
-    __slots__ = ("src_uuid", "dest_uuid", "track", "socket_name", "close")
+    __slots__ = ("src_uuid", "dest_uuid", "track", "localhost_port", "close")
     SRC_UUID_FIELD_NUMBER: _ClassVar[int]
     DEST_UUID_FIELD_NUMBER: _ClassVar[int]
     TRACK_FIELD_NUMBER: _ClassVar[int]
-    SOCKET_NAME_FIELD_NUMBER: _ClassVar[int]
+    LOCALHOST_PORT_FIELD_NUMBER: _ClassVar[int]
     CLOSE_FIELD_NUMBER: _ClassVar[int]
     src_uuid: str
     dest_uuid: str
     track: NamedTrack
-    socket_name: str
+    localhost_port: int
     close: bool
 
     def __init__(
@@ -107,7 +107,7 @@ class MediaChannel(_message.Message):
         src_uuid: _Optional[str] = ...,
         dest_uuid: _Optional[str] = ...,
         track: _Optional[_Union[NamedTrack, _Mapping]] = ...,
-        socket_name: _Optional[str] = ...,
+        localhost_port: _Optional[int] = ...,
         close: bool = ...,
     ) -> None: ...
 
@@ -218,7 +218,7 @@ class State(_message.Message):
     HTTPSERVERCONFIG_FIELD_NUMBER: _ClassVar[int]
     data: _containers.RepeatedCompositeFieldContainer[DataChannel]
     media: _containers.RepeatedCompositeFieldContainer[MediaChannel]
-    wantedTracks: _containers.RepeatedCompositeFieldContainer[NamedTrack]
+    wantedTracks: _containers.RepeatedCompositeFieldContainer[MediaChannel]
     config: WebrtcConfig
     reconnectAttempts: int
     httpServerConfig: HttpServer
@@ -227,7 +227,7 @@ class State(_message.Message):
         self,
         data: _Optional[_Iterable[_Union[DataChannel, _Mapping]]] = ...,
         media: _Optional[_Iterable[_Union[MediaChannel, _Mapping]]] = ...,
-        wantedTracks: _Optional[_Iterable[_Union[NamedTrack, _Mapping]]] = ...,
+        wantedTracks: _Optional[_Iterable[_Union[MediaChannel, _Mapping]]] = ...,
         config: _Optional[_Union[WebrtcConfig, _Mapping]] = ...,
         reconnectAttempts: _Optional[int] = ...,
         httpServerConfig: _Optional[_Union[HttpServer, _Mapping]] = ...,

@@ -2,6 +2,7 @@ import asyncio
 import base64
 import logging
 import os
+import socket
 import sys
 from fractions import Fraction
 from pathlib import Path
@@ -26,22 +27,19 @@ from gi.repository import Gst, GstVideo
 Gst.init(None)
 
 
-def webrtc_proxy_media_reader(shm_path: str, mime_type: str):
+def webrtc_proxy_media_reader(mime_type: str):
     pipeline_tmpls = {
         "video/h264": [
-            f"shmsrc socket-path={shm_path} is-live=true do-timestamp=true",
             "queue",
-            "h264parse",
+            "rtph264depay",
             "avdec_h264",
         ],
         "video/h265": [
-            f"shmsrc socket-path={shm_path} is-live=true do-timestamp=true",
             "queue",
-            "h265parse",
+            "rtph265depay",
             "avdec_h265",
         ],
         "video/vp9": [
-            f"shmsrc socket-path={shm_path} is-live=true do-timestamp=true",
             "application/x-rtp,encoding-name=VP9",
             "rtpvp9depay",
             "queue",
@@ -52,40 +50,51 @@ def webrtc_proxy_media_reader(shm_path: str, mime_type: str):
     mime_type = mime_type.lower()
     if mime_type not in pipeline_tmpls:
         raise ValueError(f"Unsupported MIME type: {mime_type}")
+
     return gst_video_source(pipeline_tmpls[mime_type])
 
 
 def webrtc_proxy_media_writer(
-    shm_path: str,
     mime_type: str,
     width: int,
     height: int,
     fps: int,
+    bits_per_sec: int = 1000 * 1000,
     video_format: GstVideo.VideoFormat = GstVideo.VideoFormat.I420,
 ):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.bind(("localhost", 0))
+        s.getsockname()
+        free_udp_port: int = s.getsockname()[1]
+
     pipeline_tmpls = {
         "video/h264": [
-            "x264enc speed-preset=ultrafast tune=zerolatency bitrate=5000 key-int-max=1",
-            f"shmsink wait-for-connection=true socket-path={shm_path}",
+            f"x264enc speed-preset=ultrafast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=1",
+            "rtph264pay",
+            f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/h265": [
-            "x265enc speed-preset=ultrafast tune=zerolatency bitrate=7000 key-int-max=1",
-            f"shmsink wait-for-connection=true socket-path={shm_path}",
+            f"x265enc speed-preset=ultrafast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=1",
+            "rtph265pay",
+            f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/vp9": [
-            "vp9enc deadline=1",
-            f"shmsink wait-for-connection=true socket-path={shm_path}",
+            f"vp9enc deadline=1 target-bitrate={bits_per_sec}",
+            f"udpsink host=localhost port={free_udp_port}",
         ],
     }
     mime_type = mime_type.lower()
     if mime_type not in pipeline_tmpls:
         raise ValueError(f"Unsupported MIME type: {mime_type}")
-    return gst_video_sink(
-        pipeline_tmpls[mime_type],
-        width=width,
-        height=height,
-        fps=Fraction(fps, 1),
-        video_frmt=video_format,
+    return (
+        gst_video_sink(
+            pipeline_tmpls[mime_type],
+            width=width,
+            height=height,
+            fps=Fraction(fps, 1),
+            video_frmt=video_format,
+        ),
+        free_udp_port,
     )
 
 

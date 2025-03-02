@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-from pathlib import Path
 
 import cv2
 import uvloop
@@ -13,12 +12,14 @@ from webrtc_proxy import (
 )
 
 
-async def video_processor(media_chan: pb.MediaChannel, server_dir: str):
-    read_socket = Path(server_dir) / media_chan.socket_name
-    media_reader = webrtc_proxy_media_reader(str(read_socket), media_chan.track.mime_type)
-    async with media_reader as pipeline:
+async def video_processor(mime_type: str, port_future: asyncio.Future[int]):
+    media_reader = webrtc_proxy_media_reader(mime_type)
+    async with media_reader as media:
+        port, pipeline = media
+        port_future.set_result(port)
+        video_src = await pipeline()
         while True:
-            frame = await pipeline.get()
+            frame = await video_src.get()
             # Display the frame
             cv2.imshow("Video Frame", cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB))
             cv2.waitKey(1)
@@ -29,31 +30,21 @@ async def main(
     event_q: asyncio.Queue[pb.Event],
     tg: asyncio.TaskGroup,
 ):
-    media_task: asyncio.Task | None = None
-    event = await event_q.get()
-    if event.WhichOneof("event") == "mediaSocketDirs":
-        client_dir = event.mediaSocketDirs.clientDir
-        server_dir = event.mediaSocketDirs.serverDir
-    else:
-        raise Exception("Expected first event to be mediaSocketDirs")
+    rgbd_track = pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265")
+    port_fut = asyncio.Future()
+    tg.create_task(video_processor(rgbd_track.mime_type, port_fut))
     target_state = pb.State(
         httpServerConfig=pb.HttpServer(address=":8080"),
-        wantedTracks=[
-            pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h264"),
-            pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265"),
-            pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/vp9"),
-        ],
+        wantedTracks=[pb.MediaChannel(track=rgbd_track, localhost_port=await port_fut)],
     )
     await mutation_q.put(pb.Mutation(setState=target_state))
     while True:
         event = await event_q.get()
         event_type = event.WhichOneof("event")
         if event_type == "data":
-            print(event)
+            print(event.data)
         elif event_type == "media":
-            if media_task is not None:
-                media_task.cancel()
-            media_task = tg.create_task(video_processor(event.media, server_dir))
+            print(event.media)
         elif event_type == "achievedState":
             print(event.achievedState)
         else:
