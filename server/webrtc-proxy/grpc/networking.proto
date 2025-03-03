@@ -48,17 +48,11 @@ message MediaChannel {
   bool close = 5; // Channel is closed
 }
 
-message MediaSocketDirs {
-  string serverDir = 1;
-  string clientDir = 2;
-}
-
 message Event {
   oneof event{
     DataTransmission data = 1;
     MediaChannel media = 2;
     State achievedState = 3;
-    MediaSocketDirs mediaSocketDirs = 4; // Always the first event at the start of a client-proxy session. Only sent once.
   }
 }
 
@@ -70,23 +64,35 @@ message WebrtcConfig {
     string credentialType = 4;
   }
   repeated IceServer ice_servers = 1;
-  message CloudflareZeroTrust {
-    string client_id = 1;
-    string client_secret = 2;
+
+  message auth {
+    message CloudflareZeroTrust {
+      string client_id = 1;
+      string client_secret = 2;
+    }
+    message TorOnionServiceV3 {
+    }
+    oneof auth {
+      CloudflareZeroTrust cloudflare_auth = 1;
+      TorOnionServiceV3 onion_service_v3_auth = 2;
+    }
   }
-  oneof auth {
-    CloudflareZeroTrust cloudflare_auth = 2;
-  }
+  map <string, auth> credentials = 2;
 }
 
 message HttpServer {
+  string address = 1; // Acceptable to https://pkg.go.dev/net#Dial
   message CloudflareTunnel {
     string team_domain = 1;
     string team_aud = 2;
   }
-  string address = 1; // Acceptable to https://pkg.go.dev/net#Dial
+  message TorOnionServiceV3 {
+    bytes hs_ed25519_secret_key = 1;
+    bool anonymous = 2; // If False, set HiddenServiceSingleHopMode and HiddenServiceNonAnonymousMode.
+  }
   oneof auth {
     CloudflareTunnel cloudflare_auth = 2;
+    TorOnionServiceV3 onion_service_v3_auth = 3;
   }
 }
 

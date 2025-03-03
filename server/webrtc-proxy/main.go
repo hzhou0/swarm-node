@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-gst/go-gst/gst"
-	"github.com/go-resty/resty/v2"
 	"github.com/pion/webrtc/v4"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/local"
@@ -79,7 +78,6 @@ func newWebrtcProxyServer() *webrtcProxyServer {
 				},
 			},
 		},
-		client:            resty.New(),
 		reconnectAttempts: 0,
 		allowedInTracks:   nil,
 	}
@@ -101,7 +99,7 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 	achievedState := make(chan *pb.State)
 
 	errChan := make(chan error)
-	httpServer := NewWebrtcHttpInterface(webrtcState)
+	httpServer := NewWebrtcHttpInterface(webrtcState, runtimeDir)
 	defer httpServer.Close()
 	go func() {
 		for {
@@ -226,7 +224,6 @@ func debugTools(ctx context.Context, wg *sync.WaitGroup) {
 				},
 			},
 			reconnectAttempts: 0,
-			client:            resty.New(),
 			allowedInTracks:   nil,
 		}
 
@@ -310,7 +307,6 @@ func debugTools(ctx context.Context, wg *sync.WaitGroup) {
 				},
 			},
 			reconnectAttempts: 0,
-			client:            resty.New(),
 			allowedInTracks: map[NamedTrackKey]LocalhostPort{
 				NewNamedTrackKey("rgbd", "realsenseD455", "video/h265"): port,
 			},
@@ -321,7 +317,12 @@ func debugTools(ctx context.Context, wg *sync.WaitGroup) {
 			panic(err)
 		}
 		defer debugState.Close()
-		httpServ := NewWebrtcHttpInterface(debugState)
+		temp, err := os.MkdirTemp(os.TempDir(), "swarmnode-debug-recv-*")
+		if err != nil {
+			panic(err)
+		}
+		defer os.RemoveAll(temp)
+		httpServ := NewWebrtcHttpInterface(debugState, temp)
 		err = httpServ.Configure(pb.HttpServer_builder{
 			Address: proto.String("127.0.0.1:9090"),
 		}.Build())
@@ -430,6 +431,8 @@ func main() {
 	if runtimeDir == "" {
 		log.Fatal("RUNTIME_DIRECTORY is not set")
 	}
+	LoadTorClient()
+	defer DestroyTorClient()
 
 	// Clear runtime directory
 	err := RemoveContents(runtimeDir)

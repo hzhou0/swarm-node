@@ -111,38 +111,24 @@ class MediaChannel(_message.Message):
         close: bool = ...,
     ) -> None: ...
 
-class MediaSocketDirs(_message.Message):
-    __slots__ = ("serverDir", "clientDir")
-    SERVERDIR_FIELD_NUMBER: _ClassVar[int]
-    CLIENTDIR_FIELD_NUMBER: _ClassVar[int]
-    serverDir: str
-    clientDir: str
-
-    def __init__(
-        self, serverDir: _Optional[str] = ..., clientDir: _Optional[str] = ...
-    ) -> None: ...
-
 class Event(_message.Message):
-    __slots__ = ("data", "media", "achievedState", "mediaSocketDirs")
+    __slots__ = ("data", "media", "achievedState")
     DATA_FIELD_NUMBER: _ClassVar[int]
     MEDIA_FIELD_NUMBER: _ClassVar[int]
     ACHIEVEDSTATE_FIELD_NUMBER: _ClassVar[int]
-    MEDIASOCKETDIRS_FIELD_NUMBER: _ClassVar[int]
     data: DataTransmission
     media: MediaChannel
     achievedState: State
-    mediaSocketDirs: MediaSocketDirs
 
     def __init__(
         self,
         data: _Optional[_Union[DataTransmission, _Mapping]] = ...,
         media: _Optional[_Union[MediaChannel, _Mapping]] = ...,
         achievedState: _Optional[_Union[State, _Mapping]] = ...,
-        mediaSocketDirs: _Optional[_Union[MediaSocketDirs, _Mapping]] = ...,
     ) -> None: ...
 
 class WebrtcConfig(_message.Message):
-    __slots__ = ("ice_servers", "cloudflare_auth")
+    __slots__ = ("ice_servers", "credentials")
 
     class IceServer(_message.Message):
         __slots__ = ("urls", "username", "credential", "credentialType")
@@ -163,29 +149,66 @@ class WebrtcConfig(_message.Message):
             credentialType: _Optional[str] = ...,
         ) -> None: ...
 
-    class CloudflareZeroTrust(_message.Message):
-        __slots__ = ("client_id", "client_secret")
-        CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
-        CLIENT_SECRET_FIELD_NUMBER: _ClassVar[int]
-        client_id: str
-        client_secret: str
+    class auth(_message.Message):
+        __slots__ = ("cloudflare_auth", "onion_service_v3_auth")
+
+        class CloudflareZeroTrust(_message.Message):
+            __slots__ = ("client_id", "client_secret")
+            CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
+            CLIENT_SECRET_FIELD_NUMBER: _ClassVar[int]
+            client_id: str
+            client_secret: str
+
+            def __init__(
+                self, client_id: _Optional[str] = ..., client_secret: _Optional[str] = ...
+            ) -> None: ...
+
+        class TorOnionServiceV3(_message.Message):
+            __slots__ = ()
+
+            def __init__(self) -> None: ...
+
+        CLOUDFLARE_AUTH_FIELD_NUMBER: _ClassVar[int]
+        ONION_SERVICE_V3_AUTH_FIELD_NUMBER: _ClassVar[int]
+        cloudflare_auth: WebrtcConfig.auth.CloudflareZeroTrust
+        onion_service_v3_auth: WebrtcConfig.auth.TorOnionServiceV3
 
         def __init__(
-            self, client_id: _Optional[str] = ..., client_secret: _Optional[str] = ...
+            self,
+            cloudflare_auth: _Optional[
+                _Union[WebrtcConfig.auth.CloudflareZeroTrust, _Mapping]
+            ] = ...,
+            onion_service_v3_auth: _Optional[
+                _Union[WebrtcConfig.auth.TorOnionServiceV3, _Mapping]
+            ] = ...,
         ) -> None: ...
+
+    class CredentialsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: WebrtcConfig.auth
+
+        def __init__(
+            self,
+            key: _Optional[str] = ...,
+            value: _Optional[_Union[WebrtcConfig.auth, _Mapping]] = ...,
+        ) -> None: ...
+
     ICE_SERVERS_FIELD_NUMBER: _ClassVar[int]
-    CLOUDFLARE_AUTH_FIELD_NUMBER: _ClassVar[int]
+    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     ice_servers: _containers.RepeatedCompositeFieldContainer[WebrtcConfig.IceServer]
-    cloudflare_auth: WebrtcConfig.CloudflareZeroTrust
+    credentials: _containers.MessageMap[str, WebrtcConfig.auth]
 
     def __init__(
         self,
         ice_servers: _Optional[_Iterable[_Union[WebrtcConfig.IceServer, _Mapping]]] = ...,
-        cloudflare_auth: _Optional[_Union[WebrtcConfig.CloudflareZeroTrust, _Mapping]] = ...,
+        credentials: _Optional[_Mapping[str, WebrtcConfig.auth]] = ...,
     ) -> None: ...
 
 class HttpServer(_message.Message):
-    __slots__ = ("address", "cloudflare_auth")
+    __slots__ = ("address", "cloudflare_auth", "onion_service_v3_auth")
 
     class CloudflareTunnel(_message.Message):
         __slots__ = ("team_domain", "team_aud")
@@ -197,15 +220,29 @@ class HttpServer(_message.Message):
         def __init__(
             self, team_domain: _Optional[str] = ..., team_aud: _Optional[str] = ...
         ) -> None: ...
+
+    class TorOnionServiceV3(_message.Message):
+        __slots__ = ("hs_ed25519_secret_key", "anonymous")
+        HS_ED25519_SECRET_KEY_FIELD_NUMBER: _ClassVar[int]
+        ANONYMOUS_FIELD_NUMBER: _ClassVar[int]
+        hs_ed25519_secret_key: bytes
+        anonymous: bool
+
+        def __init__(
+            self, hs_ed25519_secret_key: _Optional[bytes] = ..., anonymous: bool = ...
+        ) -> None: ...
     ADDRESS_FIELD_NUMBER: _ClassVar[int]
     CLOUDFLARE_AUTH_FIELD_NUMBER: _ClassVar[int]
+    ONION_SERVICE_V3_AUTH_FIELD_NUMBER: _ClassVar[int]
     address: str
     cloudflare_auth: HttpServer.CloudflareTunnel
+    onion_service_v3_auth: HttpServer.TorOnionServiceV3
 
     def __init__(
         self,
         address: _Optional[str] = ...,
         cloudflare_auth: _Optional[_Union[HttpServer.CloudflareTunnel, _Mapping]] = ...,
+        onion_service_v3_auth: _Optional[_Union[HttpServer.TorOnionServiceV3, _Mapping]] = ...,
     ) -> None: ...
 
 class State(_message.Message):

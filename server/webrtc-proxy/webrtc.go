@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cretz/bine/tor"
 	"github.com/go-gst/go-glib/glib"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -14,13 +15,76 @@ import (
 	"iter"
 	"log"
 	"maps"
+	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 	"webrtc-proxy/grpc/go"
 )
+
+type TorClient struct {
+	transport *http.Transport
+	tor       *tor.Tor
+}
+
+func NewTorClient() (*TorClient, error) {
+	// Start a new Tor instance
+	t, err := tor.Start(context.Background(), &tor.StartConf{
+		TempDataDirBase: os.TempDir(),
+		EnableNetwork:   true,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a SOCKS5 dialer for the Tor instance
+	dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Minute)
+	defer dialCancel()
+	dialer, err := t.Dialer(dialCtx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	transport := &http.Transport{
+		// Use SOCKS5 proxy dialer to route all traffic through Tor
+		DialContext: dialer.DialContext,
+	}
+	return &TorClient{
+		transport: transport,
+		tor:       t,
+	}, nil
+}
+
+var torClient *TorClient = nil
+var torClientMu sync.Mutex
+
+func LoadTorClient() *TorClient {
+	torClientMu.Lock()
+	defer torClientMu.Unlock()
+	if torClient != nil {
+		return torClient
+	}
+	var err error
+	torClient, err = NewTorClient()
+	if err != nil {
+		panic(err)
+	}
+	return torClient
+}
+
+func DestroyTorClient() {
+	torClientMu.Lock()
+	defer torClientMu.Unlock()
+	if torClient != nil {
+		_ = torClient.tor.Close()
+		torClient = nil
+	}
+}
 
 type UUID = string
 
@@ -85,6 +149,7 @@ const (
 )
 
 type WebrtcPeer struct {
+	client      *resty.Client
 	pc          *webrtc.PeerConnection
 	datachannel *webrtc.DataChannel
 	role        WebrtcPeerRole                  // the local role in this relationship
@@ -107,7 +172,7 @@ type PeeringOffer struct {
 	dataChannel bool
 }
 
-func (po *PeeringOffer) Prenegotiate(state *WebrtcState) error {
+func (po *PeeringOffer) Prenegotiate(state *WebrtcState, client *resty.Client) error {
 	// To initiate pre-negotiation, peerId must be a valid URI
 	// No other IDs are currently supported
 	if _, err := url.ParseRequestURI(po.peerId); err != nil {
@@ -125,7 +190,7 @@ func (po *PeeringOffer) Prenegotiate(state *WebrtcState) error {
 	}
 
 	state.configMu.RLock()
-	resp, err := state.config.client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(po.peerId)
+	resp, err := client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(po.peerId)
 	state.configMu.RUnlock()
 	if err != nil {
 		return err
@@ -163,8 +228,7 @@ func (po *PeeringOffer) Prenegotiate(state *WebrtcState) error {
 
 type WebrtcStateConfig struct {
 	webrtcConfig      webrtc.Configuration
-	client            *resty.Client
-	cloudflareZT      *pb.WebrtcConfig_CloudflareZeroTrust
+	credentials       map[UUID]*pb.WebrtcConfigAuth
 	reconnectAttempts uint
 	allowedInTracks   map[NamedTrackKey]LocalhostPort
 }
@@ -362,7 +426,7 @@ func (peer *WebrtcPeer) unsafeClose(peerId string, state *WebrtcState) {
 				panic(err)
 			}
 			state.configMu.RLock()
-			_, err = state.config.client.R().SetBody(body).Delete(peerId)
+			_, err = peer.client.R().SetBody(body).Delete(peerId)
 			state.configMu.RUnlock()
 			if err != nil {
 				log.Printf("HTTP  unpeer %s: %v\n", peerId, err)
@@ -461,6 +525,24 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (ans *webrtc.Sess
 		}
 	}()
 	state.configMu.RLock()
+	creds, exists := state.config.credentials[offer.peerId]
+	if !exists {
+		newPeer.client = resty.New()
+	} else {
+		switch creds.WhichAuth() {
+		case pb.WebrtcConfigAuth_Auth_not_set_case:
+			newPeer.client = resty.New()
+		case pb.WebrtcConfigAuth_CloudflareAuth_case:
+			cf := creds.GetCloudflareAuth()
+			newPeer.client = resty.New().SetHeaders(map[string]string{
+				"CF-Access-Client-Id":     cf.GetClientId(),
+				"CF-Access-Client-Secret": cf.GetClientSecret(),
+			})
+		case pb.WebrtcConfigAuth_OnionServiceV3Auth_case:
+			torClient := LoadTorClient()
+			newPeer.client = resty.New().SetTransport(torClient.transport).SetTimeout(30 * time.Second)
+		}
+	}
 	newPeer.pc, err = state.webrtcApi.NewPeerConnection(state.config.webrtcConfig)
 	if err != nil {
 		return nil, err
@@ -471,7 +553,7 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (ans *webrtc.Sess
 		newPeer.role = WebrtcPeerRoleB
 	} else {
 		newPeer.role = WebrtcPeerRoleT
-		err = offer.Prenegotiate(state)
+		err = offer.Prenegotiate(state, newPeer.client)
 		if err != nil {
 			return nil, err
 		}
@@ -614,7 +696,7 @@ func (state *WebrtcState) Peer(offer PeeringOffer, fails uint) (ans *webrtc.Sess
 		// Set the remote SessionDescription when received
 		var resp *resty.Response
 		state.configMu.RLock()
-		resp, err = state.config.client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(offer.peerId)
+		resp, err = newPeer.client.R().SetHeader("Content-Type", "application/x-protobuf").SetBody(payload).Put(offer.peerId)
 		state.configMu.RUnlock()
 		if err != nil {
 			return nil, err
@@ -804,21 +886,7 @@ func (state *WebrtcState) Reconcile(stateMsg *pb.State) error {
 				}
 			}),
 		}
-		switch stateMsg.GetConfig().WhichAuth() {
-		case pb.WebrtcConfig_Auth_not_set_case:
-			state.config.client = resty.New()
-			state.config.cloudflareZT = nil
-		case pb.WebrtcConfig_CloudflareAuth_case:
-			cf := stateMsg.GetConfig().GetCloudflareAuth()
-			if !cf.HasClientSecret() || !cf.HasClientId() {
-				return errors.New("cloudflare auth requires client secret and client id")
-			}
-			state.config.client = resty.New().SetHeaders(map[string]string{
-				"CF-Access-Client-Id":     cf.GetClientId(),
-				"CF-Access-Client-Secret": cf.GetClientSecret(),
-			})
-			state.config.cloudflareZT = cf
-		}
+		state.config.credentials = stateMsg.GetConfig().GetCredentials()
 	}
 	allowedInTracks := make(map[NamedTrackKey]LocalhostPort)
 	for _, channel := range stateMsg.GetWantedTracks() {
@@ -958,15 +1026,11 @@ func (state *WebrtcState) ToProto(httpServer *WebrtcInterfaceHttp) (*pb.State, e
 		Data:              dataChannels,
 		Media:             mediaChannels,
 		WantedTracks:      wantedTracks,
-		Config:            pb.WebrtcConfig_builder{IceServers: iceServers, CloudflareAuth: state.config.cloudflareZT}.Build(),
+		Config:            pb.WebrtcConfig_builder{IceServers: iceServers, Credentials: state.config.credentials}.Build(),
 		ReconnectAttempts: proto.Uint32(uint32(state.config.reconnectAttempts)),
-		HttpServerConfig:  nil,
-	}
+		HttpServerConfig:  httpServer.Config(),
+	}.Build()
 	state.configMu.RUnlock()
 
-	httpServer.serverMu.Lock()
-	msg.HttpServerConfig = httpServer.serverConfig
-	httpServer.serverMu.Unlock()
-
-	return msg.Build(), nil
+	return msg, nil
 }

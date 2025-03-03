@@ -6,6 +6,7 @@ toolchain go1.23.4
 
 require (
 	github.com/coreos/go-oidc/v3 v3.12.0
+	github.com/cretz/bine v0.2.0
 	github.com/gin-contrib/gzip v1.2.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-gst/go-glib v1.0.0

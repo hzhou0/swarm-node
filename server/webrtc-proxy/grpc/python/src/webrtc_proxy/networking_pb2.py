@@ -18,7 +18,7 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x10networking.proto\x12\nnetworking"D\n\nNamedTrack\x12\x10\n\x08track_id\x18\x01 \x01(\t\x12\x11\n\tstream_id\x18\x02 \x01(\t\x12\x11\n\tmime_type\x18\x03 \x01(\t"\xe1\x01\n\x0bWebrtcOffer\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x0b\n\x03sdp\x18\x02 \x01(\t\x12\x0c\n\x04type\x18\x03 \x01(\t\x12,\n\x0clocal_tracks\x18\x04 \x03(\x0b\x32\x16.networking.NamedTrack\x12\x18\n\x10local_tracks_set\x18\x05 \x01(\x08\x12-\n\rremote_tracks\x18\x06 \x03(\x0b\x32\x16.networking.NamedTrack\x12\x19\n\x11remote_tracks_set\x18\x07 \x01(\x08\x12\x13\n\x0b\x64\x61tachannel\x18\x08 \x01(\x08"2\n\x0b\x44\x61taChannel\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x11\n\tdest_uuid\x18\x02 \x01(\t"M\n\x10\x44\x61taTransmission\x12(\n\x07\x63hannel\x18\x01 \x01(\x0b\x32\x17.networking.DataChannel\x12\x0f\n\x07payload\x18\x02 \x01(\x0c"\x81\x01\n\x0cMediaChannel\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x11\n\tdest_uuid\x18\x02 \x01(\t\x12%\n\x05track\x18\x03 \x01(\x0b\x32\x16.networking.NamedTrack\x12\x16\n\x0elocalhost_port\x18\x04 \x01(\r\x12\r\n\x05\x63lose\x18\x05 \x01(\x08"7\n\x0fMediaSocketDirs\x12\x11\n\tserverDir\x18\x01 \x01(\t\x12\x11\n\tclientDir\x18\x02 \x01(\t"\xcd\x01\n\x05\x45vent\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1c.networking.DataTransmissionH\x00\x12)\n\x05media\x18\x02 \x01(\x0b\x32\x18.networking.MediaChannelH\x00\x12*\n\rachievedState\x18\x03 \x01(\x0b\x32\x11.networking.StateH\x00\x12\x36\n\x0fmediaSocketDirs\x18\x04 \x01(\x0b\x32\x1b.networking.MediaSocketDirsH\x00\x42\x07\n\x05\x65vent"\xb2\x02\n\x0cWebrtcConfig\x12\x37\n\x0bice_servers\x18\x01 \x03(\x0b\x32".networking.WebrtcConfig.IceServer\x12G\n\x0f\x63loudflare_auth\x18\x02 \x01(\x0b\x32,.networking.WebrtcConfig.CloudflareZeroTrustH\x00\x1aW\n\tIceServer\x12\x0c\n\x04urls\x18\x01 \x03(\t\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x12\n\ncredential\x18\x03 \x01(\t\x12\x16\n\x0e\x63redentialType\x18\x04 \x01(\t\x1a?\n\x13\x43loudflareZeroTrust\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\x15\n\rclient_secret\x18\x02 \x01(\tB\x06\n\x04\x61uth"\xa4\x01\n\nHttpServer\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12\x42\n\x0f\x63loudflare_auth\x18\x02 \x01(\x0b\x32\'.networking.HttpServer.CloudflareTunnelH\x00\x1a\x39\n\x10\x43loudflareTunnel\x12\x13\n\x0bteam_domain\x18\x01 \x01(\t\x12\x10\n\x08team_aud\x18\x02 \x01(\tB\x06\n\x04\x61uth"\xfe\x01\n\x05State\x12%\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x17.networking.DataChannel\x12\'\n\x05media\x18\x02 \x03(\x0b\x32\x18.networking.MediaChannel\x12.\n\x0cwantedTracks\x18\x03 \x03(\x0b\x32\x18.networking.MediaChannel\x12(\n\x06\x63onfig\x18\x04 \x01(\x0b\x32\x18.networking.WebrtcConfig\x12\x19\n\x11reconnectAttempts\x18\x05 \x01(\r\x12\x30\n\x10httpServerConfig\x18\x06 \x01(\x0b\x32\x16.networking.HttpServer"k\n\x08Mutation\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1c.networking.DataTransmissionH\x00\x12%\n\x08setState\x18\x02 \x01(\x0b\x32\x11.networking.StateH\x00\x42\n\n\x08mutation2E\n\x0bWebrtcProxy\x12\x36\n\x07\x43onnect\x12\x14.networking.Mutation\x1a\x11.networking.Event(\x01\x30\x01\x42\x33Z1github.com/hzhou0/swarm-node/server/networking;pbb\x08\x65\x64itionsp\xe8\x07'
+    b'\n\x10networking.proto\x12\nnetworking"D\n\nNamedTrack\x12\x10\n\x08track_id\x18\x01 \x01(\t\x12\x11\n\tstream_id\x18\x02 \x01(\t\x12\x11\n\tmime_type\x18\x03 \x01(\t"\xe1\x01\n\x0bWebrtcOffer\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x0b\n\x03sdp\x18\x02 \x01(\t\x12\x0c\n\x04type\x18\x03 \x01(\t\x12,\n\x0clocal_tracks\x18\x04 \x03(\x0b\x32\x16.networking.NamedTrack\x12\x18\n\x10local_tracks_set\x18\x05 \x01(\x08\x12-\n\rremote_tracks\x18\x06 \x03(\x0b\x32\x16.networking.NamedTrack\x12\x19\n\x11remote_tracks_set\x18\x07 \x01(\x08\x12\x13\n\x0b\x64\x61tachannel\x18\x08 \x01(\x08"2\n\x0b\x44\x61taChannel\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x11\n\tdest_uuid\x18\x02 \x01(\t"M\n\x10\x44\x61taTransmission\x12(\n\x07\x63hannel\x18\x01 \x01(\x0b\x32\x17.networking.DataChannel\x12\x0f\n\x07payload\x18\x02 \x01(\x0c"\x81\x01\n\x0cMediaChannel\x12\x10\n\x08src_uuid\x18\x01 \x01(\t\x12\x11\n\tdest_uuid\x18\x02 \x01(\t\x12%\n\x05track\x18\x03 \x01(\x0b\x32\x16.networking.NamedTrack\x12\x16\n\x0elocalhost_port\x18\x04 \x01(\r\x12\r\n\x05\x63lose\x18\x05 \x01(\x08"\x95\x01\n\x05\x45vent\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1c.networking.DataTransmissionH\x00\x12)\n\x05media\x18\x02 \x01(\x0b\x32\x18.networking.MediaChannelH\x00\x12*\n\rachievedState\x18\x03 \x01(\x0b\x32\x11.networking.StateH\x00\x42\x07\n\x05\x65vent"\xba\x04\n\x0cWebrtcConfig\x12\x37\n\x0bice_servers\x18\x01 \x03(\x0b\x32".networking.WebrtcConfig.IceServer\x12>\n\x0b\x63redentials\x18\x02 \x03(\x0b\x32).networking.WebrtcConfig.CredentialsEntry\x1aW\n\tIceServer\x12\x0c\n\x04urls\x18\x01 \x03(\t\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x12\n\ncredential\x18\x03 \x01(\t\x12\x16\n\x0e\x63redentialType\x18\x04 \x01(\t\x1a\x84\x02\n\x04\x61uth\x12L\n\x0f\x63loudflare_auth\x18\x01 \x01(\x0b\x32\x31.networking.WebrtcConfig.auth.CloudflareZeroTrustH\x00\x12P\n\x15onion_service_v3_auth\x18\x02 \x01(\x0b\x32/.networking.WebrtcConfig.auth.TorOnionServiceV3H\x00\x1a?\n\x13\x43loudflareZeroTrust\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\x15\n\rclient_secret\x18\x02 \x01(\t\x1a\x13\n\x11TorOnionServiceV3B\x06\n\x04\x61uth\x1aQ\n\x10\x43redentialsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x1d.networking.WebrtcConfig.auth:\x02\x38\x01"\xb6\x02\n\nHttpServer\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12\x42\n\x0f\x63loudflare_auth\x18\x02 \x01(\x0b\x32\'.networking.HttpServer.CloudflareTunnelH\x00\x12I\n\x15onion_service_v3_auth\x18\x03 \x01(\x0b\x32(.networking.HttpServer.TorOnionServiceV3H\x00\x1a\x39\n\x10\x43loudflareTunnel\x12\x13\n\x0bteam_domain\x18\x01 \x01(\t\x12\x10\n\x08team_aud\x18\x02 \x01(\t\x1a\x45\n\x11TorOnionServiceV3\x12\x1d\n\x15hs_ed25519_secret_key\x18\x01 \x01(\x0c\x12\x11\n\tanonymous\x18\x02 \x01(\x08\x42\x06\n\x04\x61uth"\xfe\x01\n\x05State\x12%\n\x04\x64\x61ta\x18\x01 \x03(\x0b\x32\x17.networking.DataChannel\x12\'\n\x05media\x18\x02 \x03(\x0b\x32\x18.networking.MediaChannel\x12.\n\x0cwantedTracks\x18\x03 \x03(\x0b\x32\x18.networking.MediaChannel\x12(\n\x06\x63onfig\x18\x04 \x01(\x0b\x32\x18.networking.WebrtcConfig\x12\x19\n\x11reconnectAttempts\x18\x05 \x01(\r\x12\x30\n\x10httpServerConfig\x18\x06 \x01(\x0b\x32\x16.networking.HttpServer"k\n\x08Mutation\x12,\n\x04\x64\x61ta\x18\x01 \x01(\x0b\x32\x1c.networking.DataTransmissionH\x00\x12%\n\x08setState\x18\x02 \x01(\x0b\x32\x11.networking.StateH\x00\x42\n\n\x08mutation2E\n\x0bWebrtcProxy\x12\x36\n\x07\x43onnect\x12\x14.networking.Mutation\x1a\x11.networking.Event(\x01\x30\x01\x42\x33Z1github.com/hzhou0/swarm-node/server/networking;pbb\x08\x65\x64itionsp\xe8\x07'
 )
 
 _globals = globals()
@@ -29,6 +29,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"Z1github.com/hzhou0/swarm-node/server/networking;pb"
+    _globals["_WEBRTCCONFIG_CREDENTIALSENTRY"]._loaded_options = None
+    _globals["_WEBRTCCONFIG_CREDENTIALSENTRY"]._serialized_options = b"8\001"
     _globals["_NAMEDTRACK"]._serialized_start = 32
     _globals["_NAMEDTRACK"]._serialized_end = 100
     _globals["_WEBRTCOFFER"]._serialized_start = 103
@@ -39,24 +41,30 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals["_DATATRANSMISSION"]._serialized_end = 459
     _globals["_MEDIACHANNEL"]._serialized_start = 462
     _globals["_MEDIACHANNEL"]._serialized_end = 591
-    _globals["_MEDIASOCKETDIRS"]._serialized_start = 593
-    _globals["_MEDIASOCKETDIRS"]._serialized_end = 648
-    _globals["_EVENT"]._serialized_start = 651
-    _globals["_EVENT"]._serialized_end = 856
-    _globals["_WEBRTCCONFIG"]._serialized_start = 859
-    _globals["_WEBRTCCONFIG"]._serialized_end = 1165
-    _globals["_WEBRTCCONFIG_ICESERVER"]._serialized_start = 1005
-    _globals["_WEBRTCCONFIG_ICESERVER"]._serialized_end = 1092
-    _globals["_WEBRTCCONFIG_CLOUDFLAREZEROTRUST"]._serialized_start = 1094
-    _globals["_WEBRTCCONFIG_CLOUDFLAREZEROTRUST"]._serialized_end = 1157
-    _globals["_HTTPSERVER"]._serialized_start = 1168
-    _globals["_HTTPSERVER"]._serialized_end = 1332
-    _globals["_HTTPSERVER_CLOUDFLARETUNNEL"]._serialized_start = 1267
-    _globals["_HTTPSERVER_CLOUDFLARETUNNEL"]._serialized_end = 1324
-    _globals["_STATE"]._serialized_start = 1335
-    _globals["_STATE"]._serialized_end = 1589
-    _globals["_MUTATION"]._serialized_start = 1591
-    _globals["_MUTATION"]._serialized_end = 1698
-    _globals["_WEBRTCPROXY"]._serialized_start = 1700
-    _globals["_WEBRTCPROXY"]._serialized_end = 1769
+    _globals["_EVENT"]._serialized_start = 594
+    _globals["_EVENT"]._serialized_end = 743
+    _globals["_WEBRTCCONFIG"]._serialized_start = 746
+    _globals["_WEBRTCCONFIG"]._serialized_end = 1316
+    _globals["_WEBRTCCONFIG_ICESERVER"]._serialized_start = 883
+    _globals["_WEBRTCCONFIG_ICESERVER"]._serialized_end = 970
+    _globals["_WEBRTCCONFIG_AUTH"]._serialized_start = 973
+    _globals["_WEBRTCCONFIG_AUTH"]._serialized_end = 1233
+    _globals["_WEBRTCCONFIG_AUTH_CLOUDFLAREZEROTRUST"]._serialized_start = 1141
+    _globals["_WEBRTCCONFIG_AUTH_CLOUDFLAREZEROTRUST"]._serialized_end = 1204
+    _globals["_WEBRTCCONFIG_AUTH_TORONIONSERVICEV3"]._serialized_start = 1206
+    _globals["_WEBRTCCONFIG_AUTH_TORONIONSERVICEV3"]._serialized_end = 1225
+    _globals["_WEBRTCCONFIG_CREDENTIALSENTRY"]._serialized_start = 1235
+    _globals["_WEBRTCCONFIG_CREDENTIALSENTRY"]._serialized_end = 1316
+    _globals["_HTTPSERVER"]._serialized_start = 1319
+    _globals["_HTTPSERVER"]._serialized_end = 1629
+    _globals["_HTTPSERVER_CLOUDFLARETUNNEL"]._serialized_start = 1493
+    _globals["_HTTPSERVER_CLOUDFLARETUNNEL"]._serialized_end = 1550
+    _globals["_HTTPSERVER_TORONIONSERVICEV3"]._serialized_start = 1552
+    _globals["_HTTPSERVER_TORONIONSERVICEV3"]._serialized_end = 1621
+    _globals["_STATE"]._serialized_start = 1632
+    _globals["_STATE"]._serialized_end = 1886
+    _globals["_MUTATION"]._serialized_start = 1888
+    _globals["_MUTATION"]._serialized_end = 1995
+    _globals["_WEBRTCPROXY"]._serialized_start = 1997
+    _globals["_WEBRTCPROXY"]._serialized_end = 2066
 # @@protoc_insertion_point(module_scope)

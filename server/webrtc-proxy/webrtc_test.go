@@ -1,9 +1,9 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"github.com/go-gst/go-gst/gst"
-	"github.com/go-resty/resty/v2"
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
@@ -26,7 +26,11 @@ var webrtcConfig = WebrtcStateConfig{
 			},
 		},
 	},
-	client:            resty.New(),
+	credentials: map[UUID]*pb.WebrtcConfigAuth{
+		onionPeerId: pb.WebrtcConfigAuth_builder{
+			OnionServiceV3Auth: pb.WebrtcConfigAuth_TorOnionServiceV3_builder{}.Build(),
+		}.Build(),
+	},
 	reconnectAttempts: 0,
 	allowedInTracks:   nil,
 }
@@ -44,6 +48,23 @@ func getPort() uint32 {
 func buildHTTPServerConfig(addr string) *pb.HttpServer {
 	return pb.HttpServer_builder{
 		Address: proto.String(addr),
+	}.Build()
+}
+
+//go:embed testdlhe7gt2jkx4pvaatqhksup6olft3ube6u4huiwrjttgsexsmhyd.onion/hs_ed25519_secret_key
+var onionKey []byte
+
+//go:embed testdlhe7gt2jkx4pvaatqhksup6olft3ube6u4huiwrjttgsexsmhyd.onion/hostname
+var _onionHostname string
+var onionPeerId = "http://" + strings.TrimSpace(_onionHostname) + "/api/webrtc"
+
+func TorServerConfig() *pb.HttpServer {
+	return pb.HttpServer_builder{
+		Address: proto.String("localhost:0"),
+		OnionServiceV3Auth: pb.HttpServer_TorOnionServiceV3_builder{
+			HsEd25519SecretKey: onionKey,
+			Anonymous:          proto.Bool(true),
+		}.Build(),
 	}.Build()
 }
 
@@ -106,7 +127,7 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 	assert.Nil(t, err)
 	defer wst1.Close()
 	servAddr := "127.0.0.1:8080"
-	httpServ := NewWebrtcHttpInterface(wst1)
+	httpServ := NewWebrtcHttpInterface(wst1, os.TempDir())
 	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
 	if err != nil {
 		panic(err)
@@ -152,12 +173,67 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 	assert.Equal(t, wst2.peers[pf.peerId].role, WebrtcPeerRoleT)
 }
 
+func TestWebrtcState_PutPeer_Tor(t *testing.T) {
+	LoadTorClient()
+	defer DestroyTorClient()
+	log.SetFlags(log.Lshortfile)
+	wst1, err := NewWebrtcState(webrtcConfig)
+	assert.Nil(t, err)
+	defer wst1.Close()
+	httpServ := NewWebrtcHttpInterface(wst1, os.TempDir())
+	defer httpServ.Close()
+	err = httpServ.Configure(TorServerConfig())
+	if err != nil {
+		panic(err)
+	}
+	log.Println("tor server configured")
+
+	wst2, err := NewWebrtcState(webrtcConfig)
+	assert.Nil(t, err)
+	defer wst2.Close()
+	assert.Len(t, maps.Keys(wst2.peers), 0)
+	assert.Len(t, maps.Keys(wst1.peers), 0)
+	pf := PeeringOffer{
+		peerId:      onionPeerId,
+		sdp:         nil,
+		outTracks:   nil,
+		inTracks:    nil,
+		dataChannel: true,
+	}
+	_, err = wst2.Peer(pf, 0)
+	assert.Nil(t, err)
+	assert.Len(t, maps.Keys(wst2.peers), 1)
+	assert.Len(t, maps.Keys(wst1.peers), 1)
+	assert.Contains(t, maps.Keys(wst1.peers), wst2.SrcUUID)
+	assert.Contains(t, maps.Keys(wst2.peers), pf.peerId)
+	assert.Equal(t, wst1.peers[wst2.SrcUUID].role, WebrtcPeerRoleB)
+	assert.Equal(t, wst2.peers[pf.peerId].role, WebrtcPeerRoleT)
+	wst2.UnPeer(onionPeerId)
+	time.Sleep(5000 * time.Millisecond)
+	assert.Len(t, maps.Keys(wst1.peers), 0)
+	pf2 := PeeringOffer{
+		peerId:      onionPeerId,
+		sdp:         nil,
+		outTracks:   nil,
+		inTracks:    nil,
+		dataChannel: true,
+	}
+	_, err = wst2.Peer(pf2, 0)
+	assert.Nil(t, err)
+	assert.Len(t, maps.Keys(wst2.peers), 1)
+	assert.Len(t, maps.Keys(wst1.peers), 1)
+	assert.Contains(t, maps.Keys(wst1.peers), wst2.SrcUUID)
+	assert.Contains(t, maps.Keys(wst2.peers), pf.peerId)
+	assert.Equal(t, wst1.peers[wst2.SrcUUID].role, WebrtcPeerRoleB)
+	assert.Equal(t, wst2.peers[pf.peerId].role, WebrtcPeerRoleT)
+}
+
 func TestWebrtcState_PutPeer_DataChannels(t *testing.T) {
 	servAddr := "127.0.0.1:8081"
 	wst1, err := NewWebrtcState(webrtcConfig)
 	assert.Nil(t, err)
 	defer wst1.Close()
-	httpServ := NewWebrtcHttpInterface(wst1)
+	httpServ := NewWebrtcHttpInterface(wst1, os.TempDir())
 	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
 	if err != nil {
 		panic(err)
@@ -206,7 +282,6 @@ func removeGlob(pattern string) {
 }
 
 func TestWebrtcState_PutPeer_Media(t *testing.T) {
-
 	log.SetFlags(log.Lshortfile)
 	servAddr := "127.0.0.1:8082"
 	wst1, err := NewWebrtcState(WebrtcStateConfig{
@@ -225,7 +300,7 @@ func TestWebrtcState_PutPeer_Media(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	defer wst1.Close()
-	httpServ := NewWebrtcHttpInterface(wst1)
+	httpServ := NewWebrtcHttpInterface(wst1, os.TempDir())
 	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
 	if err != nil {
 		panic(err)
@@ -277,7 +352,7 @@ func TestWebrtcState_Reconcile(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	defer wst1.Close()
-	httpServ := NewWebrtcHttpInterface(wst1)
+	httpServ := NewWebrtcHttpInterface(wst1, os.TempDir())
 	err = httpServ.Configure(buildHTTPServerConfig(servAddr))
 	if err != nil {
 		panic(err)
