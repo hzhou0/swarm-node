@@ -29,16 +29,21 @@ type WebrtcInterfaceHttp struct {
 	tor          *tor.Tor
 	onionService *tor.OnionService
 	serverConfig *pb.HttpServer
+	ctx          context.Context
+	cancel       context.CancelFunc
 	Error        chan error
 	sync.Mutex
 }
 
 func NewWebrtcHttpInterface(webrtcState *WebrtcState, tempDir string) *WebrtcInterfaceHttp {
 	errChan := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
 	return &WebrtcInterfaceHttp{
 		webrtcState: webrtcState,
 		tempDir:     tempDir,
 		Error:       errChan,
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 }
 
@@ -56,6 +61,7 @@ func (s *WebrtcInterfaceHttp) Configure(config *pb.HttpServer) (err error) {
 	s.Unlock()
 
 	s.Close()
+	s.ctx, s.cancel = context.WithCancel(context.Background())
 
 	s.Lock()
 	defer func() {
@@ -79,6 +85,101 @@ func (s *WebrtcInterfaceHttp) Configure(config *pb.HttpServer) (err error) {
 	})
 
 	api := g.Group("/api")
+
+	// Create a TCP listener for gin
+	if !config.HasAddress() {
+		return fmt.Errorf("address not set")
+	}
+	tcpAddr, err := net.ResolveTCPAddr("tcp", config.GetAddress())
+	if err != nil {
+		return err
+	}
+	s.ginListener, err = net.ListenTCP("tcp", tcpAddr)
+	if err != nil {
+		return err
+	}
+
+	switch config.WhichAuth() {
+	case pb.HttpServer_Auth_not_set_case:
+	case pb.HttpServer_OnionServiceV3Auth_case:
+		log.Println("Exposing /api requests to onion service")
+		onionAuth := config.GetOnionServiceV3Auth()
+		if !onionAuth.HasHsEd25519SecretKey() {
+			return fmt.Errorf("secret key not set")
+		}
+		if len(onionAuth.GetHsEd25519SecretKey()) != 96 {
+			return fmt.Errorf("secret key must be 96 bytes")
+		}
+		secKey := ed25519.PrivateKey(onionAuth.GetHsEd25519SecretKey()[32:]).KeyPair()
+
+		var torArgs []string
+		if !onionAuth.GetAnonymous() {
+			torArgs = []string{
+				"--HiddenServiceSingleHopMode", "1",
+				"--HiddenServiceNonAnonymousMode", "1",
+				"--SocksPort", "0",
+			}
+		}
+		s.tor, err = tor.Start(s.ctx, &tor.StartConf{
+			TempDataDirBase:   s.tempDir,
+			RetainTempDataDir: false,
+			EnableNetwork:     true,
+			ExtraArgs:         torArgs,
+			NoAutoSocksPort:   !onionAuth.GetAnonymous(),
+			NoHush:            true,
+		})
+		if err != nil {
+			return err
+		}
+		listenCtx, listenCancel := context.WithTimeout(s.ctx, 1*time.Minute)
+		defer listenCancel()
+		s.onionService, err = s.tor.Listen(listenCtx, &tor.ListenConf{
+			Key:           secKey,
+			LocalListener: s.ginListener,
+			RemotePorts:   []int{80, s.ginListener.Addr().(*net.TCPAddr).Port},
+			Version3:      true,
+			NonAnonymous:  !onionAuth.GetAnonymous(),
+		})
+		if err != nil {
+			return err
+		}
+
+	case pb.HttpServer_CloudflareAuth_case:
+		log.Println("Expecting /api requests to have cloudflare headers")
+		cfAuth := config.GetCloudflareAuth()
+		if !cfAuth.HasTeamDomain() {
+			return fmt.Errorf("cloudflare team domain is not set")
+		}
+		if !cfAuth.HasTeamAud() {
+			return fmt.Errorf("cloudflare team aud is not set")
+		}
+		cloudflareDomain := cfAuth.GetTeamDomain()
+		cloudflareAUD := cfAuth.GetTeamAud()
+		certsURL := fmt.Sprintf("%s/cdn-cgi/access/certs", cloudflareDomain)
+		keySet := oidc.NewRemoteKeySet(s.ctx, certsURL)
+		verifier := oidc.NewVerifier(cloudflareDomain, keySet, &oidc.Config{
+			ClientID: cloudflareAUD,
+		})
+
+		api.Use(func(c *gin.Context) {
+			// Extract the token from the header
+			accessJWT := c.GetHeader("Cf-Access-Jwt-Assertion")
+			if accessJWT == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "No token on the request"})
+				c.Abort()
+				return
+			}
+
+			_, err := verifier.Verify(c.Request.Context(), accessJWT)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Invalid token: %s", err.Error())})
+				c.Abort()
+				return
+			}
+			c.Next()
+		})
+	}
+
 	// Debug endpoint to check server state.
 	api.GET("/debug", func(c *gin.Context) {
 		s.Lock()
@@ -206,100 +307,6 @@ func (s *WebrtcInterfaceHttp) Configure(config *pb.HttpServer) (err error) {
 		return
 	})
 
-	// Create a TCP listener for gin
-	if !config.HasAddress() {
-		return fmt.Errorf("address not set")
-	}
-	tcpAddr, err := net.ResolveTCPAddr("tcp", config.GetAddress())
-	if err != nil {
-		return err
-	}
-	s.ginListener, err = net.ListenTCP("tcp", tcpAddr)
-	if err != nil {
-		return err
-	}
-
-	switch config.WhichAuth() {
-	case pb.HttpServer_Auth_not_set_case:
-	case pb.HttpServer_OnionServiceV3Auth_case:
-		log.Println("Exposing /api requests to onion service")
-		onionAuth := config.GetOnionServiceV3Auth()
-		if !onionAuth.HasHsEd25519SecretKey() {
-			return fmt.Errorf("secret key not set")
-		}
-		if len(onionAuth.GetHsEd25519SecretKey()) != 96 {
-			return fmt.Errorf("secret key must be 96 bytes")
-		}
-		secKey := ed25519.PrivateKey(onionAuth.GetHsEd25519SecretKey()[32:]).KeyPair()
-
-		var torArgs []string
-		if !onionAuth.GetAnonymous() {
-			torArgs = []string{
-				"--HiddenServiceSingleHopMode", "1",
-				"--HiddenServiceNonAnonymousMode", "1",
-				"--SocksPort", "0",
-			}
-		}
-		s.tor, err = tor.Start(context.Background(), &tor.StartConf{
-			TempDataDirBase:   s.tempDir,
-			RetainTempDataDir: false,
-			EnableNetwork:     true,
-			ExtraArgs:         torArgs,
-			NoAutoSocksPort:   !onionAuth.GetAnonymous(),
-			NoHush:            true,
-		})
-		if err != nil {
-			return err
-		}
-		listenCtx, listenCancel := context.WithTimeout(context.Background(), 1*time.Minute)
-		defer listenCancel()
-		s.onionService, err = s.tor.Listen(listenCtx, &tor.ListenConf{
-			Key:           secKey,
-			LocalListener: s.ginListener,
-			RemotePorts:   []int{80, s.ginListener.Addr().(*net.TCPAddr).Port},
-			Version3:      true,
-			NonAnonymous:  !onionAuth.GetAnonymous(),
-		})
-		if err != nil {
-			return err
-		}
-
-	case pb.HttpServer_CloudflareAuth_case:
-		log.Println("Expecting /api requests to have cloudflare headers")
-		cfAuth := config.GetCloudflareAuth()
-		if cfAuth.HasTeamDomain() {
-			return fmt.Errorf("cloudflare team domain is not set")
-		}
-		if cfAuth.HasTeamAud() {
-			return fmt.Errorf("cloudflare team aud is not set")
-		}
-		cloudflareDomain := cfAuth.GetTeamDomain()
-		cloudflareAUD := cfAuth.GetTeamAud()
-		api.Use(func(c *gin.Context) {
-			// Extract the token from the header
-			accessJWT := c.GetHeader("Cf-Access-Jwt-Assertion")
-			if accessJWT == "" {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "No token on the request"})
-				c.Abort()
-			}
-
-			// Verify the token
-			ctx := c.Request.Context()
-			certsURL := fmt.Sprintf("%s/cdn-cgi/access/certs", cloudflareDomain)
-			config := &oidc.Config{
-				ClientID: cloudflareAUD,
-			}
-			keySet := oidc.NewRemoteKeySet(ctx, certsURL)
-			verifier := oidc.NewVerifier(cloudflareDomain, keySet, config)
-			_, err := verifier.Verify(ctx, accessJWT)
-			if err != nil {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("Invalid token: %s", err.Error())})
-				c.Abort()
-			}
-			c.Next()
-		})
-	}
-
 	server := &http.Server{
 		Handler: g,
 	}
@@ -326,9 +333,9 @@ func (s *WebrtcInterfaceHttp) Close() {
 		if err := s.server.Shutdown(ctx); err != nil {
 			log.Printf("Error shutting down server %v\n", err)
 		} else {
-			s.server = nil
 			log.Println("Server closed")
 		}
+		s.server = nil
 	}
 	if s.onionService != nil {
 		err := s.onionService.LocalListener.Close()
@@ -346,6 +353,7 @@ func (s *WebrtcInterfaceHttp) Close() {
 		} else {
 			log.Println("Gin listener closed")
 		}
+		s.ginListener = nil
 	}
 	if s.tor != nil {
 		err := s.tor.Close()
@@ -353,7 +361,9 @@ func (s *WebrtcInterfaceHttp) Close() {
 			log.Printf("Error closing tor %v\n", err)
 		} else {
 			log.Println("Tor process closed")
-			s.tor = nil
 		}
+		s.tor = nil
 	}
+
+	s.cancel()
 }

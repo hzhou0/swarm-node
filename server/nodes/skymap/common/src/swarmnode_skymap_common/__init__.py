@@ -63,31 +63,23 @@ class GPSPose(msgspec.Struct):
         (crc32,) = struct.unpack("!I", crc32)
         if zlib.crc32(data) != crc32:
             raise ChecksumMismatchError((data, crc32))
-        (epoch_seconds,
-         latitude,
-         longitude,
-         altitude,
-         pitch,
-         roll,
-         yaw) = struct.unpack(
+        (epoch_seconds, latitude, longitude, altitude, pitch, roll, yaw) = struct.unpack(
             "!dddffff", data
         )
         return cls(epoch_seconds, latitude, longitude, altitude, pitch, roll, yaw)
 
     def to_macroblocks(self) -> np.ndarray:
         arr = np.frombuffer(self.to_bytes(), dtype=np.uint8)
-        stacked_arr = np.stack(
-            (arr >> 6, arr >> 4 & 0b11, arr >> 2 & 0b11, arr & 0b11), axis=-1
-        )
+        stacked_arr = np.stack((arr >> 6, arr >> 4 & 0b11, arr >> 2 & 0b11, arr & 0b11), axis=-1)
 
         color_map = np.array(
             [
                 [255, 0, 0],
                 [0, 255, 0],
-                [0, 255, 255],
+                [255, 255, 0],
                 [0, 0, 255],
             ],
-            dtype=np.uint8,  # Blue, Green, Yellow, Red in BGR (opencv's native format)
+            dtype=np.uint8,  # Red, Green, Yellow, Blue in RGB
         )
 
         # Initialize the output array with shape (44, 4, 3)
@@ -98,26 +90,29 @@ class GPSPose(msgspec.Struct):
         return macroblocks
 
     @classmethod
-    def from_macroblocks(
-            cls, macroblocks: np.ndarray
-    ) -> Self | None:
+    def from_macroblocks(cls, macroblocks: np.ndarray) -> Self | None:
         # Define the color mapping (same as before)
         color_map = np.array(
             [
                 [255, 0, 0],
                 [0, 255, 0],
-                [0, 255, 255],
+                [255, 255, 0],
                 [0, 0, 255],
             ],
-            dtype=np.int16,  # Blue, Green, Yellow, Red in BGR (opencv's native format)
+            dtype=np.int16,  # Red, Green, Yellow, Blue in RGB
         )
 
         # Create a mask where the middle pixel (8,8) in each macroblock is compared to each entry in color_map
         # We sum the absolute errors over the color dimension (axis=3), creating a 44x4x4 error array
         mask = np.sum(
             np.abs(
-                macroblocks[(macroblock_size // 2)::macroblock_size, (macroblock_size // 2)::macroblock_size,
-                np.newaxis, :].astype(np.int16) - color_map
+                macroblocks[
+                    (macroblock_size // 2) :: macroblock_size,
+                    (macroblock_size // 2) :: macroblock_size,
+                    np.newaxis,
+                    :,
+                ].astype(np.int16)
+                - color_map
             ),
             axis=3,
         )
@@ -126,10 +121,10 @@ class GPSPose(msgspec.Struct):
         inverted_array = inverted_array.reshape((cls.byte_length, 4))
 
         decoded_bytes = (
-                (inverted_array[..., 0] << 6)
-                | (inverted_array[..., 1] << 4)
-                | (inverted_array[..., 2] << 2)
-                | inverted_array[..., 3]
+            (inverted_array[..., 0] << 6)
+            | (inverted_array[..., 1] << 4)
+            | (inverted_array[..., 2] << 2)
+            | inverted_array[..., 3]
         ).tobytes()
         try:
             return cls.from_bytes(decoded_bytes)
@@ -138,17 +133,26 @@ class GPSPose(msgspec.Struct):
             return None
 
     @classmethod
-    def read_from_color_frame(cls, frame: np.ndarray, clear_macroblocks: bool = False) -> Self | None:
-        ret = cls.from_macroblocks(frame[:GPSPose.height_blocks * macroblock_size,
-                                   :GPSPose.width_blocks * macroblock_size, :])
+    def read_from_color_frame(
+        cls, frame: np.ndarray, clear_macroblocks: bool = False
+    ) -> Self | None:
+        ret = cls.from_macroblocks(
+            frame[
+                : GPSPose.height_blocks * macroblock_size,
+                : GPSPose.width_blocks * macroblock_size,
+                :,
+            ]
+        )
         if clear_macroblocks:
-            frame[:GPSPose.height_blocks * macroblock_size,
-            :GPSPose.width_blocks * macroblock_size] = 0
+            frame[
+                : GPSPose.height_blocks * macroblock_size, : GPSPose.width_blocks * macroblock_size
+            ] = 0
         return ret
 
     def write_to_color_frame(self, frame: np.ndarray) -> None:
-        frame[:GPSPose.height_blocks * macroblock_size, :GPSPose.width_blocks * macroblock_size,
-        :] = self.to_macroblocks()
+        frame[
+            : GPSPose.height_blocks * macroblock_size, : GPSPose.width_blocks * macroblock_size, :
+        ] = self.to_macroblocks()
 
 
 if __name__ == "__main__":

@@ -31,11 +31,13 @@ def webrtc_proxy_media_reader(mime_type: str):
     pipeline_tmpls = {
         "video/h264": [
             "queue",
+            "rtpjitterbuffer",
             "rtph264depay",
             "avdec_h264",
         ],
         "video/h265": [
             "queue",
+            "rtpjitterbuffer",
             "rtph265depay",
             "avdec_h265",
         ],
@@ -70,12 +72,12 @@ def webrtc_proxy_media_writer(
     pipeline_tmpls = {
         "video/h264": [
             f"x264enc speed-preset=ultrafast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=1",
-            "rtph264pay",
+            "rtph264pay config-interval=1 aggregate-mode=zero-latency",
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/h265": [
             f"x265enc speed-preset=ultrafast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=5",
-            "rtph265pay",
+            "rtph265pay config-interval=1 aggregate-mode=zero-latency",
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/vp9": [

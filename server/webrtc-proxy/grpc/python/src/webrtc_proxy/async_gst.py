@@ -158,8 +158,13 @@ async def gst_video_source(
     port: int = src.get_property("port")
 
     async def pipeline_promise():
-        pipeline.set_state(Gst.State.PLAYING)
-        await source.initialized.wait()
+        while True:
+            pipeline.set_state(Gst.State.PLAYING)
+            try:
+                await asyncio.wait_for(source.initialized.wait(), timeout=1)
+                break
+            except asyncio.TimeoutError:
+                continue
         return source
 
     try:

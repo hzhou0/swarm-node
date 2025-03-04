@@ -131,6 +131,7 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 		}
 	}()
 	go func() {
+		lastAchievedState := pb.State_builder{}.Build()
 		for {
 			ev := pb.Event{}
 			select {
@@ -139,7 +140,12 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 			case media := <-webrtcState.MediaIn:
 				ev.SetMedia(media)
 			case state := <-achievedState:
-				ev.SetAchievedState(state)
+				if proto.Equal(state, lastAchievedState) {
+					continue
+				} else {
+					lastAchievedState = state
+					ev.SetAchievedState(state)
+				}
 			case <-stream.Context().Done():
 				return
 			}
@@ -186,7 +192,8 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 				return err
 			}
 			achievedState <- stateMsg
-		case <-httpServer.Error:
+		case err := <-httpServer.Error:
+			log.Println(err)
 			stateMsg, err := webrtcState.ToProto(httpServer)
 			if err != nil {
 				log.Printf("Error converting state to proto: %v", err)
@@ -431,7 +438,7 @@ func main() {
 	if runtimeDir == "" {
 		log.Fatal("RUNTIME_DIRECTORY is not set")
 	}
-	LoadTorClient()
+	//LoadTorClient()
 	defer DestroyTorClient()
 
 	// Clear runtime directory

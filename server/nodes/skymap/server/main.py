@@ -19,10 +19,12 @@ async def video_processor(mime_type: str, port_future: asyncio.Future[int]):
         port_future.set_result(port)
         video_src = await pipeline()
         while True:
-            frame = await video_src.get()
-            # Display the frame
-            cv2.imshow("Video Frame", cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB))
-            cv2.waitKey(1)
+            try:
+                frame = await asyncio.wait_for(video_src.get(), timeout=1)
+                cv2.imshow("Video Frame", cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB))
+                cv2.waitKey(1)
+            except asyncio.TimeoutError:
+                cv2.destroyAllWindows()
 
 
 async def main(
@@ -34,7 +36,13 @@ async def main(
     port_fut = asyncio.Future()
     tg.create_task(video_processor(rgbd_track.mime_type, port_fut))
     target_state = pb.State(
-        httpServerConfig=pb.HttpServer(address=":8080"),
+        httpServerConfig=pb.HttpServer(
+            address="localhost:11510",
+            cloudflare_auth=pb.HttpServer.CloudflareTunnel(
+                team_domain=os.environ["CLOUDFLARE_DOMAIN"],
+                team_aud=os.environ["CLOUDFLARE_AUD"],
+            ),
+        ),
         wantedTracks=[pb.MediaChannel(track=rgbd_track, localhost_port=await port_fut)],
     )
     await mutation_q.put(pb.Mutation(setState=target_state))
@@ -42,11 +50,11 @@ async def main(
         event = await event_q.get()
         event_type = event.WhichOneof("event")
         if event_type == "data":
-            print(event.data)
+            pass
         elif event_type == "media":
-            print(event.media)
+            pass
         elif event_type == "achievedState":
-            print(event.achievedState)
+            pass
         else:
             logging.error(event_type)
 
