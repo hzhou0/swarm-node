@@ -22,6 +22,9 @@ typedef struct State {
   GPIState gpi_state;
   INA226State current_sensor_state;
   MPU6500State imu_state;
+  ServoDegreesMutation sd_mut;
+  Servo pitch_servo;
+  Servo yaw_servo;
 } State;
 
 INA226 current_sensor;
@@ -29,6 +32,9 @@ State state;
 MPU6500 imu;
 int16_t emit_state_interval_ms = -1;
 bool emit_loop_perf = false;
+
+#define PITCH_SERVO 15
+#define YAW_SERVO 18
 
 volatile bool imu_irq_flag = false;
 volatile bool current_sensor_irq_flag = false;
@@ -103,18 +109,19 @@ void process_commands(State *state, const MPU6500 mpu6500) {
     return;
   }
 
-  ServoDegreesMutation sd_mut = {};
   switch (mutation_buf[0]) {
   case MUTATION_SERVO_DEGREES:
-    if (res.out_len - 1 != 12) {
+    if (res.out_len - 1 != 2) {
       log_error("mutation %d with invalid length %d", mutation_buf[0], res.out_len);
       return;
     }
-    for (int i = 0; i < 3; ++i) {
-      sd_mut.right_front[i] = mutation_buf[i + 1];
-      sd_mut.right_back[i] = mutation_buf[i + 6 + 1];
-      sd_mut.left_front[i] = mutation_buf[i + 3 + 1];
-      sd_mut.left_back[i] = mutation_buf[i + 9 + 1];
+    if (state->sd_mut.pitch != mutation_buf[1]) {
+      state->sd_mut.pitch = mutation_buf[1];
+      servo_set(state->pitch_servo, (uint8_t) state->sd_mut.pitch);
+    }
+    if (state->sd_mut.yaw != mutation_buf[2]) {
+      state->sd_mut.yaw = mutation_buf[2];
+      servo_set(state->yaw_servo, (uint8_t) state->sd_mut.yaw);
     }
     break;
   case MUTATION_REQUEST_STATE:
@@ -198,8 +205,10 @@ int main() {
 
   uint32_t servo_loop_counter = 1;
   int8_t current_dir = 1;
-  Servo servo1 = servo_init(15);
-  Servo servo2 = servo_init(18);
+  // Servo servo1 = servo_init(15);
+  // Servo servo2 = servo_init(18);
+  state.pitch_servo = servo_init(PITCH_SERVO);
+  state.yaw_servo = servo_init(YAW_SERVO);
 
   bool in_sweep = false;
   uint8_t servo1_sweep_angle_deg = 0;
@@ -235,60 +244,60 @@ int main() {
       perf.idle_loops_per_10000++;
     }
 
-    if (in_sweep && time_reached(sweep_update_time)) {
-      if (servo1_sweep_angle_deg == servo1_sweep_end_deg) {
-        // Servo 1 has reached the end, so reverse it.
-        servo1_dir *= -1;
-        if (servo2_sweep_angle_deg == servo2_sweep_end_deg) {
-          // If both servos have reached the end, the sweep is done.
-          in_sweep = false;
-          // Reverse the direction of Servo 2 for the next time it is used.
-          servo2_dir *= -1;
-        }
-        else {
-          uint8_t tmp_angle = servo1_sweep_start_deg;
-          servo1_sweep_start_deg = servo1_sweep_end_deg;
-          servo1_sweep_end_deg = tmp_angle;
-          // Update and move Servo 2.
-          servo2_sweep_angle_deg += SWEEP_INCREMENT_DEG * servo2_dir;
-          servo_set(servo2, servo2_sweep_angle_deg);
-        }
-      }
-      else {
-        servo1_sweep_angle_deg += SWEEP_INCREMENT_DEG * servo1_dir;
-        servo_set(servo1, servo1_sweep_angle_deg);
-      }
+    // if (in_sweep && time_reached(sweep_update_time)) {
+    //   if (servo1_sweep_angle_deg == servo1_sweep_end_deg) {
+    //     // Servo 1 has reached the end, so reverse it.
+    //     servo1_dir *= -1;
+    //     if (servo2_sweep_angle_deg == servo2_sweep_end_deg) {
+    //       // If both servos have reached the end, the sweep is done.
+    //       in_sweep = false;
+    //       // Reverse the direction of Servo 2 for the next time it is used.
+    //       servo2_dir *= -1;
+    //     }
+    //     else {
+    //       uint8_t tmp_angle = servo1_sweep_start_deg;
+    //       servo1_sweep_start_deg = servo1_sweep_end_deg;
+    //       servo1_sweep_end_deg = tmp_angle;
+    //       // Update and move Servo 2.
+    //       servo2_sweep_angle_deg += SWEEP_INCREMENT_DEG * servo2_dir;
+    //       servo_set(servo2, servo2_sweep_angle_deg);
+    //     }
+    //   }
+    //   else {
+    //     servo1_sweep_angle_deg += SWEEP_INCREMENT_DEG * servo1_dir;
+    //     servo_set(servo1, servo1_sweep_angle_deg);
+    //   }
 
-      sweep_update_time = delayed_by_ms(get_absolute_time(), SWEEP_INCREMENT_INTERVAL_MS);
-    }
+    //   sweep_update_time = delayed_by_ms(get_absolute_time(), SWEEP_INCREMENT_INTERVAL_MS);
+    // }
 
-    if ((++servo_loop_counter % 2000000 == 0) && (!in_sweep)) {
-      servo_loop_counter = 1;
+    // if ((++servo_loop_counter % 2000000 == 0) && (!in_sweep)) {
+    //   servo_loop_counter = 1;
 
-      // current_dir *= -1;
-      // if (current_dir == -1) {
-      //   servo_set(servo1, 0);
-      //   servo_set(servo2, 0);
-      //   log_error("0 DEG");
-      // }
-      // else if (current_dir == 1) {
-      //   servo_set(servo1, 180);
-      //   servo_set(servo1, 180);
-      //   log_error("180 DEG");
-      // }
+    //   // current_dir *= -1;
+    //   // if (current_dir == -1) {
+    //   //   servo_set(servo1, 0);
+    //   //   servo_set(servo2, 0);
+    //   //   log_error("0 DEG");
+    //   // }
+    //   // else if (current_dir == 1) {
+    //   //   servo_set(servo1, 180);
+    //   //   servo_set(servo1, 180);
+    //   //   log_error("180 DEG");
+    //   // }
 
-      in_sweep = true;
-      servo1_sweep_start_deg = (servo1_dir == 1) ? 30: 150;
-      servo2_sweep_start_deg = (servo2_dir == 1) ? 30: 150;
-      servo1_sweep_end_deg = (servo1_dir == 1) ? 150: 30;
-      servo2_sweep_end_deg = (servo2_dir == 1) ? 150: 30;
+    //   in_sweep = true;
+    //   servo1_sweep_start_deg = (servo1_dir == 1) ? 30: 150;
+    //   servo2_sweep_start_deg = (servo2_dir == 1) ? 30: 150;
+    //   servo1_sweep_end_deg = (servo1_dir == 1) ? 150: 30;
+    //   servo2_sweep_end_deg = (servo2_dir == 1) ? 150: 30;
 
-      servo1_sweep_angle_deg = servo1_sweep_start_deg;
-      servo2_sweep_angle_deg = servo2_sweep_start_deg;
-      servo_set(servo1, servo1_sweep_angle_deg);
-      servo_set(servo2, servo2_sweep_angle_deg);
-      sweep_update_time = delayed_by_ms(get_absolute_time(), 3*SWEEP_INCREMENT_INTERVAL_MS);
-    }
+    //   servo1_sweep_angle_deg = servo1_sweep_start_deg;
+    //   servo2_sweep_angle_deg = servo2_sweep_start_deg;
+    //   servo_set(servo1, servo1_sweep_angle_deg);
+    //   servo_set(servo2, servo2_sweep_angle_deg);
+    //   sweep_update_time = delayed_by_ms(get_absolute_time(), 3*SWEEP_INCREMENT_INTERVAL_MS);
+    // }
 
     if (emit_loop_perf && ++loop_counter >= 10000) {
       perf.us_per_10000 = absolute_time_diff_us(perf.us_per_10000, get_absolute_time());
