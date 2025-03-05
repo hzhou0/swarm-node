@@ -39,11 +39,17 @@ static inline Servo servo_init(uint pin) { return pwm(pin, SERVO_HZ_MAX); }
 #define SERVO_180_DEG_DUTY_CYCLE_S 0.0023
 #define SERVO_RANGE_DEG 180
 
+#define SERVO_TEST_0_DEG_TICKS 964
+#define SERVO_TEST_180_DEG_TICKS 2250
+
 static inline void servo_set(Servo x, uint16_t deg) {
-  const uint32_t core_clk_hz = clock_get_hz(clk_sys);
-  float duty_cycle = ( (((float) deg) / SERVO_RANGE_DEG) * (SERVO_180_DEG_DUTY_CYCLE_S - SERVO_0_DEG_DUTY_CYCLE_S) ) + SERVO_0_DEG_DUTY_CYCLE_S;
-  uint16_t duty_cycle_ticks = (uint16_t) (duty_cycle * (((float) core_clk_hz) / SERVO_CLK_DIV));
-  pwm_set_chan_level(x.slice, x.channel, duty_cycle_ticks);
+  // const uint32_t core_clk_hz = clock_get_hz(clk_sys);
+  // float duty_cycle = ( (((float) deg) / SERVO_RANGE_DEG) * (SERVO_180_DEG_DUTY_CYCLE_S - SERVO_0_DEG_DUTY_CYCLE_S) ) + SERVO_0_DEG_DUTY_CYCLE_S;
+  // uint16_t duty_cycle_ticks = (uint16_t) (duty_cycle * (((float) core_clk_hz) / SERVO_CLK_DIV));
+  // pwm_set_chan_level(x.slice, x.channel, duty_cycle_ticks);
+
+  uint16_t duty_cycle_ticks = (((float) deg / SERVO_RANGE_DEG) * (SERVO_TEST_180_DEG_TICKS - SERVO_TEST_0_DEG_TICKS)) + SERVO_TEST_0_DEG_TICKS;
+  pwn_set_chan_level(x.slice, x.channel, duty_cycle_ticks);
 }
 
 static inline void servo_idle(Servo x) { pwm_set_chan_level(x.slice, x.channel, 0); }

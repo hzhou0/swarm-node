@@ -184,10 +184,8 @@ enum mutation {
 };
 
 typedef struct ServoDegreesMutation {
-  char right_front[3];
-  char right_back[3];
-  char left_front[3];
-  char left_back[3];
+  char pitch;
+  char yaw;
 } ServoDegreesMutation;
 
 typedef struct MainLoopPerf {

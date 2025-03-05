@@ -97,19 +97,15 @@ class RP2040Exception(Exception):
 
 class ServoDegrees(msgspec.Struct, frozen=True):
     mutation_id: ClassVar[int] = 0
-    right_front: tuple[int, int, int]
-    left_front: tuple[int, int, int]
-    right_back: tuple[int, int, int]
-    left_back: tuple[int, int, int]
+    pitch: int
+    yaw: int
 
     def to_bytes(self) -> bytes:
         return bytes(
             [
                 self.mutation_id,
-                *self.right_front,
-                *self.right_back,
-                *self.left_front,
-                *self.left_back,
+                self.pitch,
+                self.yaw,
             ]
         )
 
