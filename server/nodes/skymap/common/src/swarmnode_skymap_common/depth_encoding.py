@@ -8,7 +8,7 @@ import numpy as np
 import pyrealsense2 as rs
 from numba import guvectorize, float64, uint16, uint8, njit, prange
 
-from swarmnode_skymap_common import GPSPose, rgbd_stream_width
+from swarmnode_skymap_common.gps import GPSPose, rgbd_stream_width
 
 
 class DepthEncoder(Protocol):

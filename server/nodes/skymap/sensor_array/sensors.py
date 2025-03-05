@@ -20,15 +20,13 @@ from msgspec import field
 from pynmeagps import NMEAReader
 from pynmeagps.nmeatypes_core import DE, HX, TM
 
-from depth_encoding import (
-    DepthEncoder,
-    ZhouDepthEncoder,
-)
 from swarmnode_skymap_common import (
     rgbd_stream_width,
     rgbd_stream_height,
     rgbd_stream_framerate,
     GPSPose,
+    DepthEncoder,
+    ZhouDepthEncoder,
 )
 
 

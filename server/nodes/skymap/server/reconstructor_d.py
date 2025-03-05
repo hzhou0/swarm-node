@@ -1,13 +1,9 @@
 import logging
 import sys
 import timeit
-from multiprocessing import connection
-from multiprocessing.shared_memory import SharedMemory
-from multiprocessing.synchronize import Lock
 
 import numpy as np
 import open3d as o3d
-
 from ipc import write_state
 from kernels.skymap.sensor_array.sensors import RGBDStream
 from util import configure_root_logger
@@ -20,12 +16,12 @@ class CameraPose:
 
     def __str__(self):
         return (
-                "Metadata : "
-                + " ".join(map(str, self.metadata))
-                + "\n"
-                + "Pose : "
-                + "\n"
-                + np.array_str(self.pose)
+            "Metadata : "
+            + " ".join(map(str, self.metadata))
+            + "\n"
+            + "Pose : "
+            + "\n"
+            + np.array_str(self.pose)
         )
 
 
@@ -55,27 +51,14 @@ def get_open3d_object_size(obj: o3d.geometry.PointCloud):
     return size
 
 
-_state = None
-_state_mem: SharedMemory | None = None
-_state_lock: Lock | None = None
-
-
-def _commit_state():
-    global _state_mem, _state_lock, _state
-    _state_mem = write_state(_state_mem, _state_lock, _state)
-
-
-def main(state_mem: SharedMemory,
-         state_lock: Lock,
-         pipe: connection.Connection):
-    global _state_mem, _state_lock
-    _state_mem, _state_lock = state_mem, state_lock
+def main():
     configure_root_logger()
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
-    intrinsics = o3d.camera.PinholeCameraIntrinsic(width=1280, height=720, fx=641.162, fy=641.162, cx=639.135,
-                                                   cy=361.356)
+    intrinsics = o3d.camera.PinholeCameraIntrinsic(
+        width=1280, height=720, fx=641.162, fy=641.162, cx=639.135, cy=361.356
+    )
     pcd = None
 
     while True:
@@ -92,11 +75,13 @@ def main(state_mem: SharedMemory,
                 continue
             im1 = o3d.geometry.Image(rgb)
             im2 = o3d.geometry.Image(d)
-            rgbd_img: o3d.geometry.RGBDImage = (o3d.geometry.RGBDImage
-                                                .create_from_color_and_depth(im1, im2,
-                                                                             convert_rgb_to_intensity=False,
-                                                                             depth_scale=1 / RGBDStream.depth_units,
-                                                                             depth_trunc=RGBDStream.max_depth_meters))
+            rgbd_img: o3d.geometry.RGBDImage = o3d.geometry.RGBDImage.create_from_color_and_depth(
+                im1,
+                im2,
+                convert_rgb_to_intensity=False,
+                depth_scale=1 / RGBDStream.depth_units,
+                depth_trunc=RGBDStream.max_depth_meters,
+            )
             if pcd is None:
                 pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_img, intrinsics)
                 vis.add_geometry(pcd)
