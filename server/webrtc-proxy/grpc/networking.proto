@@ -48,11 +48,29 @@ message MediaChannel {
   bool close = 5; // Channel is closed
 }
 
+message Stats {
+  string dest_uuid = 1;
+  double cumulative_rtt = 2;
+  double current_rtt = 3;
+  double outgoing_bitrate = 4;
+  double incoming_bitrate = 5;
+  string protocol = 6;
+  enum ICEType {
+    Unknown = 0;
+    Host = 1;
+    Srflx = 2;
+    Prflx = 3;
+    Relay = 4;
+  }
+  ICEType type = 7;
+}
+
 message Event {
   oneof event{
     DataTransmission data = 1;
     MediaChannel media = 2;
     State achievedState = 3;
+    Stats stats = 4;
   }
 }
 

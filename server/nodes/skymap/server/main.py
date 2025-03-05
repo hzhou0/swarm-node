@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import os
+import sys
 
 import cv2
 import uvloop
 
+from swarmnode_skymap_common import cloudflare_turn
 from webrtc_proxy import (
     webrtc_proxy_client,
     pb,
@@ -44,6 +46,7 @@ async def main(
             ),
         ),
         wantedTracks=[pb.MediaChannel(track=rgbd_track, localhost_port=await port_fut)],
+        config=pb.WebrtcConfig(ice_servers=[await cloudflare_turn()]),
     )
     await mutation_q.put(pb.Mutation(setState=target_state))
     while True:
@@ -54,6 +57,8 @@ async def main(
         elif event_type == "media":
             pass
         elif event_type == "achievedState":
+            pass
+        elif event_type == "stats":
             pass
         else:
             logging.error(event_type)
@@ -68,5 +73,9 @@ async def setup():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO").upper())
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=os.environ.get("LOGLEVEL", "INFO").upper(),
+        format="%(levelname)s %(filename)s:%(lineno)d %(message)s",
+    )
     uvloop.run(setup())

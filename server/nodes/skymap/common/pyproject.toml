@@ -9,6 +9,9 @@ classifiers = [
 
 dependencies = [
     "numpy",
+    "httpx",
+    "pyrealsense2",
+    "numba~=0.60.0",
     "msgspec~=0.19.0",
 ]
 

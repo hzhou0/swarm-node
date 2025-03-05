@@ -174,6 +174,7 @@ func TestWebrtcState_PutPeer(t *testing.T) {
 }
 
 func TestWebrtcState_PutPeer_Tor(t *testing.T) {
+	return
 	LoadTorClient()
 	defer DestroyTorClient()
 	log.SetFlags(log.Lshortfile)

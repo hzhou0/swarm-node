@@ -17,7 +17,7 @@ dependencies = [
     "pyrealsense2~=2.55.1",
     "pynmeagps==1.0.43",
     "google-crc32c>=1",
-    "numba~=0.60.0",
+    "httpx>=0.28.1",
     "rp2040",
     "webrtc-proxy",
     "swarmnode-skymap-common",

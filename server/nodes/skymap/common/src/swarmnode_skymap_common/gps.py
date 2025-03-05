@@ -2,6 +2,7 @@ import logging
 import math
 import struct
 import zlib
+from enum import IntEnum
 from typing import ClassVar, Literal, Self
 
 import msgspec
@@ -20,6 +21,18 @@ class ChecksumMismatchError(Exception):
     pass
 
 
+class GPSQuality(IntEnum):
+    INVALID = 0
+    SINGLE = 1
+    DIFFERENTIAL = 2
+    FIX = 4
+    FLOAT = 5
+    DEAD_RECKONING = 6
+    MANUAL = 7
+    EXTRA_WIDE = 8
+    SBAS = 9
+
+
 class GPSPose(msgspec.Struct):
     epoch_seconds: float
     latitude: float | None = None  # North is positive
@@ -28,6 +41,7 @@ class GPSPose(msgspec.Struct):
     pitch: float | None = None
     roll: float | None = None
     yaw: float | None = None
+    quality: GPSQuality = GPSQuality.INVALID
     byte_length: ClassVar[Literal[44]] = 44
     bit_per_macroblock: ClassVar[int] = 4
     macroblocks_required: ClassVar[int] = byte_length * bit_per_macroblock

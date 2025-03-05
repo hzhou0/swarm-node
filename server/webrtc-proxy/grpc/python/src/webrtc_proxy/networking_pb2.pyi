@@ -9,6 +9,7 @@ from typing import (
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -111,20 +112,72 @@ class MediaChannel(_message.Message):
         close: bool = ...,
     ) -> None: ...
 
+class Stats(_message.Message):
+    __slots__ = (
+        "dest_uuid",
+        "cumulative_rtt",
+        "current_rtt",
+        "outgoing_bitrate",
+        "incoming_bitrate",
+        "protocol",
+        "type",
+    )
+
+    class ICEType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        Unknown: _ClassVar[Stats.ICEType]
+        Host: _ClassVar[Stats.ICEType]
+        Srflx: _ClassVar[Stats.ICEType]
+        Prflx: _ClassVar[Stats.ICEType]
+        Relay: _ClassVar[Stats.ICEType]
+    Unknown: Stats.ICEType
+    Host: Stats.ICEType
+    Srflx: Stats.ICEType
+    Prflx: Stats.ICEType
+    Relay: Stats.ICEType
+    DEST_UUID_FIELD_NUMBER: _ClassVar[int]
+    CUMULATIVE_RTT_FIELD_NUMBER: _ClassVar[int]
+    CURRENT_RTT_FIELD_NUMBER: _ClassVar[int]
+    OUTGOING_BITRATE_FIELD_NUMBER: _ClassVar[int]
+    INCOMING_BITRATE_FIELD_NUMBER: _ClassVar[int]
+    PROTOCOL_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    dest_uuid: str
+    cumulative_rtt: float
+    current_rtt: float
+    outgoing_bitrate: float
+    incoming_bitrate: float
+    protocol: str
+    type: Stats.ICEType
+
+    def __init__(
+        self,
+        dest_uuid: _Optional[str] = ...,
+        cumulative_rtt: _Optional[float] = ...,
+        current_rtt: _Optional[float] = ...,
+        outgoing_bitrate: _Optional[float] = ...,
+        incoming_bitrate: _Optional[float] = ...,
+        protocol: _Optional[str] = ...,
+        type: _Optional[_Union[Stats.ICEType, str]] = ...,
+    ) -> None: ...
+
 class Event(_message.Message):
-    __slots__ = ("data", "media", "achievedState")
+    __slots__ = ("data", "media", "achievedState", "stats")
     DATA_FIELD_NUMBER: _ClassVar[int]
     MEDIA_FIELD_NUMBER: _ClassVar[int]
     ACHIEVEDSTATE_FIELD_NUMBER: _ClassVar[int]
+    STATS_FIELD_NUMBER: _ClassVar[int]
     data: DataTransmission
     media: MediaChannel
     achievedState: State
+    stats: Stats
 
     def __init__(
         self,
         data: _Optional[_Union[DataTransmission, _Mapping]] = ...,
         media: _Optional[_Union[MediaChannel, _Mapping]] = ...,
         achievedState: _Optional[_Union[State, _Mapping]] = ...,
+        stats: _Optional[_Union[Stats, _Mapping]] = ...,
     ) -> None: ...
 
 class WebrtcConfig(_message.Message):
@@ -165,9 +218,7 @@ class WebrtcConfig(_message.Message):
 
         class TorOnionServiceV3(_message.Message):
             __slots__ = ()
-
             def __init__(self) -> None: ...
-
         CLOUDFLARE_AUTH_FIELD_NUMBER: _ClassVar[int]
         ONION_SERVICE_V3_AUTH_FIELD_NUMBER: _ClassVar[int]
         cloudflare_auth: WebrtcConfig.auth.CloudflareZeroTrust
@@ -195,7 +246,6 @@ class WebrtcConfig(_message.Message):
             key: _Optional[str] = ...,
             value: _Optional[_Union[WebrtcConfig.auth, _Mapping]] = ...,
         ) -> None: ...
-
     ICE_SERVERS_FIELD_NUMBER: _ClassVar[int]
     CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     ice_servers: _containers.RepeatedCompositeFieldContainer[WebrtcConfig.IceServer]

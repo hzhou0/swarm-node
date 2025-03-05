@@ -246,6 +246,7 @@ type WebrtcState struct {
 	MediaIn          chan *pb.MediaChannel     // Receive inbound tracks
 	DataOut          chan *pb.DataTransmission // Send outbound data
 	DataIn           chan *pb.DataTransmission // Receive inbound data
+	StatsOut         chan []*pb.Stats
 	ctxCancel        context.CancelFunc
 	Ctx              context.Context
 }
@@ -281,6 +282,7 @@ func NewWebrtcState(config WebrtcStateConfig) (*WebrtcState, error) {
 		BackgroundChange: make(chan struct{}, 1),
 		DataOut:          make(chan *pb.DataTransmission, 100),
 		DataIn:           make(chan *pb.DataTransmission, 100),
+		StatsOut:         make(chan []*pb.Stats, 1),
 		MediaIn:          make(chan *pb.MediaChannel, 10),
 		ctxCancel:        Close,
 		Ctx:              ctx,
@@ -290,6 +292,8 @@ func NewWebrtcState(config WebrtcStateConfig) (*WebrtcState, error) {
 		loop := glib.NewMainLoop(glib.MainContextDefault(), true)
 		go loop.Run()
 		defer loop.Quit()
+		statsTicker := time.NewTicker(5 * time.Second)
+		defer statsTicker.Stop()
 		for {
 			select {
 			case <-r.Ctx.Done():
@@ -303,9 +307,66 @@ func NewWebrtcState(config WebrtcStateConfig) (*WebrtcState, error) {
 					log.Println("Peer does not exist for data send")
 				}
 				r.peersMu.RUnlock()
+			case <-statsTicker.C:
+				log.Printf("starting send stats %s\n", r.SrcUUID)
+				r.peersMu.RLock()
+				var stats []*pb.Stats
+				for destUuid, peer := range r.peers {
+					peer.Lock()
+					activeCandidateId := ""
+					peerStats := pb.Stats{}
+				statIter:
+					for _, t := range peer.pc.GetStats() {
+						switch stat := t.(type) {
+						case webrtc.ICECandidatePairStats:
+							if stat.Nominated {
+								activeCandidateId = stat.RemoteCandidateID
+								peerStats.SetDestUuid(destUuid)
+								peerStats.SetCumulativeRtt(stat.TotalRoundTripTime)
+								peerStats.SetCurrentRtt(stat.CurrentRoundTripTime)
+								peerStats.SetOutgoingBitrate(stat.AvailableOutgoingBitrate)
+								peerStats.SetIncomingBitrate(stat.AvailableIncomingBitrate)
+								break statIter
+							}
+						}
+					}
+				statIter2:
+					for _, t := range peer.pc.GetStats() {
+						switch stat := t.(type) {
+						case webrtc.ICECandidateStats:
+							if stat.Type == webrtc.StatsTypeRemoteCandidate && stat.ID == activeCandidateId {
+								peerStats.SetProtocol(stat.Protocol)
+								switch stat.CandidateType {
+								case webrtc.ICECandidateTypeUnknown:
+									peerStats.SetType(pb.Stats_Unknown)
+								case webrtc.ICECandidateTypeHost:
+									peerStats.SetType(pb.Stats_Host)
+								case webrtc.ICECandidateTypeSrflx:
+									peerStats.SetType(pb.Stats_Srflx)
+								case webrtc.ICECandidateTypePrflx:
+									peerStats.SetType(pb.Stats_Prflx)
+								case webrtc.ICECandidateTypeRelay:
+									peerStats.SetType(pb.Stats_Relay)
+								}
+								break statIter2
+							}
+						}
+					}
+					peer.Unlock()
+					if peerStats.HasDestUuid() {
+						stats = append(stats, &peerStats)
+					}
+				}
+				r.peersMu.RUnlock()
+				log.Printf("Sending stats %s\n", r.SrcUUID)
+				select {
+				case r.StatsOut <- stats:
+				default:
+				}
 			}
 		}
 	}()
+
 	return r, nil
 }
 
@@ -750,7 +811,6 @@ func (peer *WebrtcPeer) incomingPipeline(state *WebrtcState, peerId UUID) {
 		pipeline, err := gst.NewPipelineFromString(pipelineString)
 		if err != nil {
 			panic(err)
-
 		}
 		appEle, err := pipeline.GetElementByName("src")
 		if err != nil {
@@ -776,17 +836,19 @@ func (peer *WebrtcPeer) incomingPipeline(state *WebrtcState, peerId UUID) {
 			Close:         nil,
 		}.Build()
 
-		buf := make([]byte, 1500)
-		for {
-			i, _, readErr := track.Read(buf)
-			if readErr != nil {
-				log.Printf("Error reading track: %v, closing connection\n", readErr)
-				go peer.Fail()
-				break
+		go func() {
+			buf := make([]byte, 1500)
+			for {
+				i, _, readErr := track.Read(buf)
+				if readErr != nil {
+					log.Printf("Error reading track: %v, closing connection\n", readErr)
+					go peer.Fail()
+					break
+				}
+				gstBuffer := gst.NewBufferFromBytes(buf[:i])
+				appSrc.PushBuffer(gstBuffer)
 			}
-			gstBuffer := gst.NewBufferFromBytes(buf[:i])
-			appSrc.PushBuffer(gstBuffer)
-		}
+		}()
 	})
 }
 

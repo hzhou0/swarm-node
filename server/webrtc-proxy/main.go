@@ -132,6 +132,7 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 	}()
 	go func() {
 		lastAchievedState := pb.State_builder{}.Build()
+		latestStats := make([]*pb.Stats, 0)
 		for {
 			ev := pb.Event{}
 			select {
@@ -148,6 +149,15 @@ func (s *webrtcProxyServer) Connect(stream pb.WebrtcProxy_ConnectServer) error {
 				}
 			case <-stream.Context().Done():
 				return
+			case latestStats = <-webrtcState.StatsOut:
+				continue
+			default:
+				if len(latestStats) > 0 {
+					ev.SetStats(latestStats[0])
+					latestStats = latestStats[1:]
+				} else {
+					continue
+				}
 			}
 			err := stream.Send(&ev)
 			if err != nil {
