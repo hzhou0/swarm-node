@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -45,11 +46,37 @@ async def media_write_task(
                         data = await stream.gather_frame_data(gps)
                     except FrameError as e:
                         logging.exception(e)
+                        await mutation_q.put(
+                            pb.Mutation(
+                                data=pb.DataTransmission(
+                                    channel=pb.DataChannel(dest_uuid=skymap_server_url),
+                                    payload=json.dumps(
+                                        {
+                                            "error": repr(e),
+                                        }
+                                    ).encode("utf-8"),
+                                )
+                            )
+                        )
                         stream.destroy()
                         stream = RGBDStream()
                         continue
                     except GPSError as e:
                         logging.exception(e)
+                        await mutation_q.put(
+                            pb.Mutation(
+                                data=pb.DataTransmission(
+                                    channel=pb.DataChannel(dest_uuid=skymap_server_url),
+                                    payload=json.dumps(
+                                        {
+                                            "error": repr(e),
+                                            "position_type": gps.position_type,
+                                            "sat_num": gps.sat_num,
+                                        }
+                                    ).encode("utf-8"),
+                                )
+                            )
+                        )
                         await asyncio.sleep(1)
                         continue
                     frame = stream.depth_encoder.rgbd_to_video_frame(*data)

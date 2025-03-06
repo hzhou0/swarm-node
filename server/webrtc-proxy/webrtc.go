@@ -308,7 +308,6 @@ func NewWebrtcState(config WebrtcStateConfig) (*WebrtcState, error) {
 				}
 				r.peersMu.RUnlock()
 			case <-statsTicker.C:
-				log.Printf("starting send stats %s\n", r.SrcUUID)
 				r.peersMu.RLock()
 				var stats []*pb.Stats
 				for destUuid, peer := range r.peers {
@@ -358,7 +357,6 @@ func NewWebrtcState(config WebrtcStateConfig) (*WebrtcState, error) {
 					}
 				}
 				r.peersMu.RUnlock()
-				log.Printf("Sending stats %s\n", r.SrcUUID)
 				select {
 				case r.StatsOut <- stats:
 				default:
@@ -513,10 +511,7 @@ func (peer *WebrtcPeer) setupDataChannel(offer PeeringOffer, state *WebrtcState)
 			if !ok {
 				return
 			}
-			err := peer.datachannel.Send(trans)
-			if err != nil {
-				panic(err)
-			}
+			_ = peer.datachannel.Send(trans)
 		}
 	}()
 }

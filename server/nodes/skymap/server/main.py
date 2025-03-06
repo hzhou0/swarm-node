@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -20,13 +21,23 @@ async def video_processor(mime_type: str, port_future: asyncio.Future[int]):
         port, pipeline = media
         port_future.set_result(port)
         video_src = await pipeline()
-        while True:
-            try:
+
+        fourcc = cv2.VideoWriter.fourcc(*"XVID")
+        out = cv2.VideoWriter(
+            "output.avi", fourcc, float(video_src.fps), (video_src.width, video_src.height)
+        )
+
+        try:
+            while True:
                 frame = await asyncio.wait_for(video_src.get(), timeout=1)
-                cv2.imshow("Video Frame", cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB))
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB)
+                cv2.imshow("Video Frame", rgb_frame)
+                out.write(rgb_frame)
                 cv2.waitKey(1)
-            except asyncio.TimeoutError:
-                cv2.destroyAllWindows()
+        except asyncio.TimeoutError:
+            cv2.destroyAllWindows()
+        finally:
+            out.release()  # Ensure the writer is released when done
 
 
 async def main(
@@ -53,7 +64,11 @@ async def main(
         event = await event_q.get()
         event_type = event.WhichOneof("event")
         if event_type == "data":
-            pass
+            try:
+                obj = json.loads(event.data.payload)
+                print(json.dumps(obj, indent=2))
+            except json.JSONDecodeError:
+                print(event.data.payload)
         elif event_type == "media":
             pass
         elif event_type == "achievedState":

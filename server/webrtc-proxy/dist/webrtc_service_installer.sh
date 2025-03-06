@@ -2,7 +2,7 @@
 
 SERVICE_NAME="webrtc-proxy"
 BINARY_PATH="./webrtc-proxy"  # Path to your compiled binary
-SERVICE_FILE="./webrtc-proxy.service"  # Path to the service file
+SERVICE_FILE="./WebRTCProxyService.service"  # Path to the service file
 
 # Define paths for installation
 INSTALL_BIN_PATH="/usr/local/bin/$SERVICE_NAME"

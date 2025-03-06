@@ -5,3 +5,4 @@
 **/*.egg-info/**
 server/**/build/**
 server/backend/**/frontend_dist/**
+**/*.avi

@@ -244,7 +244,7 @@ class WTRTK982:
             self._serial = self.connect()
         assert self._serial.writable()
         # USB is on COM3
-        self._serial.write(b"MODE ROVER SURVEY DEFAULT\r\n")  # precision surveying mode
+        self._serial.write(b"MODE UAV SURVEY DEFAULT\r\n")  # precision surveying mode
         self._serial.write(b"GNGGA COM3 0.05\r\n")
         self._serial.write(b"GPHPR COM3 0.05\r\n")
         self._serial.write(b"GPGSA COM3 1\r\n")

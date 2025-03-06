@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/webrtc-proxy
+UMask=0002
 
 # Restart policy
 Restart=on-failure
@@ -18,10 +19,9 @@ KillSignal=SIGTERM
 TimeoutStopSec=30
 
 # Security and runtime configurations
-DynamicUser=yes
+Group=webrtc
 RuntimeDirectory=webrtc-proxy
-RuntimeDirectoryMode=0750
-SupplementaryGroups=webrtc
+RuntimeDirectoryMode=0770
 NoNewPrivileges=yes
 
 [Install]
