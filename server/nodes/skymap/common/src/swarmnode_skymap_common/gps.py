@@ -25,12 +25,12 @@ class GPSQuality(IntEnum):
     INVALID = 0
     SINGLE = 1
     DIFFERENTIAL = 2
-    FIX = 4
-    FLOAT = 5
+    PPS = 3
+    RTK_INT = 4
+    RTK_FLOAT = 5
     DEAD_RECKONING = 6
     MANUAL = 7
-    EXTRA_WIDE = 8
-    SBAS = 9
+    SIMULATOR = 8
 
 
 class GPSPose(msgspec.Struct):

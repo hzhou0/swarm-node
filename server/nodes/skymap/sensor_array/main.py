@@ -3,10 +3,9 @@ import logging
 import os
 import sys
 
-import httpx
 import uvloop
 
-from sensors import RGBDStream, FrameError, GPSError
+from sensors import RGBDStream, FrameError, GPSError, WTRTK982
 from swarmnode_skymap_common import cloudflare_turn
 from webrtc_proxy import webrtc_proxy_client, pb, webrtc_proxy_media_writer
 
@@ -14,13 +13,14 @@ target_state: pb.State | None = None
 
 
 async def media_write_task(
-    stream: RGBDStream,
+    gps: WTRTK982,
     skymap_server_url: str,
     ice_servers: list[pb.WebrtcConfig.IceServer],
     creds: dict[str, pb.WebrtcConfig.auth],
     named_track: pb.NamedTrack,
     mutation_q: asyncio.Queue[pb.Mutation],
 ):
+    stream = RGBDStream()
     while True:
         media_writer, port = webrtc_proxy_media_writer(
             named_track.mime_type,
@@ -42,11 +42,16 @@ async def media_write_task(
             async with media_writer as pipeline:
                 while True:
                     try:
-                        data = await stream.gather_frame_data()
-                    except FrameError:
-                        pass
-                    except GPSError:
-                        pass
+                        data = await stream.gather_frame_data(gps)
+                    except FrameError as e:
+                        logging.exception(e)
+                        stream.destroy()
+                        stream = RGBDStream()
+                        continue
+                    except GPSError as e:
+                        logging.exception(e)
+                        await asyncio.sleep(1)
+                        continue
                     frame = stream.depth_encoder.rgbd_to_video_frame(*data)
                     await pipeline.put(frame)
         except (asyncio.CancelledError, KeyboardInterrupt, SystemExit):
@@ -83,32 +88,6 @@ async def media_retry_task(mutation_q: asyncio.Queue[pb.Mutation], media_failed:
         await asyncio.sleep(5)
 
 
-async def write_rtcm_task(
-    rgbd_track: RGBDVideoStreamTrack, ntrip_username: str, ntrip_password: str
-):
-    auth = httpx.BasicAuth(ntrip_username, ntrip_password)
-    client = httpx.AsyncClient()
-    while True:
-        try:
-            async with client.stream(
-                "GET",
-                url="http://rtk2go.com:2101/AVRIL",
-                auth=auth,
-                headers={
-                    "Ntrip-Version": "Ntrip/2.0",
-                    "User-Agent": "NTRIP pygnssutils/1.1.9",
-                    "Accept": "*/*",
-                    "Connection": "close",
-                },
-            ) as response:
-                async for chunk in response.aiter_bytes():
-                    logging.debug(f"RTCM Data Chunk: {chunk}")
-                    rgbd_track.stream.write_rtcm(chunk)
-        except Exception as e:
-            logging.exception(e)
-        await asyncio.sleep(1)
-
-
 async def setup():
     mutation_q = asyncio.Queue()
     event_q = asyncio.Queue()
@@ -135,16 +114,14 @@ async def setup():
     ntrip_password = os.environ.get("NTRIP_PASSWORD")
     assert ntrip_password is not None, "Environment variable NTRIP_PASSWORD must be set"
 
-    rgbd_stream = RGBDStream()
+    gps = WTRTK982()
 
     ice_server = await cloudflare_turn()
     async with asyncio.TaskGroup() as tg:
-        tg.create_task(write_rtcm_task(rgbd_stream, ntrip_username, ntrip_password))
+        tg.create_task(gps.write_rtcm_task(ntrip_username, ntrip_password))
         tg.create_task(webrtc_proxy_client(mutation_q, event_q))
         tg.create_task(
-            media_write_task(
-                rgbd_stream, skymap_server_url, [ice_server], creds, named_track, mutation_q
-            )
+            media_write_task(gps, skymap_server_url, [ice_server], creds, named_track, mutation_q)
         )
         media_failed = asyncio.Event()
         tg.create_task(process_events_task(event_q, media_failed))
@@ -157,5 +134,4 @@ if __name__ == "__main__":
         level=os.environ.get("LOGLEVEL", "INFO").upper(),
         format="%(levelname)s %(filename)s:%(lineno)d %(message)s",
     )
-    uvloop.run(write_rtcm_task("h285zhou@uwaterloo.ca", "none"))
-    # uvloop.run(setup())
+    uvloop.run(setup())

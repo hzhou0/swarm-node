@@ -3,25 +3,21 @@ import collections
 import datetime
 import logging
 import math
-import numbers
 import os
+import re
 import sys
 import time
 from collections import deque
 from datetime import timezone
 from enum import IntEnum
-from typing import Literal
 
 import cv2
+import httpx
 import pyrealsense2 as rs
 import pyudev
 import serial
 import uvloop
-from msgspec import field
-from pynmeagps import NMEAReader
-from pynmeagps.nmeatypes_core import DE, HX, TM, IN
 
-from leapseconds import utc_to_gps
 from swarmnode_skymap_common import (
     rgbd_stream_width,
     rgbd_stream_height,
@@ -34,39 +30,19 @@ from swarmnode_skymap_common import (
 
 
 class WTRTK982:
-    baud_rate: Literal[b"460800"] = b"460800"
-    board_specific_messages = {
-        "HPR": {
-            "utc": TM,
-            "heading": DE,
-            "pitch": DE,
-            "roll": DE,
-            "QF": IN,
-            "satNo": DE,
-            "age": DE,
-            "stnID": HX,
-        }
-    }
-
     def __init__(self):
         self._serial: serial.Serial | None = None
-        self._nmr: NMEAReader | None = None
+        self.poses: deque[GPSPose] = collections.deque([], maxlen=5)
+        self.speed_ms: float | None = None
+        self.position_type: str = "NONE"
+        self.sat_num: int = 0
         self.configure()
         if self._serial is None:
-            self._serial, self._nmr = self.connect()
+            self._serial = self.connect()
         if "DUMMY_GPS" in os.environ:
             return
-        now = utc_to_gps(datetime.datetime.utcnow())
-        self._serial.write(
-            f"$AIDTIME,{now.year},{now.month},{now.day},{now.hour},{now.minute},{now.second},{round(now.microsecond / 100)},0\r\n".encode(
-                "ascii"
-            )
-        )
         if os.environ.get("AIDPOS"):
             self._serial.write(os.environ["AIDPOS"].strip().encode("ascii") + b"\r\n")
-
-    poses: deque[GPSPose] = field(default_factory=lambda: collections.deque([], maxlen=5))
-    speed_ms: float | None = None
 
     def pull_messages(self):
         if "DUMMY_GPS" in os.environ:
@@ -77,14 +53,14 @@ class WTRTK982:
                     longitude=-7.7783,
                     altitude=52,
                     pitch=0,
-                    quality=GPSQuality.FIX,
+                    quality=GPSQuality.RTK_INT,
                     roll=0,
                     yaw=0,
                 )
             )
             return
-        if self._serial is None or self._nmr is None:
-            self._serial, self._nmr = self.connect()
+        if self._serial is None:
+            self._serial = self.connect()
         try:
             while self._serial.in_waiting:
                 self._pull_message()
@@ -94,40 +70,109 @@ class WTRTK982:
             return
 
     def _pull_message(self):
-        _, parsed_data = self._nmr.read()
-        if not parsed_data:
+        def parse_hhmmss_ss(utc: str):
+            if re.match("\d{6}\.\d\d", utc):
+                return datetime.datetime.combine(
+                    datetime.datetime.now(timezone.utc).date(),
+                    datetime.time(
+                        hour=int(utc[:2]),
+                        minute=int(utc[2:4]),
+                        second=int(utc[4:6]),
+                        microsecond=int(utc[7:9]) * 10000,
+                    ),
+                    tzinfo=timezone.utc,
+                ).timestamp()
+            else:
+                return None
+
+        try:
+            line = self._serial.readline()
+        except UnicodeDecodeError:
             return
-        if parsed_data.msgID == "HPR":
-            time = datetime.datetime.combine(
-                datetime.datetime.now(timezone.utc).date(),
-                parsed_data.utc,
-                tzinfo=timezone.utc,
-            ).timestamp()
+        logging.debug(line)
+        if line.startswith(b"$command"):
+            logging.info(line)
+            return
+        elif line.startswith(b"$"):
+            contents, checksum = line.split(b"*", 1)
+            computed_checksum = 0
+            for c in contents[1:]:
+                computed_checksum ^= c
+            received_checksum = int(checksum[:2].decode("ascii"), 16)
+            if received_checksum != computed_checksum:
+                logging.warning(f"Invalid checksum: {line}, {received_checksum}")
+                return
+        elif line.startswith(b"#"):
+            contents, _ = line.split(b"*", 1)
+        else:
+            logging.warning(f"Invalid message: {line}")
+            return
+        if contents.startswith(b"$GNHPR"):
+            content_str = contents.decode("ascii")
+            _, utc, heading, pitch, roll, QF, *_ = content_str.split(",")
+            time = parse_hhmmss_ss(utc)
+            if time is None:
+                logging.debug(f"Invalid time: {time}")
+                return
             if not self.poses or self.poses[0].epoch_seconds < time:
                 self.poses.appendleft(GPSPose(epoch_seconds=time))
             pose = self.poses[0]
-            pose.yaw = parsed_data.heading
-            pose.pitch = parsed_data.pitch
-            pose.roll = parsed_data.roll
-        elif parsed_data.msgID == "GGA":
-            time = datetime.datetime.combine(
-                datetime.datetime.now(timezone.utc).date(),
-                parsed_data.time,
-                tzinfo=timezone.utc,
-            ).timestamp()
+            try:
+                pose.yaw = float(heading)
+                pose.pitch = float(pitch)
+                pose.roll = float(roll)
+            except ValueError:
+                pose.yaw = None
+                pose.pitch = None
+                pose.roll = None
+        elif contents.startswith(b"$GNGGA"):
+            content_str = contents.decode("ascii")
+            _, utc, lat, lat_dir, lon, lon_dir, qual, sats, _, alt, *_ = content_str.split(",")
+            time = parse_hhmmss_ss(utc)
+            if time is None:
+                logging.debug(f"Invalid time: {time}")
+                return
             if not self.poses or self.poses[0].epoch_seconds < time:
                 self.poses.appendleft(GPSPose(epoch_seconds=time))
             pose = self.poses[0]
-            pose.latitude = parsed_data.lat
-            pose.longitude = parsed_data.lon
-            pose.altitude = parsed_data.alt
-            pose.quality = GPSQuality(parsed_data.QF)
-        elif parsed_data.msgID == "VTG":
-            if isinstance(parsed_data.sogk, numbers.Number):
-                self.speed_ms = parsed_data.sogk * 5 / 18  # km/h to m/s
+            try:
+                if lat_dir == "S":
+                    pose.latitude = -float(lat) / 100
+                elif lat_dir == "N":
+                    pose.latitude = float(lat) / 100
+                else:
+                    raise ValueError
+                if lon_dir == "W":
+                    pose.longitude = -float(lon) / 100
+                elif lon_dir == "E":
+                    pose.longitude = float(lon) / 100
+                else:
+                    raise ValueError
+                pose.altitude = float(alt)
+                pose.quality = GPSQuality(int(qual))
+            except ValueError:
+                pose.latitude = None
+                pose.longitude = None
+                pose.altitude = None
+                pose.quality = GPSQuality.INVALID
+            try:
+                self.sat_num = int(sats)
+            except ValueError:
+                self.sat_num = 0
+        elif contents.startswith(b"$GNVTG"):
+            content_str = contents.decode("ascii")
+            try:
+                speed_over_ground_km = float(content_str.split(",")[7])
+                self.speed_ms = speed_over_ground_km * 5 / 18  # km/h to m/s
+            except ValueError:
+                return
+        elif contents.startswith(b"#RTKSTATUSA"):
+            content_str = contents.decode("ascii")
+            _, body = content_str.split(";")
+            self.position_type = body.split(",")[11]
 
     @classmethod
-    def connect(cls) -> tuple[serial.Serial, NMEAReader] | None:
+    def connect(cls) -> serial.Serial | None:
         if "DUMMY_GPS" in os.environ:
             return None
         try:
@@ -146,7 +191,7 @@ class WTRTK982:
             )
             assert s.is_open
             s.flush()
-            return s, NMEAReader(s, userdefined=cls.board_specific_messages)
+            return s
         except Exception as e:
             logging.exception(e)
         return None
@@ -161,11 +206,33 @@ class WTRTK982:
         finally:
             self._serial = None
 
+    async def write_rtcm_task(self, ntrip_username: str, ntrip_password: str):
+        auth = httpx.BasicAuth(ntrip_username, ntrip_password)
+        client = httpx.AsyncClient()
+        while True:
+            try:
+                async with client.stream(
+                    "GET",
+                    url="http://rtk2go.com:2101/AVRIL",
+                    auth=auth,
+                    headers={
+                        "Ntrip-Version": "Ntrip/2.0",
+                        "User-Agent": "NTRIP pygnssutils/1.1.9",
+                        "Accept": "*/*",
+                        "Connection": "close",
+                    },
+                ) as response:
+                    async for chunk in response.aiter_bytes():
+                        self.write_rtcm(chunk)
+            except Exception as e:
+                logging.exception(e)
+            await asyncio.sleep(1)
+
     def write_rtcm(self, rtcm: bytes):
         if "DUMMY_GPS" in os.environ:
             return
         if self._serial is None:
-            self._serial, self._nmr = self.connect()
+            self._serial = self.connect()
         assert self._serial.writable()
         self._serial.write(rtcm)
         self._serial.flush()
@@ -174,20 +241,23 @@ class WTRTK982:
         if "DUMMY_GPS" in os.environ:
             return
         if self._serial is None:
-            self._serial, self._nmr = self.connect()
+            self._serial = self.connect()
         assert self._serial.writable()
         # USB is on COM3
         self._serial.write(b"MODE ROVER SURVEY DEFAULT\r\n")  # precision surveying mode
         self._serial.write(b"GNGGA COM3 0.05\r\n")
         self._serial.write(b"GPHPR COM3 0.05\r\n")
+        self._serial.write(b"GPGSA COM3 1\r\n")
         self._serial.write(b"GPVTG COM3 1\r\n")
+        self._serial.write(b"RTKSTATUSA COM3 1\r\n")
+        self._serial.write(b"CONFIG HEADING FIXLENGTH\r\n")
         self._serial.write(b"SAVECONFIG\r\n")
 
     def reset(self):
         if "DUMMY_GPS" in os.environ:
             return
         if self._serial is None:
-            self._serial, self._nmr = self.connect()
+            self._serial = self.connect()
         assert self._serial.writable()
         self._serial.write(b"FRESET\r\n")
 
@@ -266,9 +336,10 @@ class RGBDStream:
     async def gather_frame_data(self, gps: WTRTK982) -> tuple[rs.frame, rs.frame, GPSPose]:
         frame_i = 0
         depth, color = None, None
-        early = time.time() < self.creation_time + 5
-        while frame_i < self.frame_quotient or (early and not (depth and color)):
-            frames = await asyncio.to_thread(self.pipeline.poll_for_frames)
+        if time.time() < self.creation_time + 5:
+            await asyncio.sleep(self.creation_time + 5 - time.time())
+        while frame_i < self.frame_quotient:
+            frames = await asyncio.to_thread(self.pipeline.wait_for_frames)
             _depth, _color = frames.get_depth_frame(), frames.get_color_frame()
             if _depth and _color:
                 depth, color = _depth, _color
@@ -292,7 +363,7 @@ class RGBDStream:
                 min_td = td
             if p.epoch_seconds <= frame_time:
                 break
-        if pose.quality != GPSQuality.FIX:
+        if pose.quality not in {GPSQuality.RTK_INT}:
             raise GPSError(f"Bad GPS Fix Type {pose.quality.name}")
         # todo: synchronization mechanism improvement
         # https://dev.intelrealsense.com/docs/depth-image-compression-by-colorization-for-intel-realsense-depth-cameras
@@ -302,13 +373,26 @@ class RGBDStream:
 
 
 if __name__ == "__main__":
-    os.environ["DUMMY_GPS"] = "1"
+
+    async def gps_test():
+        os.environ["AIDPOS"] = "$AIDPOS,43.475721,N,08056.061653,W,382.173*"
+        logging.basicConfig(level=logging.INFO)
+        gps = WTRTK982()
+        asyncio.create_task(gps.write_rtcm_task("h285zhou@uwaterloo.ca", "none"))
+        while True:
+            gps.pull_messages()
+            await asyncio.sleep(1)
+            print(gps.position_type)
+            if gps.poses:
+                print(gps.poses[0])
+        gps.disconnect()
 
     async def main():
         stream = RGBDStream()
-        now = time.time()
-        while time.time() < now + 50:
-            data = await stream.gather_frame_data(gps=WTRTK982())
+        gps = WTRTK982()
+        asyncio.create_task(gps.write_rtcm_task("h285zhou@uwaterloo.ca", "none"))
+        while True:
+            data = await stream.gather_frame_data(gps=gps)
             if data is None:
                 continue
             rgd, depth, pose = data
