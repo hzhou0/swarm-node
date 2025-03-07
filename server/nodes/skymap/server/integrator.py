@@ -18,7 +18,7 @@ class Chunk:
 
 
 class ReconstructionVolume:
-    IMAGE_THRESHOLD = 1000
+    IMAGE_THRESHOLD = 3000
     IN_MEMORY_CHUNKS = 3000
     CHUNK_SIZE = 5
     VOXEL_SIZE = 0.02
@@ -78,15 +78,16 @@ class ReconstructionVolume:
 
     @classmethod
     def combine_pcd(
-        cls, source: o3d.geometry.PointCloud, target: o3d.geometry.PointCloud
+        cls,
+        box: o3d.geometry.AxisAlignedBoundingBox,
+        source: o3d.geometry.PointCloud,
+        target: o3d.geometry.PointCloud,
     ) -> o3d.geometry.PointCloud:
         result_icp = cls.pt2pt_pcd_combine(source, target)
 
-        target_box: o3d.geometry.AxisAlignedBoundingBox = target.get_axis_aligned_bounding_box()
         if result_icp:
             source: o3d.geometry.PointCloud = source.transform(result_icp.transformation)
-            source: o3d.geometry.PointCloud = source.crop(target_box)
-            combined: o3d.geometry.PointCloud = source + target
+            combined: o3d.geometry.PointCloud = (source + target).crop(box)
         else:
             if np.asarray(target.points).size > np.asarray(source.points).size:
                 combined = target
@@ -190,7 +191,10 @@ class ReconstructionVolume:
 
         logging.debug(f"MIN X: {rounded_mins[0]}, MAX X: {rounded_maxes[0]}")
 
-        def process_sliced_point_cloud(cropped_points: o3d.geometry.PointCloud, _x, _y, _z):
+        def process_sliced_point_cloud(
+            pc: o3d.geometry.PointCloud, box: o3d.geometry.AxisAlignedBoundingBox, _x, _y, _z
+        ):
+            cropped_points = pc.crop(box)
             cropped_array = np.asarray(cropped_points.points)
             if not (cropped_array.size and cropped_array.ndim):
                 return
@@ -198,7 +202,7 @@ class ReconstructionVolume:
             chunk = self.chunks.get((_x, _y, _z), None)
             if chunk is not None:
                 with chunk.lock:
-                    chunk.pcd = self.combine_pcd(cropped_points, chunk.pcd)
+                    chunk.pcd = self.combine_pcd(box, cropped_points, chunk.pcd)
                     logging.debug(f"combined in memory {chunk}")
             else:
                 pcd_file = self._file_for_pcd((_x, _y, _z))
@@ -208,7 +212,7 @@ class ReconstructionVolume:
                     old_chunk: o3d.geometry.PointCloud = o3d.io.read_point_cloud(pcd_file)
                     if not old_chunk.has_points():
                         raise FileNotFoundError
-                    chunk = Chunk(self.combine_pcd(cropped_points, old_chunk))
+                    chunk = Chunk(self.combine_pcd(box, cropped_points, old_chunk))
                     logging.debug(f"combined from disk {chunk}")
                 except FileNotFoundError:
                     chunk = Chunk(cropped_points)
@@ -235,7 +239,7 @@ class ReconstructionVolume:
                                 ]
                             ),
                         )
-                        exe.submit(process_sliced_point_cloud, pc.crop(box), x, y, z)
+                        exe.submit(process_sliced_point_cloud, pc, box, x, y, z)
         logging.debug("done slicing point cloud")
 
     async def process_pcd_task(self):
