@@ -87,7 +87,7 @@ async def video_processor(
 
         try:
             while True:
-                frame = await asyncio.wait_for(video_src.get(), timeout=1)
+                frame = await asyncio.wait_for(video_src.get(), timeout=5)
                 await frame_queue.put(frame)
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB)
                 cv2.imshow("Video Frame", rgb_frame)
@@ -105,9 +105,11 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray]):
     volume.start_visualization()
     coord = ENUCoordinateSystem()
     try:
+        i = 0
         while True:
+            await asyncio.sleep(0.01)
             frame = await frame_queue.get()
-            rgb, d, gps = decoder.video_frame_to_rgbd(frame)
+            rgb, d, gps = decoder.video_frame_to_rgbd(frame.copy())
             if gps is None:
                 logging.warning("No GPS data")
                 continue
@@ -126,6 +128,8 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray]):
             x, y, z = cartesian.item(0), cartesian.item(1), cartesian.item(2)
             extrinsic = create_transformation_matrix(y, x, z, gps.pitch, gps.roll, gps.yaw)
             await volume.add_image(rgbd, extrinsic)
+            logging.debug(f"integrated image {i}")
+            i += 1
     finally:
         await volume.close()
 
@@ -137,7 +141,9 @@ async def main(
 ):
     rgbd_track = pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265")
     port_fut = asyncio.Future()
-    tg.create_task(video_processor(rgbd_track.mime_type, port_fut))
+    frame_queue = asyncio.Queue(maxsize=100)
+    tg.create_task(video_processor(rgbd_track.mime_type, port_fut, frame_queue))
+    tg.create_task(reconstructor(frame_queue))
     target_state = pb.State(
         httpServerConfig=pb.HttpServer(
             address="localhost:11510",
@@ -164,7 +170,8 @@ async def main(
         elif event_type == "achievedState":
             pass
         elif event_type == "stats":
-            pass
+            if event.stats.type == pb.Stats.ICEType.Relay:
+                logging.warning("Connected over TURN relay (higher latency)")
         else:
             logging.error(event_type)
 

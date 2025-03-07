@@ -213,6 +213,9 @@ class WTRTK982:
         auth = httpx.BasicAuth(ntrip_username, ntrip_password)
         client = httpx.AsyncClient()
         while True:
+            if "DUMMY_GPS" in os.environ:
+                await asyncio.sleep(1)
+                continue
             try:
                 async with client.stream(
                     "GET",
@@ -227,6 +230,8 @@ class WTRTK982:
                 ) as response:
                     async for chunk in response.aiter_bytes():
                         self.write_rtcm(chunk)
+            except httpx.HTTPError:
+                logging.error("RTK stream timed out")
             except Exception as e:
                 logging.exception(e)
             await asyncio.sleep(1)
