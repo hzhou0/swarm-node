@@ -20,10 +20,9 @@ class Chunk:
 class ReconstructionVolume:
     IMAGE_THRESHOLD = 1000
     IN_MEMORY_CHUNKS = 3000
-    CHUNK_SIZE = 4
+    CHUNK_SIZE = 5
     VOXEL_SIZE = 0.02
-    #  INTRINSICS = o3d.camera.PinholeCameraIntrinsic(848, 480, 424.770, 424.770, 423.427, 240.898)
-    INTRINSICS = o3d.camera.PinholeCameraIntrinsic(o3d.camera.PrimeSenseDefault)
+    INTRINSICS = o3d.camera.PinholeCameraIntrinsic(848, 480, 424.770, 424.770, 423.427, 240.898)
 
     def __init__(self, output: Path):
         self.volume = o3d.pipelines.integration.ScalableTSDFVolume(
@@ -37,19 +36,91 @@ class ReconstructionVolume:
         self.active = True
         self.process_pcd_task_alive = asyncio.Event()
         self.write_to_disk_task_alive = asyncio.Event()
+        self.vis_task_alive = False
         if not output.exists():
             output.mkdir(exist_ok=True, parents=True)
         assert output.is_dir()
         self.output = output
+        self.vis = o3d.visualization.Visualizer()
+        asyncio.create_task(self.process_pcd_task())
+        asyncio.create_task(self.write_to_disk_task())
+
+    def start_visualization(self):
+        if self.vis_task_alive:
+            return
+        self.vis_task_alive = True
+        self.vis.create_window()
+        asyncio.create_task(self.vis_task())
+
+    async def vis_task(self):
+        async def rerender():
+            while self.active:
+                self.vis.poll_events()
+                self.vis.update_renderer()
+                await asyncio.sleep(0.01)
+
+        asyncio.create_task(rerender())
+        pcd = None
+        once = True
+        while self.active:
+            last_pcd = pcd
+            pcd = await asyncio.to_thread(self.volume.extract_point_cloud)
+            if once:
+                reset = True
+                once = False
+            else:
+                reset = False
+            self.vis.remove_geometry(last_pcd, reset_bounding_box=reset)
+            self.vis.add_geometry(pcd, reset_bounding_box=reset)
+            self.vis.update_renderer()
+            await asyncio.sleep(0.1)
+        self.vis.destroy_window()
 
     @classmethod
     def combine_pcd(
         cls, source: o3d.geometry.PointCloud, target: o3d.geometry.PointCloud
     ) -> o3d.geometry.PointCloud:
+        result_icp = cls.pt2pt_pcd_combine(source, target)
+
+        target_box: o3d.geometry.AxisAlignedBoundingBox = target.get_axis_aligned_bounding_box()
+        if result_icp:
+            source: o3d.geometry.PointCloud = source.transform(result_icp.transformation)
+            source: o3d.geometry.PointCloud = source.crop(target_box)
+            combined: o3d.geometry.PointCloud = source + target
+        else:
+            if np.asarray(target.points).size > np.asarray(source.points).size:
+                combined = target
+            else:
+                combined = source
+            logging.debug("failed to combine")
+        combine, _ = combined.remove_statistical_outlier(16, 3)
+        return combined.voxel_down_sample(voxel_size=cls.VOXEL_SIZE)
+
+    @classmethod
+    def pt2pt_pcd_combine(cls, source, target):
+        result_icp: o3d.pipelines.registration.RegistrationResult
+        try:
+            result_icp = o3d.pipelines.registration.registration_icp(
+                source,
+                target,
+                max_correspondence_distance=1,
+                estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane(
+                    o3d.pipelines.registration.TukeyLoss(cls.VOXEL_SIZE / 2)
+                ),
+                criteria=o3d.pipelines.registration.ICPConvergenceCriteria(
+                    relative_fitness=1e-8, relative_rmse=1e-8, max_iteration=3000
+                ),
+            )
+            return result_icp
+        except:
+            return None
+
+    @classmethod
+    def colored_pcd_combine(cls, source, target):
+        result_icp: o3d.pipelines.registration.RegistrationResult | None = None
         voxel_radius = [cls.VOXEL_SIZE, cls.VOXEL_SIZE / 2, cls.VOXEL_SIZE / 4]
         max_iter = [50, 30, 14]
         current_transformation = np.identity(4)
-        result_icp: o3d.pipelines.registration.RegistrationResult | None = None
         for scale in range(3):
             i = max_iter[scale]
             radius = voxel_radius[scale]
@@ -72,23 +143,15 @@ class ReconstructionVolume:
                         current_transformation,
                         o3d.pipelines.registration.TransformationEstimationForColoredICP(),
                         o3d.pipelines.registration.ICPConvergenceCriteria(
-                            relative_fitness=1e-6, relative_rmse=1e-6, max_iteration=i
+                            relative_fitness=1e-4, relative_rmse=1e-4, max_iteration=i
                         ),
                     )
                 )
             except Exception as e:
                 break
+        return result_icp
 
-        target_box: o3d.geometry.AxisAlignedBoundingBox = target.get_axis_aligned_bounding_box()
-        if result_icp and result_icp.fitness > 0.95:
-            source: o3d.geometry.PointCloud = source.transform(result_icp.transformation)
-        source: o3d.geometry.PointCloud = source.crop(target_box)
-        combined: o3d.geometry.PointCloud = source + target
-        return combined.voxel_down_sample(voxel_size=cls.VOXEL_SIZE)
-
-    async def add_image(
-        self, rgbd_image: o3d.geometry.RGBDImage, extrinsic: np.ndarray[np.float64]
-    ):
+    async def add_image(self, rgbd_image: o3d.geometry.RGBDImage, extrinsic: np.ndarray):
         if not self.active:
             return
         try:
@@ -105,7 +168,7 @@ class ReconstructionVolume:
         logging.info("reconstructor roll over")
         start = time.time()
         pc = self.volume.extract_point_cloud()
-        print(time.time() - start)
+        logging.info(f"rollover time:{time.time() - start}")
         await self.pcd_queue.put(pc)
         self.num_images = 0
         self.volume.reset()
@@ -262,16 +325,17 @@ def read_trajectory(filename):
 
 
 async def main():
+    output_dir = Path(__file__).parent / "data"
     logging.basicConfig(level=logging.DEBUG)
     lounge_rgbd = o3d.data.LoungeRGBDImages()
     camera_poses = read_trajectory(lounge_rgbd.trajectory_log_path)
 
-    output_dir = Path(__file__).parent / "data"
+    ReconstructionVolume.INTRINSICS = o3d.camera.PinholeCameraIntrinsic(
+        o3d.camera.PinholeCameraIntrinsicParameters.PrimeSenseDefault
+    )
     volume = ReconstructionVolume(output_dir)
-    asyncio.create_task(volume.process_pcd_task())
-    asyncio.create_task(volume.write_to_disk_task())
+    volume.start_visualization()
     for i in range(len(camera_poses) - 1):
-        print("Integrate {:d}-th total image.".format(i))
         color = o3d.io.read_image(lounge_rgbd.color_paths[i])
         depth = o3d.io.read_image(lounge_rgbd.depth_paths[i])
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
@@ -290,17 +354,36 @@ async def main():
         up=[-0.0694, -0.9768, 0.2024],
     )
 
+    # Convert point clouds into meshes
+    combined = o3d.geometry.PointCloud()
+    for sample in samples:
+        combined += sample
+    combined.estimate_normals()
+    mesh: o3d.geometry.TriangleMesh
+    mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(combined, depth=9)
+    mesh.remove_vertices_by_mask(densities < np.quantile(densities, 0.02))
+
+    # Visualize the generated meshes
+    o3d.visualization.draw_geometries(
+        [mesh],
+        zoom=0.3412,
+        front=[0.4257, -0.2125, -0.8795],
+        lookat=[2.6172, 2.0475, 1.532],
+        up=[-0.0694, -0.9768, 0.2024],
+    )
+
+    mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
+        combined, o3d.utility.DoubleVector([0.005, 0.01, 0.02, 0.04, 0.08])
+    )
+
+    o3d.visualization.draw_geometries(
+        [mesh],
+        zoom=0.3412,
+        front=[0.4257, -0.2125, -0.8795],
+        lookat=[2.6172, 2.0475, 1.532],
+        up=[-0.0694, -0.9768, 0.2024],
+    )
+
 
 if __name__ == "__main__":
     asyncio.run(main())
-    # def file_for_pcd(output, index: tuple[int, int, int]) -> str:
-    #     return (output / f"chunk_{index[0]}_{index[1]}_{index[2]}.ply").absolute().as_posix()
-
-    # sample = o3d.io.read_point_cloud(file_for_pcd(Path(__file__).parent / "data", (-10, 0, 0)))
-    # o3d.visualization.draw_geometries(
-    #     [sample],
-    #     zoom=0.3412,
-    #     front=[0.4257, -0.2125, -0.8795],
-    #     lookat=[2.6172, 2.0475, 1.532],
-    #     up=[-0.0694, -0.9768, 0.2024],
-    # )

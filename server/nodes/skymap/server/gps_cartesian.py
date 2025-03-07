@@ -49,6 +49,9 @@ class ENUCoordinateSystem:
         self.zZero = None
         self.R = np.asmatrix(np.eye(3))
 
+    def has_origin(self):
+        return self.latZero is not None
+
     def set_enu_origin(self, lat, lon, height):
         # Save origin lat, lon, height
         self.latZero = lat

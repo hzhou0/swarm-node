@@ -13,6 +13,10 @@ rgbd_stream_width = 848
 rgbd_stream_height = 480
 rgbd_stream_framerate = 5
 macroblock_size = 5
+min_depth_meters = 0.15
+max_depth_meters = 6.0
+depth_units = 0.0001  # 0 – 6.5535 meters
+
 
 _max_height_blocks = rgbd_stream_height // macroblock_size
 
@@ -159,7 +163,8 @@ class GPSPose(msgspec.Struct):
         )
         if clear_macroblocks:
             frame[
-                : GPSPose.height_blocks * macroblock_size, : GPSPose.width_blocks * macroblock_size
+                : GPSPose.height_blocks * macroblock_size,
+                : GPSPose.width_blocks * macroblock_size,
             ] = 0
         return ret
 

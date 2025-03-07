@@ -3,11 +3,23 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
 
 import cv2
+import numpy as np
+import open3d as o3d
 import uvloop
+from scipy.spatial.transform import Rotation
 
-from swarmnode_skymap_common import cloudflare_turn
+from gps_cartesian import ENUCoordinateSystem
+from integrator import ReconstructionVolume
+from swarmnode_skymap_common import (
+    cloudflare_turn,
+    ZhouDepthEncoder,
+    depth_units,
+    min_depth_meters,
+    max_depth_meters,
+)
 from webrtc_proxy import (
     webrtc_proxy_client,
     pb,
@@ -15,7 +27,53 @@ from webrtc_proxy import (
 )
 
 
-async def video_processor(mime_type: str, port_future: asyncio.Future[int]):
+def create_transformation_matrix(
+    x: float, y: float, z: float, pitch: float, roll: float, yaw: float, degrees=True
+):
+    """
+    Creates a 4x4 transformation matrix (extrinsic matrix) from translation and Euler angles.
+
+    Parameters:
+        :param x
+        :param y
+        :param z
+            Translation components.
+        :param pitch
+        :param roll
+        :param yaw
+            Euler angles representing rotations around the axes.
+        :param degrees
+            If True, the provided angles are in degrees.
+
+    Returns:
+        extrinsic : numpy.ndarray
+            4x4 transformation (extrinsic) matrix.
+    """
+
+    # Define the Euler angle order.
+    # The choice of order ('xyz', 'zyx', etc.) depends on your application's convention.
+    # In this example, we assume that the rotation is applied in the 'zyx' order:
+    # first yaw (around Z), then pitch (around Y), then roll (around X).
+    rotation = Rotation.from_euler("zyx", [yaw, pitch, roll], degrees=degrees)
+
+    # Get the rotation matrix (3x3)
+    R_mat = rotation.as_matrix()
+
+    # Create the 4x4 transformation matrix initialized to identity
+    extrinsic = np.eye(4)
+
+    # Insert the rotation into the 3x3 upper-left submatrix
+    extrinsic[:3, :3] = R_mat
+
+    # Insert the translation vector into the matrix (last column)
+    extrinsic[:3, 3] = np.array([x, y, z])
+
+    return extrinsic
+
+
+async def video_processor(
+    mime_type: str, port_future: asyncio.Future[int], frame_queue: asyncio.Queue[np.ndarray]
+):
     media_reader = webrtc_proxy_media_reader(mime_type)
     async with media_reader as media:
         port, pipeline = media
@@ -30,6 +88,7 @@ async def video_processor(mime_type: str, port_future: asyncio.Future[int]):
         try:
             while True:
                 frame = await asyncio.wait_for(video_src.get(), timeout=1)
+                await frame_queue.put(frame)
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB)
                 cv2.imshow("Video Frame", rgb_frame)
                 out.write(rgb_frame)
@@ -38,6 +97,37 @@ async def video_processor(mime_type: str, port_future: asyncio.Future[int]):
             cv2.destroyAllWindows()
         finally:
             out.release()  # Ensure the writer is released when done
+
+
+async def reconstructor(frame_queue: asyncio.Queue[np.ndarray]):
+    decoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
+    volume = ReconstructionVolume(Path(__file__).parent / "data")
+    volume.start_visualization()
+    coord = ENUCoordinateSystem()
+    try:
+        while True:
+            frame = await frame_queue.get()
+            rgb, d, gps = decoder.video_frame_to_rgbd(frame)
+            if gps is None:
+                logging.warning("No GPS data")
+                continue
+            rgb_img = o3d.geometry.Image(np.ascontiguousarray(rgb))
+            d_img = o3d.geometry.Image(np.ascontiguousarray(d))
+            rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
+                rgb_img,
+                d_img,
+                depth_scale=1 / depth_units,
+                depth_trunc=max_depth_meters,
+                convert_rgb_to_intensity=False,
+            )
+            if not coord.has_origin():
+                coord.set_enu_origin(gps.latitude, gps.longitude, gps.altitude)
+            cartesian = coord.gps2enu(gps.latitude, gps.longitude, gps.altitude)
+            x, y, z = cartesian.item(0), cartesian.item(1), cartesian.item(2)
+            extrinsic = create_transformation_matrix(y, x, z, gps.pitch, gps.roll, gps.yaw)
+            await volume.add_image(rgbd, extrinsic)
+    finally:
+        await volume.close()
 
 
 async def main(

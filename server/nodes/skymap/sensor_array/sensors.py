@@ -26,6 +26,9 @@ from swarmnode_skymap_common import (
     DepthEncoder,
     ZhouDepthEncoder,
     GPSQuality,
+    min_depth_meters,
+    max_depth_meters,
+    depth_units,
 )
 
 
@@ -277,9 +280,6 @@ class RGBDStream:
 
     device_fps = 60
     preset: Preset = Preset.HIGH_ACCURACY_PRESET
-    depth_units = 0.0001  # 0 – 6.5535 meters
-    min_depth_meters: float = 0.15
-    max_depth_meters: float = 6
     depth_encoder: DepthEncoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
 
     def __init__(self):
@@ -300,7 +300,7 @@ class RGBDStream:
         for s in sensors:
             if s.is_depth_sensor():
                 s.set_option(rs.option.visual_preset, self.preset)
-                s.set_option(rs.option.depth_units, self.depth_units)
+                s.set_option(rs.option.depth_units, depth_units)
                 s.set_option(rs.option.enable_auto_exposure, 1)
             elif s.is_color_sensor():
                 s.set_option(rs.option.enable_auto_exposure, 1)
@@ -319,7 +319,7 @@ class RGBDStream:
             self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
         )
         # Filters
-        self.filter_threshold = rs.threshold_filter(self.min_depth_meters, self.max_depth_meters)
+        self.filter_threshold = rs.threshold_filter(min_depth_meters, max_depth_meters)
         self.filter_spatial = rs.spatial_filter()
         self.filter_spatial.set_option(rs.option.filter_magnitude, 5)
         self.filter_spatial.set_option(rs.option.filter_smooth_alpha, 0.25)
