@@ -34,9 +34,7 @@ async def media_write_task(
         target_state = pb.State(
             config=pb.WebrtcConfig(ice_servers=ice_servers, credentials=creds),
             data=[pb.DataChannel(dest_uuid=skymap_server_url)],
-            media=[
-                pb.MediaChannel(dest_uuid=skymap_server_url, track=named_track, localhost_port=port)
-            ],
+            media=[pb.MediaChannel(dest_uuid=skymap_server_url, track=named_track, localhost_port=port)],
         )
         await mutation_q.put(pb.Mutation(setState=target_state))
         try:
@@ -122,13 +120,9 @@ async def setup():
     skymap_server_url = os.environ.get("SKYMAP_SERVER_URL")
     assert skymap_server_url is not None, "Environment variable SKYMAP_SERVER_URL must be set"
     skymap_server_client_id = os.environ.get("SKYMAP_SERVER_CLIENT_ID")
-    assert (
-        skymap_server_client_id is not None
-    ), "Environment variable SKYMAP_SERVER_CLIENT_ID must be set"
+    assert skymap_server_client_id is not None, "Environment variable SKYMAP_SERVER_CLIENT_ID must be set"
     skymap_server_client_secret = os.environ.get("SKYMAP_SERVER_CLIENT_SECRET")
-    assert (
-        skymap_server_client_secret is not None
-    ), "Environment variable SKYMAP_SERVER_CLIENT_SECRET must be set"
+    assert skymap_server_client_secret is not None, "Environment variable SKYMAP_SERVER_CLIENT_SECRET must be set"
     creds = {
         skymap_server_url: pb.WebrtcConfig.auth(
             cloudflare_auth=pb.WebrtcConfig.auth.CloudflareZeroTrust(
@@ -147,15 +141,16 @@ async def setup():
     async with asyncio.TaskGroup() as tg:
         tg.create_task(gps.write_rtcm_task(ntrip_username, ntrip_password))
         tg.create_task(webrtc_proxy_client(mutation_q, event_q))
-        tg.create_task(
-            media_write_task(gps, skymap_server_url, [ice_server], creds, named_track, mutation_q)
-        )
+        tg.create_task(media_write_task(gps, skymap_server_url, [ice_server], creds, named_track, mutation_q))
         media_failed = asyncio.Event()
         tg.create_task(process_events_task(event_q, media_failed))
         tg.create_task(media_retry_task(mutation_q, media_failed))
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv()
     logging.basicConfig(
         stream=sys.stdout,
         level=os.environ.get("LOGLEVEL", "INFO").upper(),

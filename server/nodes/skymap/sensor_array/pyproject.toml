@@ -21,6 +21,7 @@ dependencies = [
     "rp2040",
     "webrtc-proxy",
     "swarmnode-skymap-common",
+    "python-dotenv>=1.0.1",
 ]
 
 [tool.uv.sources]
