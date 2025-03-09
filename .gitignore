@@ -6,3 +6,5 @@
 server/**/build/**
 server/backend/**/frontend_dist/**
 **/*.avi
+**/*.pcd
+**/*.ply

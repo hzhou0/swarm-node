@@ -15,6 +15,8 @@ dependencies = [
     "webrtc-proxy",
     "swarmnode-skymap-common",
     "opencv-python>=4.11.0.86",
+    "textual>=2.1.2",
+    "python-dotenv>=1.0.1",
 ]
 
 [tool.uv.sources]
@@ -24,4 +26,5 @@ swarmnode-skymap-common = { path = "../common", editable = true }
 [dependency-groups]
 dev = [
     "mypy>=1.15.0",
+    "textual-dev>=1.7.0",
 ]

@@ -19,6 +19,7 @@ SOFTWARE.
 """
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 
 class ENUCoordinateSystem:
@@ -163,3 +164,45 @@ if __name__ == "__main__":
     coord.set_enu_origin(45.0, 135.0, 0.0)
     print(coord.gps2enu(45.0, 135.0, 0.0))
     print(coord.gps2enu(45, 135, 1.0))
+
+
+def create_transformation_matrix(x: float, y: float, z: float, pitch: float, roll: float, yaw: float, degrees=True):
+    """
+    Creates a 4x4 transformation matrix (extrinsic matrix) from translation and Euler angles.
+
+    Parameters:
+        :param x
+        :param y
+        :param z
+            Translation components.
+        :param pitch
+        :param roll
+        :param yaw
+            Euler angles representing rotations around the axes.
+        :param degrees
+            If True, the provided angles are in degrees.
+
+    Returns:
+        extrinsic : numpy.ndarray
+            4x4 transformation (extrinsic) matrix.
+    """
+
+    # Define the Euler angle order.
+    # The choice of order ('xyz', 'zyx', etc.) depends on your application's convention.
+    # In this example, we assume that the rotation is applied in the 'zyx' order:
+    # first yaw (around Z), then pitch (around Y), then roll (around X).
+    rotation = Rotation.from_euler("zyx", [yaw, pitch, roll], degrees=degrees)
+
+    # Get the rotation matrix (3x3)
+    R_mat = rotation.as_matrix()
+
+    # Create the 4x4 transformation matrix initialized to identity
+    extrinsic = np.eye(4)
+
+    # Insert the rotation into the 3x3 upper-left submatrix
+    extrinsic[:3, :3] = R_mat
+
+    # Insert the translation vector into the matrix (last column)
+    extrinsic[:3, 3] = np.array([x, y, z])
+
+    return extrinsic

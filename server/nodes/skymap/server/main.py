@@ -1,17 +1,18 @@
 import asyncio
+import datetime
 import json
 import logging
 import os
-import sys
+import time
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import cv2
 import numpy as np
 import open3d as o3d
 import uvloop
-from scipy.spatial.transform import Rotation
 
-from gps_cartesian import ENUCoordinateSystem
+from gps_cartesian import ENUCoordinateSystem, create_transformation_matrix
 from integrator import ReconstructionVolume
 from swarmnode_skymap_common import (
     cloudflare_turn,
@@ -20,6 +21,7 @@ from swarmnode_skymap_common import (
     min_depth_meters,
     max_depth_meters,
 )
+from tui import ScanStateStatus, ScanState, SkymapScanTui
 from webrtc_proxy import (
     webrtc_proxy_client,
     pb,
@@ -27,91 +29,59 @@ from webrtc_proxy import (
 )
 
 
-def create_transformation_matrix(
-    x: float, y: float, z: float, pitch: float, roll: float, yaw: float, degrees=True
-):
-    """
-    Creates a 4x4 transformation matrix (extrinsic matrix) from translation and Euler angles.
-
-    Parameters:
-        :param x
-        :param y
-        :param z
-            Translation components.
-        :param pitch
-        :param roll
-        :param yaw
-            Euler angles representing rotations around the axes.
-        :param degrees
-            If True, the provided angles are in degrees.
-
-    Returns:
-        extrinsic : numpy.ndarray
-            4x4 transformation (extrinsic) matrix.
-    """
-
-    # Define the Euler angle order.
-    # The choice of order ('xyz', 'zyx', etc.) depends on your application's convention.
-    # In this example, we assume that the rotation is applied in the 'zyx' order:
-    # first yaw (around Z), then pitch (around Y), then roll (around X).
-    rotation = Rotation.from_euler("zyx", [yaw, pitch, roll], degrees=degrees)
-
-    # Get the rotation matrix (3x3)
-    R_mat = rotation.as_matrix()
-
-    # Create the 4x4 transformation matrix initialized to identity
-    extrinsic = np.eye(4)
-
-    # Insert the rotation into the 3x3 upper-left submatrix
-    extrinsic[:3, :3] = R_mat
-
-    # Insert the translation vector into the matrix (last column)
-    extrinsic[:3, 3] = np.array([x, y, z])
-
-    return extrinsic
-
-
 async def video_processor(
-    mime_type: str, port_future: asyncio.Future[int], frame_queue: asyncio.Queue[np.ndarray]
+    mime_type: str,
+    port_future: asyncio.Future[int],
+    frame_queue: asyncio.Queue[np.ndarray],
+    scan_state: ScanState,
 ):
+    video_out_dir = scan_state.directory / "video"
+    video_out_dir.mkdir(parents=True, exist_ok=True)
+    fourcc = cv2.VideoWriter.fourcc(*"XVID")
     media_reader = webrtc_proxy_media_reader(mime_type)
     async with media_reader as media:
         port, pipeline = media
         port_future.set_result(port)
         video_src = await pipeline()
-
-        fourcc = cv2.VideoWriter.fourcc(*"XVID")
         out = cv2.VideoWriter(
-            "output.avi", fourcc, float(video_src.fps), (video_src.width, video_src.height)
+            str(video_out_dir / f"rgbd-video.avi"),
+            fourcc,
+            float(video_src.fps),
+            (video_src.width, video_src.height),
         )
-
         try:
             while True:
-                frame = await asyncio.wait_for(video_src.get(), timeout=5)
-                await frame_queue.put(frame)
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB)
-                cv2.imshow("Video Frame", rgb_frame)
-                out.write(rgb_frame)
-                cv2.waitKey(1)
-        except asyncio.TimeoutError:
-            cv2.destroyAllWindows()
+                try:
+                    while True:
+                        frame = await asyncio.wait_for(video_src.get(), timeout=5)
+                        scan_state.last_client_frame_epoch_time = time.time()
+                        scan_state.frames_received += 1
+                        scan_state.status = ScanStateStatus.receiving
+                        await frame_queue.put(frame)
+                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB)
+                        cv2.imshow("Video Frame", rgb_frame)
+                        out.write(rgb_frame)
+                        cv2.waitKey(1)
+                except asyncio.TimeoutError:
+                    scan_state.status = ScanStateStatus.lost
+                    cv2.destroyAllWindows()
         finally:
-            out.release()  # Ensure the writer is released when done
+            out.release()
 
 
-async def reconstructor(frame_queue: asyncio.Queue[np.ndarray]):
+async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: ScanState):
     decoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
-    volume = ReconstructionVolume(Path(__file__).parent / "data")
+    volume = ReconstructionVolume(scan_state.directory / "data")
     volume.start_visualization()
     coord = ENUCoordinateSystem()
     try:
-        i = 0
+        scan_state.images_integrated = 0
         while True:
             await asyncio.sleep(0.01)
             frame = await frame_queue.get()
             rgb, d, gps = decoder.video_frame_to_rgbd(frame.copy())
             if gps is None:
-                logging.warning("No GPS data")
+                scan_state.frames_corrupted += 1
                 continue
             rgb_img = o3d.geometry.Image(np.ascontiguousarray(rgb))
             d_img = o3d.geometry.Image(np.ascontiguousarray(d))
@@ -123,13 +93,13 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray]):
                 convert_rgb_to_intensity=False,
             )
             if not coord.has_origin():
-                coord.set_enu_origin(gps.latitude, gps.longitude, gps.altitude)
+                scan_state.gps_origin = (gps.latitude, gps.longitude, gps.altitude)
+                coord.set_enu_origin(*scan_state.gps_origin)
             cartesian = coord.gps2enu(gps.latitude, gps.longitude, gps.altitude)
             x, y, z = cartesian.item(0), cartesian.item(1), cartesian.item(2)
             extrinsic = create_transformation_matrix(y, x, z, gps.pitch, gps.roll, gps.yaw)
             await volume.add_image(rgbd, extrinsic)
-            logging.debug(f"integrated image {i}")
-            i += 1
+            scan_state.images_integrated += 1
     finally:
         await volume.close()
 
@@ -138,12 +108,13 @@ async def main(
     mutation_q: asyncio.Queue[pb.Mutation],
     event_q: asyncio.Queue[pb.Event],
     tg: asyncio.TaskGroup,
+    scan_state: ScanState,
 ):
     rgbd_track = pb.NamedTrack(track_id="rgbd", stream_id="realsenseD455", mime_type="video/h265")
     port_fut = asyncio.Future()
     frame_queue = asyncio.Queue(maxsize=100)
-    tg.create_task(video_processor(rgbd_track.mime_type, port_fut, frame_queue))
-    tg.create_task(reconstructor(frame_queue))
+    tg.create_task(video_processor(rgbd_track.mime_type, port_fut, frame_queue, scan_state))
+    tg.create_task(reconstructor(frame_queue, scan_state))
     target_state = pb.State(
         httpServerConfig=pb.HttpServer(
             address="localhost:11510",
@@ -162,32 +133,68 @@ async def main(
         if event_type == "data":
             try:
                 obj = json.loads(event.data.payload)
-                print(json.dumps(obj, indent=2))
+                if "position_type" in obj:
+                    scan_state.client_gps_fix = obj["position_type"]
+                if "sat_num" in obj:
+                    scan_state.client_sat_num = obj["sat_num"]
+                if "error" in obj:
+                    logging.warning(f"sensor array encountered error: {obj['error']}")
             except json.JSONDecodeError:
-                print(event.data.payload)
+                logging.warning("Unparsable sensor array msg:" + event.data.payload.decode("utf-8"))
         elif event_type == "media":
-            pass
+            if event.media.close:
+                scan_state.status = ScanStateStatus.lost
+            else:
+                scan_state.status = ScanStateStatus.connected
         elif event_type == "achievedState":
             pass
         elif event_type == "stats":
-            if event.stats.type == pb.Stats.ICEType.Relay:
-                logging.warning("Connected over TURN relay (higher latency)")
+            scan_state.webrtc_turn = event.stats.type == event.stats.ICEType.Relay
+            scan_state.webrtc_rtt = event.stats.current_rtt
         else:
             logging.error(event_type)
 
 
-async def setup():
-    mutation_q = asyncio.Queue()
-    event_q = asyncio.Queue()
-    async with asyncio.TaskGroup() as tg:
-        tg.create_task(webrtc_proxy_client(mutation_q, event_q))
-        tg.create_task(main(mutation_q, event_q, tg))
+def configure_root_logger(log_dir: Path):
+    rl = logging.getLogger()
+    rl.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+    rl.handlers.clear()
+    log_path = log_dir / "skymap.log"
+    file_handler = RotatingFileHandler(
+        log_path,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=10,
+    )
+    file_fmt = "%(levelname)s %(filename)s:%(lineno)d %(message)s"
+    file_handler.setFormatter(logging.Formatter(file_fmt))
+    rl.addHandler(file_handler)
+    return log_path
+
+
+async def scan_instance(scan_state: ScanState):
+    try:
+        scan_state.id = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+        scan_state.directory = Path.home() / "skymap-server" / scan_state.id
+        scan_state.directory.mkdir(parents=True, exist_ok=True)
+        log_dir = scan_state.directory / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        scan_state.log_path = configure_root_logger(log_dir)
+        mutation_q = asyncio.Queue()
+        event_q = asyncio.Queue()
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(webrtc_proxy_client(mutation_q, event_q))
+            tg.create_task(main(mutation_q, event_q, tg, scan_state))
+    except asyncio.CancelledError:
+        scan_state.status = ScanStateStatus.done
+    except Exception as e:
+        logging.exception(e)
+        scan_state.status = ScanStateStatus.error
+    finally:
+        scan_state.end_time = time.time()
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        stream=sys.stdout,
-        level=os.environ.get("LOGLEVEL", "INFO").upper(),
-        format="%(levelname)s %(filename)s:%(lineno)d %(message)s",
-    )
-    uvloop.run(setup())
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    uvloop.run(SkymapScanTui(scan_instance=scan_instance).run_async())

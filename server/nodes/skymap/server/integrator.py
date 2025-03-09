@@ -24,7 +24,7 @@ class ReconstructionVolume:
     VOXEL_SIZE = 0.02
     INTRINSICS = o3d.camera.PinholeCameraIntrinsic(848, 480, 424.770, 424.770, 423.427, 240.898)
 
-    def __init__(self, output: Path):
+    def __init__(self, output_base_path: Path):
         self.volume = o3d.pipelines.integration.ScalableTSDFVolume(
             voxel_length=self.VOXEL_SIZE,
             sdf_trunc=self.VOXEL_SIZE * 5,
@@ -36,19 +36,18 @@ class ReconstructionVolume:
         self.active = True
         self.process_pcd_task_alive = asyncio.Event()
         self.write_to_disk_task_alive = asyncio.Event()
-        self.vis_task_alive = False
-        if not output.exists():
-            output.mkdir(exist_ok=True, parents=True)
-        assert output.is_dir()
-        self.output = output
+        self.vis_task_alive = asyncio.Event()
+        self.output = output_base_path
+        self.output.mkdir(exist_ok=True, parents=True)
+        assert output_base_path.is_dir()
         self.vis = o3d.visualization.Visualizer()
         asyncio.create_task(self.process_pcd_task())
         asyncio.create_task(self.write_to_disk_task())
 
     def start_visualization(self):
-        if self.vis_task_alive:
+        if self.vis_task_alive.is_set():
             return
-        self.vis_task_alive = True
+        self.vis_task_alive.set()
         self.vis.create_window()
         asyncio.create_task(self.vis_task())
 
@@ -77,6 +76,7 @@ class ReconstructionVolume:
                 self.vis.update_renderer()
             await asyncio.sleep(0.1)
         self.vis.destroy_window()
+        self.vis_task_alive.clear()
 
     @classmethod
     def combine_pcd(
@@ -131,12 +131,8 @@ class ReconstructionVolume:
             source_down = source.voxel_down_sample(radius)
             target_down = target.voxel_down_sample(radius)
 
-            source_down.estimate_normals(
-                o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30)
-            )
-            target_down.estimate_normals(
-                o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30)
-            )
+            source_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+            target_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
             try:
                 result_icp: o3d.pipelines.registration.RegistrationResult = (
                     o3d.pipelines.registration.registration_colored_icp(
@@ -179,8 +175,13 @@ class ReconstructionVolume:
     async def close(self):
         self.active = False
         await self.rollover()
-        while self.process_pcd_task_alive.is_set() or self.write_to_disk_task_alive.is_set():
+        while (
+            self.process_pcd_task_alive.is_set()
+            or self.write_to_disk_task_alive.is_set()
+            or self.vis_task_alive.is_set()
+        ):
             await asyncio.sleep(0.1)
+        logging.info("reconstructor closed, all files saved to disk.")
 
     def _slice_point_cloud(self, pc: o3d.geometry.PointCloud):
         min_box_coords = pc.get_min_bound()
@@ -271,10 +272,7 @@ class ReconstructionVolume:
         try:
             self.write_to_disk_task_alive.set()
             while self.active or self.process_pcd_task_alive.is_set() or len(self.chunks.keys()):
-                if (
-                    len(self.chunks.keys()) < self.IN_MEMORY_CHUNKS
-                    and self.process_pcd_task_alive.is_set()
-                ):
+                if len(self.chunks.keys()) < self.IN_MEMORY_CHUNKS and self.process_pcd_task_alive.is_set():
                     await asyncio.sleep(0.1)
                     continue
                 try:
@@ -305,14 +303,7 @@ class CameraPose:
         self.pose = mat
 
     def __str__(self):
-        return (
-            "Metadata : "
-            + " ".join(map(str, self.metadata))
-            + "\n"
-            + "Pose : "
-            + "\n"
-            + np.array_str(self.pose)
-        )
+        return "Metadata : " + " ".join(map(str, self.metadata)) + "\n" + "Pose : " + "\n" + np.array_str(self.pose)
 
 
 def read_trajectory(filename):
