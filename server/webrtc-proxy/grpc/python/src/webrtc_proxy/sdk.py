@@ -34,14 +34,12 @@ def webrtc_proxy_media_reader(mime_type: str):
             "rtpjitterbuffer",
             "rtph264depay",
             "avdec_h264",
-            "video/x-raw,format=I420,fullrange=true",
         ],
         "video/h265": [
             "queue",
             "rtpjitterbuffer latency=3000",
             "rtph265depay",
             "avdec_h265",
-            "video/x-raw,format=I420,fullrange=true",
         ],
         "video/vp9": [
             "application/x-rtp,encoding-name=VP9",
@@ -49,7 +47,6 @@ def webrtc_proxy_media_reader(mime_type: str):
             "queue",
             "vp9parse",
             "vp9dec",
-            "video/x-raw,format=I420,fullrange=true",
         ],
     }
     mime_type = mime_type.lower()
@@ -74,19 +71,16 @@ def webrtc_proxy_media_writer(
 
     pipeline_tmpls = {
         "video/h264": [
-            "video/x-raw,format=I420,colorimetry=bt709,fullrange=true",
             f"x264enc speed-preset=ultrafast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=1",
             "rtph264pay config-interval=1 aggregate-mode=zero-latency",
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/h265": [
-            "video/x-raw,format=I420,colorimetry=bt709,fullrange=true",
             f"x265enc speed-preset=ultrafast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=1",
             "rtph265pay config-interval=1 aggregate-mode=zero-latency",
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/vp9": [
-            "video/x-raw,format=I420,colorimetry=bt709,fullrange=true",
             f"vp9enc deadline=1 target-bitrate={bits_per_sec}",
             f"udpsink host=localhost port={free_udp_port}",
         ],
