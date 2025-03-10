@@ -13,8 +13,8 @@ rgbd_stream_width = 640
 rgbd_stream_height = 480
 rgbd_stream_framerate = 5
 macroblock_size = 5
-min_depth_meters = 0.15
-max_depth_meters = 5.0
+min_depth_meters = 0.6
+max_depth_meters = 6
 depth_units = 0.0001  # 0 – 6.5535 meters
 
 
@@ -81,9 +81,7 @@ class GPSPose(msgspec.Struct):
         (crc32,) = struct.unpack("!I", crc32)
         if zlib.crc32(data) != crc32:
             raise ChecksumMismatchError((data, crc32))
-        (epoch_seconds, latitude, longitude, altitude, pitch, roll, yaw) = struct.unpack(
-            "!dddffff", data
-        )
+        (epoch_seconds, latitude, longitude, altitude, pitch, roll, yaw) = struct.unpack("!dddffff", data)
         return cls(epoch_seconds, latitude, longitude, altitude, pitch, roll, yaw)
 
     def to_macroblocks(self) -> np.ndarray:
@@ -151,9 +149,7 @@ class GPSPose(msgspec.Struct):
             return None
 
     @classmethod
-    def read_from_color_frame(
-        cls, frame: np.ndarray, clear_macroblocks: bool = False
-    ) -> Self | None:
+    def read_from_color_frame(cls, frame: np.ndarray, clear_macroblocks: bool = False) -> Self | None:
         ret = cls.from_macroblocks(
             frame[
                 : GPSPose.height_blocks * macroblock_size,

@@ -50,15 +50,16 @@ class ReconstructionVolume:
         if self.vis_task_alive.is_set():
             return
         self.vis_task_alive.set()
-        self.vis.create_window()
         asyncio.create_task(self.vis_task())
 
     async def vis_task(self):
+        self.vis.create_window()
+
         async def rerender():
             while self.active:
                 self.vis.poll_events()
                 self.vis.update_renderer()
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.01)
 
         asyncio.create_task(rerender())
         pcd: o3d.geometry.PointCloud | None = None
@@ -133,12 +134,8 @@ class ReconstructionVolume:
             source_down = source.voxel_down_sample(radius)
             target_down = target.voxel_down_sample(radius)
 
-            source_down.estimate_normals(
-                o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30)
-            )
-            target_down.estimate_normals(
-                o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30)
-            )
+            source_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+            target_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
             try:
                 result_icp: o3d.pipelines.registration.RegistrationResult = (
                     o3d.pipelines.registration.registration_colored_icp(
@@ -278,10 +275,7 @@ class ReconstructionVolume:
         try:
             self.write_to_disk_task_alive.set()
             while self.active or self.process_pcd_task_alive.is_set() or len(self.chunks.keys()):
-                if (
-                    len(self.chunks.keys()) < self.IN_MEMORY_CHUNKS
-                    and self.process_pcd_task_alive.is_set()
-                ):
+                if len(self.chunks.keys()) < self.IN_MEMORY_CHUNKS and self.process_pcd_task_alive.is_set():
                     await asyncio.sleep(0.1)
                     continue
                 try:
@@ -312,14 +306,7 @@ class CameraPose:
         self.pose = mat
 
     def __str__(self):
-        return (
-            "Metadata : "
-            + " ".join(map(str, self.metadata))
-            + "\n"
-            + "Pose : "
-            + "\n"
-            + np.array_str(self.pose)
-        )
+        return "Metadata : " + " ".join(map(str, self.metadata)) + "\n" + "Pose : " + "\n" + np.array_str(self.pose)
 
 
 def read_trajectory(filename):

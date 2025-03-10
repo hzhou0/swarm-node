@@ -46,7 +46,7 @@ if __name__ == "__main__":
         with np.load(frame_path / file_name) as npz_file:
             npz_file: np.lib.npyio.NpzFile
             for i in range(30):  # Process arrays from array_0.npy to array_29.npy
-                vis.clear_geometries()
+                # vis.clear_geometries()
                 array_name = f"arr_{i}"
                 frame = npz_file.get(array_name)
                 if frame is None:
@@ -63,7 +63,7 @@ if __name__ == "__main__":
                 src_pcd = o3d.geometry.PointCloud.create_from_rgbd_image(src_rgbd, intrinsics)
 
                 vis.add_geometry(src_pcd, reset_bounding_box=True)
-                vis.add_geometry(src_rgbd)
+                # vis.add_geometry(src_rgbd)
                 vis.get_view_control().set_zoom(0.48)
                 vis.get_view_control().set_front([0.0999, -0.1787, -0.9788])
                 vis.get_view_control().set_lookat([0.0345, -0.0937, 1.8033])

@@ -59,9 +59,6 @@ async def video_processor(
                             await asyncio.to_thread(np.savez_compressed, frame_out_dir / f"{i}", *frames_arr)
                             i += 1
                             frames_arr = []
-                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB)
-                        cv2.imshow("Video Frame", rgb_frame)
-                        cv2.waitKey(1)
                 except asyncio.TimeoutError:
                     scan_state.status = ScanStateStatus.lost
                     cv2.destroyAllWindows()
@@ -73,12 +70,14 @@ async def video_processor(
 
 async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: ScanState):
     decoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
-    volume = ReconstructionVolume(scan_state.directory / "data")
-    volume.start_visualization()
+    # volume = ReconstructionVolume(scan_state.directory / "data")
+    # volume.start_visualization()
+    vis = o3d.visualization.VisualizerWithKeyCallback()
     coord = ENUCoordinateSystem()
     try:
         scan_state.images_integrated = 0
         while True:
+            vis.clear_geometries()
             await asyncio.sleep(0.01)
             frame = await frame_queue.get()
             rgb, d, gps = decoder.video_frame_to_rgbd(frame.copy())
@@ -95,16 +94,22 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: Scan
                 depth_trunc=max_depth_meters,
                 convert_rgb_to_intensity=False,
             )
+            pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, ReconstructionVolume.INTRINSICS)
+
+            vis.add_geometry(pcd, reset_bounding_box=True)
+            vis.add_geometry(rgbd)
+
             if not coord.has_origin():
                 scan_state.gps_origin = (gps.latitude, gps.longitude, gps.altitude)
                 coord.set_enu_origin(*scan_state.gps_origin)
             cartesian = coord.gps2enu(gps.latitude, gps.longitude, gps.altitude)
             x, y, z = cartesian.item(0), cartesian.item(1), cartesian.item(2)
             extrinsic = create_transformation_matrix(y, x, z, gps.yaw, gps.pitch, gps.roll)
-            await volume.add_image(rgbd, extrinsic)
+            # await volume.add_image(rgbd, extrinsic)
             scan_state.images_integrated += 1
     finally:
-        await volume.close()
+        pass
+        # await volume.close()
 
 
 async def main(
