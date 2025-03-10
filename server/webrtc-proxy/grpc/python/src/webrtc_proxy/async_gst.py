@@ -130,8 +130,9 @@ async def gst_video_source(
     pipeline: list[str],
 ) -> AsyncGenerator[tuple[int, Callable[[], Coroutine[Any, Any, GstVideoSource]]], Any]:
     src_str = "udpsrc address=localhost port=0 retrieve-sender-address=false caps=application/x-rtp name=src"
+    cap_str = "video/x-raw,full-range=true"
     app_sink_str = "appsink emit-signals=True drop=True sync=False name=appsink"
-    pipeline_str = " ! ".join([src_str] + pipeline + [app_sink_str])
+    pipeline_str = " ! ".join([src_str] + pipeline + [cap_str, app_sink_str])
     pipeline: Gst.Pipeline = Gst.parse_launch(pipeline_str)
     app_sink: GstApp.AppSink = pipeline.get_by_name("appsink")
     assert app_sink is not None, "appsink not found in pipeline"
