@@ -418,8 +418,8 @@ class ZhouDepthEncoder(DepthEncoder, Protocol):
     # noinspection PyProtocol
     def __init__(self, depth_units: float, min_depth_meters: float, max_depth_meters: float):
         super().__init__(depth_units, min_depth_meters, max_depth_meters)
-        self.min_valid_depth = round(min_depth_meters / depth_units)
-        self.max_valid_depth = round(max_depth_meters / depth_units)
+        self.min_valid_depth = math.ceil(min_depth_meters / depth_units)
+        self.max_valid_depth = math.floor(max_depth_meters / depth_units)
 
     @staticmethod
     @njit(

@@ -55,10 +55,10 @@ class WTRTK982:
                     latitude=53.2734,
                     longitude=-7.7783,
                     altitude=52,
-                    pitch=0,
+                    pitch=189.25,
                     quality=GPSQuality.RTK_INT,
-                    roll=0,
-                    yaw=0,
+                    roll=-24.489,
+                    yaw=39.589,
                 )
             )
             return
@@ -180,7 +180,9 @@ class WTRTK982:
             return None
         try:
             context = pyudev.Context()
-            ch340_serial = list(context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523"))
+            ch340_serial = list(
+                context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523")
+            )
             assert len(ch340_serial) == 1
             assert ch340_serial[0].device_node is not None
             # ch340_serial requires 115200 baud rate
@@ -282,7 +284,7 @@ class RGBDStream:
         HIGH_ACCURACY_PRESET = 3
 
     device_fps = 60
-    preset: Preset = Preset.HIGH_ACCURACY_PRESET
+    preset: Preset = Preset.HIGH_DENSITY_PRESET
     depth_encoder: DepthEncoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
 
     def __init__(self):
@@ -308,13 +310,19 @@ class RGBDStream:
             elif s.is_color_sensor():
                 s.set_option(rs.option.enable_auto_exposure, 1)
         self.config = rs.config()
-        self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps)
-        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps)
+        self.config.enable_stream(
+            rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps
+        )
+        self.config.enable_stream(
+            rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps
+        )
 
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)
 
-        self.intrinsics = self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
+        self.intrinsics = (
+            self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
+        )
         # Filters
         self.filter_threshold = rs.threshold_filter(min_depth_meters, max_depth_meters)
         self.filter_spatial = rs.spatial_filter()
