@@ -41,6 +41,12 @@ async def video_processor(
 
     media_reader = webrtc_proxy_media_reader(mime_type)
     i = 0
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    trans = o3d.geometry.PointCloud.get_rotation_matrix_from_xzy([180, 0, 0])
+    decoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
+
     async with media_reader as media:
         port, pipeline = media
         port_future.set_result(port)
@@ -50,36 +56,54 @@ async def video_processor(
                 try:
                     while True:
                         frame = await asyncio.wait_for(video_src.get(), timeout=10)
+                        frame = frame.copy()
                         scan_state.last_client_frame_epoch_time = time.time()
                         scan_state.frames_received += 1
                         scan_state.status = ScanStateStatus.receiving
-                        frames_arr.append(frame.copy())
-                        await frame_queue.put(frame)
-                        if len(frames_arr) >= 30:
-                            await asyncio.to_thread(np.savez_compressed, frame_out_dir / f"{i}", *frames_arr)
-                            i += 1
-                            frames_arr = []
+                        # await frame_queue.put(frame)
+                        rgb, d, gps = decoder.video_frame_to_rgbd(frame)
+                        rgb_img = o3d.geometry.Image(np.ascontiguousarray(rgb))
+                        d_img = o3d.geometry.Image(np.ascontiguousarray(d))
+                        rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
+                            rgb_img,
+                            d_img,
+                            depth_scale=1 / depth_units,
+                            depth_trunc=max_depth_meters,
+                            convert_rgb_to_intensity=False,
+                        )
+
+                        pcd: o3d.geometry.PointCloud = o3d.geometry.PointCloud.create_from_rgbd_image(
+                            rgbd, ReconstructionVolume.INTRINSICS
+                        )
+                        pcd.rotate(trans)
+                        vis.clear_geometries()
+                        vis.add_geometry(pcd, reset_bounding_box=True)
+                        vis.get_view_control().set_zoom(2)
+                        vis.update_renderer()
+                        vis.poll_events()
+                        # frames_arr.append(frame)
+                        # if len(frames_arr) >= 30:
+                        #     await asyncio.to_thread(np.savez_compressed, frame_out_dir / f"{i}", *frames_arr)
+                        #     i += 1
+                        #     frames_arr = []
                 except asyncio.TimeoutError:
                     scan_state.status = ScanStateStatus.lost
-                    cv2.destroyAllWindows()
         finally:
             if frames_arr:
                 np.savez_compressed(frame_out_dir / f"{i}", *frames_arr)
-            cv2.destroyAllWindows()
+            vis.destroy_window()
 
 
 async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: ScanState):
     decoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
-    # volume = ReconstructionVolume(scan_state.directory / "data")
+    volume = ReconstructionVolume(scan_state.directory / "data")
     # volume.start_visualization()
-    vis = o3d.visualization.Visualizer()
-    vis.create_window()
-    last_viz = time.time()
 
     coord = ENUCoordinateSystem()
     try:
         scan_state.images_integrated = 0
         while True:
+            await asyncio.sleep(0.01)
             frame = await frame_queue.get()
             rgb, d, gps = decoder.video_frame_to_rgbd(frame.copy())
             if gps is None:
@@ -96,25 +120,16 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: Scan
                 convert_rgb_to_intensity=False,
             )
 
-            if last_viz < time.time() - 1:
-                pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, ReconstructionVolume.INTRINSICS)
-                vis.clear_geometries()
-                vis.add_geometry(pcd, reset_bounding_box=True)
-                vis.update_renderer()
-                vis.poll_events()
-                last_viz = time.time()
-
             if not coord.has_origin():
                 scan_state.gps_origin = (gps.latitude, gps.longitude, gps.altitude)
                 coord.set_enu_origin(*scan_state.gps_origin)
             cartesian = coord.gps2enu(gps.latitude, gps.longitude, gps.altitude)
             x, y, z = cartesian.item(0), cartesian.item(1), cartesian.item(2)
             extrinsic = create_transformation_matrix(y, x, z, gps.yaw, gps.pitch, gps.roll)
-            # await volume.add_image(rgbd, extrinsic)
+            await volume.add_image(rgbd, extrinsic)
             scan_state.images_integrated += 1
     finally:
-        vis.destroy_window()
-        # await volume.close()
+        await volume.close()
 
 
 async def main(

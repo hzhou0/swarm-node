@@ -13,7 +13,7 @@ rgbd_stream_width = 640
 rgbd_stream_height = 480
 rgbd_stream_framerate = 5
 macroblock_size = 5
-min_depth_meters = 0.6
+min_depth_meters = 0.15
 max_depth_meters = 6
 depth_units = 0.0001  # 0 – 6.5535 meters
 
