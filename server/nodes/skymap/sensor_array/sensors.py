@@ -180,9 +180,7 @@ class WTRTK982:
             return None
         try:
             context = pyudev.Context()
-            ch340_serial = list(
-                context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523")
-            )
+            ch340_serial = list(context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523"))
             assert len(ch340_serial) == 1
             assert ch340_serial[0].device_node is not None
             # ch340_serial requires 115200 baud rate
@@ -259,8 +257,10 @@ class WTRTK982:
         self._serial.write(b"GPVTG COM3 1\r\n")
         self._serial.write(b"RTKSTATUSA COM3 1\r\n")
         self._serial.write(b"CONFIG HEADING FIXLENGTH\r\n")
-        self._serial.write(b"CONFIG HEADING LENGTH 27 1\r\n")
+        self._serial.write(b"CONFIG HEADING LENGTH 31 1\r\n")
         self._serial.write(b"SAVECONFIG\r\n")
+        time.sleep(0.1)
+        logging.info(self._serial.read_all())
 
     def reset(self):
         if "DUMMY_GPS" in os.environ:
@@ -311,19 +311,13 @@ class RGBDStream:
             elif s.is_color_sensor():
                 s.set_option(rs.option.enable_auto_exposure, 1)
         self.config = rs.config()
-        self.config.enable_stream(
-            rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps
-        )
-        self.config.enable_stream(
-            rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps
-        )
+        self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps)
+        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps)
 
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)
 
-        self.intrinsics = (
-            self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
-        )
+        self.intrinsics = self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
         # Filters
         self.filter_threshold = rs.threshold_filter(min_depth_meters, max_depth_meters)
         self.filter_spatial = rs.spatial_filter()
