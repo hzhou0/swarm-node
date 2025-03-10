@@ -37,10 +37,10 @@ async def video_processor(
 ):
     frame_out_dir = scan_state.directory / "frames"
     frame_out_dir.mkdir(parents=True, exist_ok=True)
-    frames_arr: list[np.ndarray]=[]
+    frames_arr: list[np.ndarray] = []
 
     media_reader = webrtc_proxy_media_reader(mime_type)
-    i=0
+    i = 0
     async with media_reader as media:
         port, pipeline = media
         port_future.set_result(port)
@@ -49,16 +49,16 @@ async def video_processor(
             while True:
                 try:
                     while True:
-                        frame = await asyncio.wait_for(video_src.get(), timeout=5)
+                        frame = await asyncio.wait_for(video_src.get(), timeout=10)
                         scan_state.last_client_frame_epoch_time = time.time()
                         scan_state.frames_received += 1
                         scan_state.status = ScanStateStatus.receiving
                         frames_arr.append(frame.copy())
                         await frame_queue.put(frame)
-                        if len(frames_arr)>=30:
-                            await asyncio.to_thread(np.savez_compressed,frame_out_dir/f"{i}", *frames_arr)
-                            i+=1
-                            frames_arr=[]
+                        if len(frames_arr) >= 30:
+                            await asyncio.to_thread(np.savez_compressed, frame_out_dir / f"{i}", *frames_arr)
+                            i += 1
+                            frames_arr = []
                         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB)
                         cv2.imshow("Video Frame", rgb_frame)
                         cv2.waitKey(1)
@@ -67,7 +67,7 @@ async def video_processor(
                     cv2.destroyAllWindows()
         finally:
             if frames_arr:
-                np.savez_compressed(frame_out_dir/f"{i}", *frames_arr)
+                np.savez_compressed(frame_out_dir / f"{i}", *frames_arr)
             cv2.destroyAllWindows()
 
 

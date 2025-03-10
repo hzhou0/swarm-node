@@ -259,6 +259,7 @@ class WTRTK982:
         self._serial.write(b"GPVTG COM3 1\r\n")
         self._serial.write(b"RTKSTATUSA COM3 1\r\n")
         self._serial.write(b"CONFIG HEADING FIXLENGTH\r\n")
+        self._serial.write(b"CONFIG HEADING LENGTH 27 1\r\n")
         self._serial.write(b"SAVECONFIG\r\n")
 
     def reset(self):
