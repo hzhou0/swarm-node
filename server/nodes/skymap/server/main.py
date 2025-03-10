@@ -43,8 +43,9 @@ async def video_processor(
     i = 0
 
     vis = o3d.visualization.Visualizer()
-    vis.create_window()
+
     trans = o3d.geometry.PointCloud.get_rotation_matrix_from_xzy([180, 0, 0])
+    pcd: o3d.geometry.PointCloud | None = None
     decoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
 
     async with media_reader as media:
@@ -72,20 +73,29 @@ async def video_processor(
                             convert_rgb_to_intensity=False,
                         )
 
-                        pcd: o3d.geometry.PointCloud = o3d.geometry.PointCloud.create_from_rgbd_image(
+                        new_pcd: o3d.geometry.PointCloud = o3d.geometry.PointCloud.create_from_rgbd_image(
                             rgbd, ReconstructionVolume.INTRINSICS
                         )
-                        pcd.rotate(trans)
-                        vis.clear_geometries()
-                        vis.add_geometry(pcd, reset_bounding_box=True)
-                        vis.get_view_control().set_zoom(2)
-                        vis.update_renderer()
+                        new_pcd.rotate(trans)
+                        if pcd is None:
+                            vis.create_window()
+                            vis_ctrl: o3d.visualization.ViewControl = vis.get_view_control()
+                            vis_ctrl.set_zoom(0.5)
+                            pcd = new_pcd
+                            vis.add_geometry(pcd)
+                        else:
+                            pcd.points = new_pcd.points
+                            pcd.colors = new_pcd.colors
+                            vis.update_geometry(pcd)
+                            vis_ctrl.set_lookat(pcd.get_center())
                         vis.poll_events()
+                        vis.update_renderer()
                         # frames_arr.append(frame)
                         # if len(frames_arr) >= 30:
                         #     await asyncio.to_thread(np.savez_compressed, frame_out_dir / f"{i}", *frames_arr)
                         #     i += 1
                         #     frames_arr = []
+                        await asyncio.sleep(0.01)
                 except asyncio.TimeoutError:
                     scan_state.status = ScanStateStatus.lost
         finally:
