@@ -14,7 +14,7 @@ rgbd_stream_height = 480
 rgbd_stream_framerate = 5
 macroblock_size = 5
 min_depth_meters = 0.15
-max_depth_meters = 6.0
+max_depth_meters = 5.0
 depth_units = 0.0001  # 0 – 6.5535 meters
 
 
@@ -151,7 +151,9 @@ class GPSPose(msgspec.Struct):
             return None
 
     @classmethod
-    def read_from_color_frame(cls, frame: np.ndarray, clear_macroblocks: bool = False) -> Self | None:
+    def read_from_color_frame(
+        cls, frame: np.ndarray, clear_macroblocks: bool = False
+    ) -> Self | None:
         ret = cls.from_macroblocks(
             frame[
                 : GPSPose.height_blocks * macroblock_size,
