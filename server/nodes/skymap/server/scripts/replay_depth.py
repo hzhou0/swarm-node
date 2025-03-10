@@ -20,7 +20,7 @@ intrinsics = ReconstructionVolume.INTRINSICS
 
 
 if __name__ == "__main__":
-    frame_path = Path("/home/henry/skymap-server/2025-03-10T15-01-24/frames")
+    frame_path = Path("/home/henry/skymap-server/drone1/frames")
 
     decoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
 

@@ -72,13 +72,14 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: Scan
     decoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
     # volume = ReconstructionVolume(scan_state.directory / "data")
     # volume.start_visualization()
-    vis = o3d.visualization.VisualizerWithKeyCallback()
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    last_viz = time.time()
+
     coord = ENUCoordinateSystem()
     try:
         scan_state.images_integrated = 0
         while True:
-            vis.clear_geometries()
-            await asyncio.sleep(0.01)
             frame = await frame_queue.get()
             rgb, d, gps = decoder.video_frame_to_rgbd(frame.copy())
             if gps is None:
@@ -94,10 +95,14 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: Scan
                 depth_trunc=max_depth_meters,
                 convert_rgb_to_intensity=False,
             )
-            pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, ReconstructionVolume.INTRINSICS)
 
-            vis.add_geometry(pcd, reset_bounding_box=True)
-            vis.add_geometry(rgbd)
+            if last_viz < time.time() - 1:
+                pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, ReconstructionVolume.INTRINSICS)
+                vis.clear_geometries()
+                vis.add_geometry(pcd, reset_bounding_box=True)
+                vis.update_renderer()
+                vis.poll_events()
+                last_viz = time.time()
 
             if not coord.has_origin():
                 scan_state.gps_origin = (gps.latitude, gps.longitude, gps.altitude)
@@ -108,7 +113,7 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: Scan
             # await volume.add_image(rgbd, extrinsic)
             scan_state.images_integrated += 1
     finally:
-        pass
+        vis.destroy_window()
         # await volume.close()
 
 

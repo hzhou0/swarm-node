@@ -285,7 +285,7 @@ class RGBDStream:
         HIGH_ACCURACY_PRESET = 3
 
     device_fps = 60
-    preset: Preset = Preset.HIGH_ACCURACY_PRESET
+    preset: Preset = Preset.HIGH_DENSITY_PRESET
     depth_encoder: DepthEncoder = ZhouDepthEncoder(depth_units, min_depth_meters, max_depth_meters)
 
     def __init__(self):
