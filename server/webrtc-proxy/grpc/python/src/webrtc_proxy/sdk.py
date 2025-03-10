@@ -37,7 +37,7 @@ def webrtc_proxy_media_reader(mime_type: str):
         ],
         "video/h265": [
             "queue",
-            "rtpjitterbuffer latency=1000",
+            "rtpjitterbuffer latency=3000",
             "rtph265depay",
             "avdec_h265",
         ],

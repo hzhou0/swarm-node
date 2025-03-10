@@ -229,7 +229,9 @@ class SkymapScanTui(App):
 
         dt_conn = self.query_one("#dt-connection", DataTable)
         if self.scan_state.webrtc_rtt is not None:
-            dt_conn.update_cell(self.conn_row_keys[0], self.conn_col_keys[1], f"{self.scan_state.webrtc_rtt:.2f} ms")
+            dt_conn.update_cell(
+                self.conn_row_keys[0], self.conn_col_keys[1], f"{self.scan_state.webrtc_rtt*1000:.4f} ms"
+            )
         else:
             dt_conn.update_cell(self.conn_row_keys[0], self.conn_col_keys[1], self.unknown_cell)
         if self.scan_state.webrtc_turn is not None:

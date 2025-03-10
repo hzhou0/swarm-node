@@ -35,20 +35,16 @@ async def video_processor(
     frame_queue: asyncio.Queue[np.ndarray],
     scan_state: ScanState,
 ):
-    video_out_dir = scan_state.directory / "video"
-    video_out_dir.mkdir(parents=True, exist_ok=True)
-    fourcc = cv2.VideoWriter.fourcc(*"XVID")
+    frame_out_dir = scan_state.directory / "frames"
+    frame_out_dir.mkdir(parents=True, exist_ok=True)
+    frames_arr: list[np.ndarray]=[]
+
     media_reader = webrtc_proxy_media_reader(mime_type)
+    i=0
     async with media_reader as media:
         port, pipeline = media
         port_future.set_result(port)
         video_src = await pipeline()
-        out = cv2.VideoWriter(
-            str(video_out_dir / f"rgbd-video.avi"),
-            fourcc,
-            float(video_src.fps),
-            (video_src.width, video_src.height),
-        )
         try:
             while True:
                 try:
@@ -57,16 +53,22 @@ async def video_processor(
                         scan_state.last_client_frame_epoch_time = time.time()
                         scan_state.frames_received += 1
                         scan_state.status = ScanStateStatus.receiving
+                        frames_arr.append(frame.copy())
                         await frame_queue.put(frame)
+                        if len(frames_arr)>=30:
+                            await asyncio.to_thread(np.savez_compressed,frame_out_dir/f"{i}", *frames_arr)
+                            i+=1
+                            frames_arr=[]
                         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_YUV420P2RGB)
                         cv2.imshow("Video Frame", rgb_frame)
-                        out.write(rgb_frame)
                         cv2.waitKey(1)
                 except asyncio.TimeoutError:
                     scan_state.status = ScanStateStatus.lost
                     cv2.destroyAllWindows()
         finally:
-            out.release()
+            if frames_arr:
+                np.savez_compressed(frame_out_dir/f"{i}", *frames_arr)
+            cv2.destroyAllWindows()
 
 
 async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: ScanState):
@@ -83,6 +85,7 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: Scan
             if gps is None:
                 scan_state.frames_corrupted += 1
                 continue
+            logging.info(gps)
             rgb_img = o3d.geometry.Image(np.ascontiguousarray(rgb))
             d_img = o3d.geometry.Image(np.ascontiguousarray(d))
             rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
@@ -97,7 +100,7 @@ async def reconstructor(frame_queue: asyncio.Queue[np.ndarray], scan_state: Scan
                 coord.set_enu_origin(*scan_state.gps_origin)
             cartesian = coord.gps2enu(gps.latitude, gps.longitude, gps.altitude)
             x, y, z = cartesian.item(0), cartesian.item(1), cartesian.item(2)
-            extrinsic = create_transformation_matrix(y, x, z, gps.pitch, gps.roll, gps.yaw)
+            extrinsic = create_transformation_matrix(y, x, z, gps.yaw, gps.pitch, gps.roll)
             await volume.add_image(rgbd, extrinsic)
             scan_state.images_integrated += 1
     finally:

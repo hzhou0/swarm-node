@@ -35,7 +35,7 @@ from swarmnode_skymap_common import (
 class WTRTK982:
     def __init__(self):
         self._serial: serial.Serial | None = None
-        self.poses: deque[GPSPose] = collections.deque([], maxlen=5)
+        self.poses: deque[GPSPose] = collections.deque([], maxlen=10)
         self.speed_ms: float | None = None
         self.position_type: str = "NONE"
         self.sat_num: int = 0
@@ -180,9 +180,7 @@ class WTRTK982:
             return None
         try:
             context = pyudev.Context()
-            ch340_serial = list(
-                context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523")
-            )
+            ch340_serial = list(context.list_devices(subsystem="tty", ID_VENDOR_ID="1a86", ID_MODEL_ID="7523"))
             assert len(ch340_serial) == 1
             assert ch340_serial[0].device_node is not None
             # ch340_serial requires 115200 baud rate
@@ -310,19 +308,13 @@ class RGBDStream:
             elif s.is_color_sensor():
                 s.set_option(rs.option.enable_auto_exposure, 1)
         self.config = rs.config()
-        self.config.enable_stream(
-            rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps
-        )
-        self.config.enable_stream(
-            rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps
-        )
+        self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, self.device_fps)
+        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.rgb8, self.device_fps)
 
         assert self.config.can_resolve(rs.pipeline_wrapper(self.pipeline))
         self.profile: rs.pipeline_profile = self.pipeline.start(self.config)
 
-        self.intrinsics = (
-            self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
-        )
+        self.intrinsics = self.profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
         # Filters
         self.filter_threshold = rs.threshold_filter(min_depth_meters, max_depth_meters)
         self.filter_spatial = rs.spatial_filter()
@@ -366,8 +358,6 @@ class RGBDStream:
             if td < min_td:
                 pose = p
                 min_td = td
-            if p.epoch_seconds <= frame_time:
-                break
         if pose.quality not in {GPSQuality.RTK_INT}:
             raise GPSError(f"Bad GPS Fix Type {pose.quality.name}")
         # todo: synchronization mechanism improvement

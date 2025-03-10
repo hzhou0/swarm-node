@@ -159,14 +159,7 @@ class ENUCoordinateSystem:
         return self.ecef2gps(ecef.item(0), ecef.item(1), ecef.item(2))
 
 
-if __name__ == "__main__":
-    coord = ENUCoordinateSystem()
-    coord.set_enu_origin(45.0, 135.0, 0.0)
-    print(coord.gps2enu(45.0, 135.0, 0.0))
-    print(coord.gps2enu(45, 135, 1.0))
-
-
-def create_transformation_matrix(x: float, y: float, z: float, pitch: float, roll: float, yaw: float, degrees=True):
+def create_transformation_matrix(x: float, y: float, z: float, yaw: float, pitch: float, roll: float, degrees=True):
     """
     Creates a 4x4 transformation matrix (extrinsic matrix) from translation and Euler angles.
 
@@ -206,3 +199,11 @@ def create_transformation_matrix(x: float, y: float, z: float, pitch: float, rol
     extrinsic[:3, 3] = np.array([x, y, z])
 
     return extrinsic
+
+
+if __name__ == "__main__":
+    coord = ENUCoordinateSystem()
+    coord.set_enu_origin(45.0, 135.0, 0.0)
+    print(coord.gps2enu(45.0, 135.0, 0.0))
+    print(coord.gps2enu(45, 135, 1.0))
+    print(create_transformation_matrix(1, 2, 3, 90, 256, -90))

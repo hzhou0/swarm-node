@@ -18,8 +18,8 @@ class Chunk:
 
 
 class ReconstructionVolume:
-    IMAGE_THRESHOLD = 6000
-    IN_MEMORY_CHUNKS = 6000
+    IMAGE_THRESHOLD = 500
+    IN_MEMORY_CHUNKS = 300
     CHUNK_SIZE = 5
     VOXEL_SIZE = 0.02
     INTRINSICS = o3d.camera.PinholeCameraIntrinsic(848, 480, 424.770, 424.770, 423.427, 240.898)
@@ -56,7 +56,7 @@ class ReconstructionVolume:
             while self.active:
                 self.vis.poll_events()
                 self.vis.update_renderer()
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.1)
 
         asyncio.create_task(rerender())
         pcd: o3d.geometry.PointCloud | None = None
@@ -74,7 +74,7 @@ class ReconstructionVolume:
                 self.vis.add_geometry(pcd, reset_bounding_box=reset)
                 logging.debug(f"rendering pcd with {np.asarray(pcd.points).shape[0]} points")
                 self.vis.update_renderer()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(5)
         self.vis.destroy_window()
         self.vis_task_alive.clear()
 

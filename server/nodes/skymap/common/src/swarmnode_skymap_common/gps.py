@@ -120,20 +120,20 @@ class GPSPose(msgspec.Struct):
             dtype=np.int16,  # Red, Green, Yellow, Blue in RGB
         )
 
-        # Create a mask where the middle pixel (8,8) in each macroblock is compared to each entry in color_map
+        # Create a mask where the average pixel in each macroblock is compared to each entry in color_map
         # We sum the absolute errors over the color dimension (axis=3), creating a 44x4x4 error array
-        mask = np.sum(
-            np.abs(
-                macroblocks[
-                    (macroblock_size // 2) :: macroblock_size,
-                    (macroblock_size // 2) :: macroblock_size,
-                    np.newaxis,
-                    :,
-                ].astype(np.int16)
-                - color_map
-            ),
-            axis=3,
+        macroblock_avg = (
+            macroblocks.reshape(
+                macroblocks.shape[0] // macroblock_size,
+                macroblock_size,
+                macroblocks.shape[1] // macroblock_size,
+                macroblock_size,
+                3,
+            )
+            .mean(axis=(1, 3))
+            .astype(np.int16)
         )
+        mask = np.sum(np.abs(macroblock_avg[:, :, np.newaxis, :] - color_map), axis=3)
         # Find the index (0,1,2,3) of the colormap entry that is closest to the pixel
         inverted_array = np.argmin(mask, axis=-1).astype(np.uint8)
         inverted_array = inverted_array.reshape((cls.byte_length, 4))
@@ -151,9 +151,7 @@ class GPSPose(msgspec.Struct):
             return None
 
     @classmethod
-    def read_from_color_frame(
-        cls, frame: np.ndarray, clear_macroblocks: bool = False
-    ) -> Self | None:
+    def read_from_color_frame(cls, frame: np.ndarray, clear_macroblocks: bool = False) -> Self | None:
         ret = cls.from_macroblocks(
             frame[
                 : GPSPose.height_blocks * macroblock_size,
@@ -177,8 +175,9 @@ class GPSPose(msgspec.Struct):
 if __name__ == "__main__":
     import time
 
-    pose = GPSPose(time.time(), 0, 0, 0, 0, 0, 0)
+    pose = GPSPose(time.time(), 0, 13478.578, 123.98, 5893.7, 0, 0)
     assert pose.defined()
     start = time.time()
     result = pose.to_macroblocks()
-    assert pose == GPSPose.from_macroblocks(result)
+    result = GPSPose.from_macroblocks(result)
+    assert pose == result
