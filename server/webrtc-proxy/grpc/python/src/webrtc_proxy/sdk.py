@@ -36,8 +36,9 @@ def webrtc_proxy_media_reader(mime_type: str):
             "avdec_h264",
         ],
         "video/h265": [
-            "queue max-size-buffers=0 max-size-bytes=0 max-size-time=10000000000",
-            "rtpjitterbuffer latency=3000 max-misorder-time=6000",
+            "rtpstorage size-time=350000000",
+            "rtpjitterbuffer latency=300 do-lost=true",
+            "rtpulpfecdec pt=255",
             "rtph265depay",
             "avdec_h265",
         ],
@@ -78,6 +79,7 @@ def webrtc_proxy_media_writer(
         "video/h265": [
             f"x265enc speed-preset=ultrafast {custom_enc_str}",
             "rtph265pay config-interval=1 aggregate-mode=zero-latency",
+            "rtpulpfecenc percentage=10 pt=255",
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/vp9": [
