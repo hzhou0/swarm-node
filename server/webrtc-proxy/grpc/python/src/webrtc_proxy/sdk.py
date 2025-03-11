@@ -61,7 +61,7 @@ def webrtc_proxy_media_writer(
     width: int,
     height: int,
     fps: int,
-    bits_per_sec: int = 1000 * 1000,
+    custom_enc_str: str,
     video_format: GstVideo.VideoFormat = GstVideo.VideoFormat.I420,
 ):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -71,17 +71,17 @@ def webrtc_proxy_media_writer(
 
     pipeline_tmpls = {
         "video/h264": [
-            f"x264enc speed-preset=ultrafast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=1",
+            f"x264enc speed-preset=ultrafast {custom_enc_str}",
             "rtph264pay config-interval=1 aggregate-mode=zero-latency",
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/h265": [
-            f"x265enc speed-preset=ultrafast tune=ssim qp=20 key-int-max=1",
+            f"x265enc speed-preset=ultrafast {custom_enc_str}",
             "rtph265pay config-interval=1 aggregate-mode=zero-latency",
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/vp9": [
-            f"vp9enc deadline=1 target-bitrate={bits_per_sec}",
+            f"vp9enc deadline=1 {custom_enc_str}",
             f"udpsink host=localhost port={free_udp_port}",
         ],
     }
