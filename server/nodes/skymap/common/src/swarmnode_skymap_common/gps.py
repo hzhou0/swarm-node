@@ -9,7 +9,7 @@ import msgspec
 import numpy as np
 
 # 848x480 is the most accurate resolution on the D455: https://github.com/IntelRealSense/librealsense/issues/11180
-rgbd_stream_width = 848
+rgbd_stream_width = 640
 rgbd_stream_height = 480
 rgbd_stream_framerate = 5
 macroblock_size = 5
