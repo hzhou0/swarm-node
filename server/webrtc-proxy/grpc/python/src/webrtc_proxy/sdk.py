@@ -76,7 +76,7 @@ def webrtc_proxy_media_writer(
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/h265": [
-            f"x265enc speed-preset=ultrafast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=15",
+            f"x265enc speed-preset=superfast tune=zerolatency bitrate={bits_per_sec // 1000} key-int-max=1",
             "rtph265pay config-interval=1 aggregate-mode=zero-latency",
             f"udpsink host=localhost port={free_udp_port}",
         ],
