@@ -226,7 +226,7 @@ async def gst_video_sink(
     video_frmt: GstVideo.VideoFormat,
 ) -> AsyncGenerator[GstVideoSink, Any]:
     sink = GstVideoSink(height=height, width=width, fps=fps, video_frmt=video_frmt)
-    app_src_str = f"appsrc emit-signals=False is-live=True leaky-type=upstream name=appsrc format=time max-time={30 * sink.duration}"
+    app_src_str = f"appsrc emit-signals=False is-live=True leaky-type=upstream name=appsrc format=time max-time={fps.numerator * sink.duration//fps.denominator}"
     cap_str = f"video/x-raw,format={GstVideo.VideoFormat.to_string(video_frmt)},width={width},height={height},framerate={fps.numerator}/{fps.denominator},fullrange=true"
     pipeline_str = " ! ".join([app_src_str, cap_str] + pipeline)
     logging.debug(f"Pipeline: {pipeline_str}")
