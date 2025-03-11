@@ -80,7 +80,7 @@ async def video_processor(
                         if pcd is None:
                             vis.create_window()
                             vis_ctrl: o3d.visualization.ViewControl = vis.get_view_control()
-                            vis_ctrl.set_zoom(1)
+                            vis_ctrl.set_zoom(1.5)
                             pcd = new_pcd
                             vis.add_geometry(pcd)
                         else:
