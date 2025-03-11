@@ -37,8 +37,8 @@ def webrtc_proxy_media_reader(mime_type: str):
         ],
         "video/h265": [
             "rtpstorage size-time=350000000",
-            "rtpssrcdemux",
-            "application/x-rtp, payload=126, clock-rate=90000, media=video, encoding-name=H265",
+            # the ssrc is a dummy value for rtpulpfecdec, video always comes from a single source
+            "application/x-rtp, payload=126, clock-rate=90000, media=video, encoding-name=H265, ssrc=(uint)12345678",
             "rtpjitterbuffer latency=300 do-lost=true",
             "rtpulpfecdec pt=255",
             "rtph265depay",
