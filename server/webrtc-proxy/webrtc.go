@@ -802,7 +802,7 @@ func (peer *WebrtcPeer) incomingPipeline(state *WebrtcState, peerId UUID) {
 			peer.Fail()
 			return
 		}
-		pipelineString := fmt.Sprintf("appsrc format=time is-live=true name=src ! application/x-rtp ! udpsink host=localhost port=%d", port)
+		pipelineString := fmt.Sprintf("appsrc format=time is-live=true name=src ! application/x-rtp ! queue ! udpsink host=localhost port=%d", port)
 		pipeline, err := gst.NewPipelineFromString(pipelineString)
 		if err != nil {
 			panic(err)
