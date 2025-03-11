@@ -81,7 +81,7 @@ def webrtc_proxy_media_writer(
         "video/h265": [
             f"x265enc speed-preset=ultrafast {custom_enc_str}",
             "rtph265pay config-interval=1 aggregate-mode=zero-latency",
-            "rtpulpfecenc percentage=20 pt=255",
+            "rtpulpfecenc percentage=100 pt=255",
             f"udpsink host=localhost port={free_udp_port}",
         ],
         "video/vp9": [
