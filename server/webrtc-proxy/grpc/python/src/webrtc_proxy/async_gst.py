@@ -53,9 +53,7 @@ class UnsupportedFormatError(Exception):
     pass
 
 
-def gst_buffer_to_numpy(
-    buffer: Gst.Buffer, height: int, width: int, fmt: GstVideo.VideoFormat
-) -> np.ndarray:
+def gst_buffer_to_numpy(buffer: Gst.Buffer, height: int, width: int, fmt: GstVideo.VideoFormat) -> np.ndarray:
     """Converts a Gst.Buffer to a numpy array.
     :raise: UnsupportedFormatError if the format is unsupported.
     :raise: RuntimeError if the buffer cannot be mapped.
@@ -91,9 +89,7 @@ def gst_buffer_to_numpy(
         buffer.unmap(map_info)
 
 
-def on_buffer(
-    sink: GstApp.AppSink, vs: GstVideoSource, loop: asyncio.AbstractEventLoop
-) -> Gst.FlowReturn:
+def on_buffer(sink: GstApp.AppSink, vs: GstVideoSource, loop: asyncio.AbstractEventLoop) -> Gst.FlowReturn:
     try:
         sample: Gst.Sample = sink.pull_sample()
         if not isinstance(sample, Gst.Sample):
@@ -230,7 +226,7 @@ async def gst_video_sink(
     video_frmt: GstVideo.VideoFormat,
 ) -> AsyncGenerator[GstVideoSink, Any]:
     sink = GstVideoSink(height=height, width=width, fps=fps, video_frmt=video_frmt)
-    app_src_str = f"appsrc emit-signals=False is-live=True leaky-type=upstream name=appsrc format=time max-time={5 * sink.duration}"
+    app_src_str = f"appsrc emit-signals=False is-live=True leaky-type=upstream name=appsrc format=time max-time={30 * sink.duration}"
     cap_str = f"video/x-raw,format={GstVideo.VideoFormat.to_string(video_frmt)},width={width},height={height},framerate={fps.numerator}/{fps.denominator},fullrange=true"
     pipeline_str = " ! ".join([app_src_str, cap_str] + pipeline)
     logging.debug(f"Pipeline: {pipeline_str}")
