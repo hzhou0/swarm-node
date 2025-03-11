@@ -37,6 +37,7 @@ def webrtc_proxy_media_reader(mime_type: str):
         ],
         "video/h265": [
             "rtpstorage size-time=350000000",
+            "rtpssrcdemux",
             "application/x-rtp",
             "rtpjitterbuffer latency=300 do-lost=true",
             "rtpulpfecdec pt=255",
